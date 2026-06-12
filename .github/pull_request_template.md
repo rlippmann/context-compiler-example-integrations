@@ -7,12 +7,13 @@
 - Enforcement point:
 - Domain:
 - Technology/runtime:
-- Example type: minimal example / starter app / reference integration / cookbook
+- Example type: minimal example / starter app / reference integration / cookbook / repository maintenance
 - Does this use directive drafter? should normally be no:
 - Does this derive state from model output? must be no for primary examples:
 
 ## Checklist
 
+- [ ] Repository scaffolding / governance change
 - [ ] One primary enforcement point
 - [ ] Explicit authoritative state
 - [ ] No model-derived state mutation

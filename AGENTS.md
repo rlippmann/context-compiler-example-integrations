@@ -28,6 +28,7 @@ Domains are teaching aids. Enforcement points are primary.
 - Never commit directly to `main`.
 - Never push directly to `main`.
 - Never check out or modify `main`.
+- If currently on `main`, stop and ask before making changes.
 - Always work on a feature branch when a branch is needed.
 - Do not perform history-rewriting operations unless explicitly instructed.
 
