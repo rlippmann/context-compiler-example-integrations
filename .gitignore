@@ -1,0 +1,46 @@
+# macOS
+.DS_Store
+
+# Editor settings
+.idea/
+.vscode/
+
+# Environment files
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.python-version
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Node / TypeScript
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.next/
+.turbo/
+coverage/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# Logs
+*.log

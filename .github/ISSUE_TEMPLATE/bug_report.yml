@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a defect in an example, scaffold, or documented enforcement pattern.
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: input
+    id: enforcement_point
+    attributes:
+      label: Enforcement point
+      description: Which enforcement point is affected?
+      placeholder: prompt construction
+    validations:
+      required: true
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: Which language track is affected?
+      placeholder: python or typescript
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Runtime or framework
+      description: Which runtime or framework is involved?
+      placeholder: Open WebUI
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected runtime behavior
+      description: Describe the runtime behavior you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual runtime behavior
+      description: Describe what actually happened.
+    validations:
+      required: true
+  - type: dropdown
+    id: reproduction_mode
+    attributes:
+      label: Where does the failure occur?
+      description: Say whether the bug reproduces with the adversarial stub.
+      options:
+        - With the adversarial stub
+        - Only with a live model
+        - Both
+    validations:
+      required: true

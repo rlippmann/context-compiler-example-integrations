@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  scaffold-sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify required scaffold files exist
+        run: |
+          required_files=(
+            "README.md"
+            "LICENSE"
+            "AGENTS.md"
+            "CONTRIBUTING.md"
+            "SECURITY.md"
+            "CODE_OF_CONDUCT.md"
+            ".github/pull_request_template.md"
+            ".github/ISSUE_TEMPLATE/bug_report.yml"
+            ".github/ISSUE_TEMPLATE/feature_request.yml"
+            "python/README.md"
+            "typescript/README.md"
+          )
+          for path in "${required_files[@]}"; do
+            test -f "$path" || { echo "Missing required file: $path"; exit 1; }
+          done
+
+      - name: Verify scaffold directories contain placeholder READMEs
+        run: |
+          required_dirs=(
+            "python/examples/gateway_middleware"
+            "python/examples/schema_selection"
+            "python/examples/checkpoint_continuation"
+            "python/examples/execution_authorization"
+            "python/examples/retrieval_filtering"
+            "python/examples/prompt_construction"
+            "python/examples/tool_gating"
+            "python/reference_integrations/litellm_proxy"
+            "python/reference_integrations/openwebui_pipe"
+            "typescript/examples/gateway_middleware"
+            "typescript/examples/schema_selection"
+            "typescript/examples/checkpoint_continuation"
+            "typescript/examples/execution_authorization"
+            "typescript/examples/retrieval_filtering"
+            "typescript/examples/prompt_construction"
+            "typescript/examples/tool_gating"
+            "typescript/starter_apps/node"
+            "typescript/starter_apps/nextjs"
+          )
+          for dir in "${required_dirs[@]}"; do
+            test -f "$dir/README.md" || { echo "Missing placeholder README: $dir/README.md"; exit 1; }
+          done
