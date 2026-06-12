@@ -1,0 +1,48 @@
+name: Feature request
+description: Propose a new example, scaffold addition, or enforcement-point coverage.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: input
+    id: enforcement_point
+    attributes:
+      label: Proposed enforcement point
+      description: Which enforcement point should the example cover?
+      placeholder: tool gating
+    validations:
+      required: true
+  - type: input
+    id: domain
+    attributes:
+      label: Domain
+      description: What domain would make the example concrete?
+      placeholder: calendar or email admin
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Runtime or framework
+      description: Which runtime or framework is in scope?
+      placeholder: MCP
+    validations:
+      required: true
+  - type: textarea
+    id: gap
+    attributes:
+      label: Why existing examples do not cover it
+      description: Explain the gap in the current catalog.
+    validations:
+      required: true
+  - type: dropdown
+    id: ownership
+    attributes:
+      label: Where does this belong?
+      description: If unsure, choose the best fit.
+      options:
+        - context-compiler-example-integrations
+        - context-compiler
+        - context-compiler-directive-drafter
+        - Not sure
+    validations:
+      required: true
