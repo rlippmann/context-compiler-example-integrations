@@ -1,11 +1,16 @@
 # Node starter app
 
-This starter app shows a small Node HTTP server with one enforcement point:
-execution authorization before the host calls its normal assistant workflow.
+Small Node HTTP server showing execution authorization before the host continues
+with its usual assistant flow.
 
-`@rlippmann/context-compiler-directive-drafter` helps the host recognize
-directive-shaped input. `@rlippmann/context-compiler` remains the only layer
-that can accept or reject state changes and mutate authoritative state.
+`@rlippmann/context-compiler` works on its own here. The host can pass raw user
+input to `engine.step(...)`, let the compiler decide whether to update state or
+return `clarify`, and then continue normally.
+
+This starter also includes the optional directive-drafter path.
+`@rlippmann/context-compiler-directive-drafter` can help recognize
+directive-shaped input, but the compiler remains the only authority over saved
+state.
 
 ## Files
 
@@ -47,14 +52,12 @@ Expected response shape:
 }
 ```
 
-## Host flow
+The response returns a compiled prompt as a stand-in for a real downstream
+model call.
 
-1. Restore the saved compiler checkpoint for the session.
-2. If the engine has a pending clarification, bypass drafting and pass the raw user input directly to `engine.step(...)`.
-3. Otherwise run `preprocessHeuristic(userInput)`.
-4. If the drafter returns a directive candidate, validate it with `parsePreprocessorOutput(...)`.
-5. Pass only validated directive text to `engine.step(...)`.
-6. Fall back to the original user input when the drafter returns no directive, unknown, or an invalid candidate.
+Checkpoints use `exportCheckpointJson()` and `importCheckpointJson()`. That
+preserves saved state and pending `clarify` or `confirm` state across requests.
 
-This keeps acquisition non-authoritative. The host still behaves safely if the
-drafter fails, abstains, or is replaced with an adversarial stub.
+If you do use directive-drafter, the host validates drafted output before
+passing it to the compiler and falls back to raw input when drafting fails,
+abstains, or returns `unknown`.
