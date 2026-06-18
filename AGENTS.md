@@ -40,6 +40,7 @@ Domains are teaching aids. Enforcement points are primary.
 - If scope grows beyond one enforcement point, stop and ask for review.
 - If an example needs a real framework, keep framework-specific code isolated.
 
+
 ## Example design rules
 
 - Use explicit authoritative state.
@@ -52,9 +53,31 @@ Domains are teaching aids. Enforcement points are primary.
 - Prefer mocked or smoke validation over heavy live-runtime end-to-end flows.
 - Primary examples should not depend on directive-drafter.
 
+## Optional Components
+
+When documenting optional packages or layers:
+
+- Explain the standalone workflow first.
+- Explain optional extensions second.
+- Do not imply optional packages are required.
+
+Examples should clearly distinguish:
+
+- compiler-only usage
+- optional directive-drafter usage
+- optional framework integrations
+
 ## Documentation
 
 Documentation is part of the project contract.
+
+Documentation is not commentary.
+
+README files, starter-app documentation, integration examples,
+migration guides, and explicitly requested documentation changes are
+part of the project contract.
+
+Treat documentation requirements in a task as acceptance criteria.
 
 README files, integration example docs, and explicitly requested documentation
 changes are acceptance criteria.
@@ -70,6 +93,16 @@ disagree:
 2. Report the mismatch.
 3. Request review before changing documented behavior.
 4. Do not resolve disagreements by silently changing docs.
+
+## Example Migration
+
+Before removing examples from another repository:
+
+1. Verify an equivalent example exists here.
+2. Verify the replacement preserves the user-visible behavior being taught.
+3. Verify documentation points users to the replacement location.
+
+Do not remove educational material solely because repository ownership changed.
 
 ## Documentation style
 
