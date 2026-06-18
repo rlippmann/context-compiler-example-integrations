@@ -31,6 +31,8 @@ type ChatResponse =
   | { kind: "continue"; output: string; systemPrompt: string };
 
 const checkpointBySession = new Map<string, string>();
+const HOST = "127.0.0.1";
+const PORT = 8080;
 
 function loadCheckpoint(sessionId: string): string | null {
   return checkpointBySession.get(sessionId) ?? null;
@@ -176,6 +178,6 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(8080, () => {
-  console.log("Node starter listening on http://localhost:8080/chat");
+server.listen(PORT, HOST, () => {
+  console.log(`Node starter listening on http://${HOST}:${PORT}/chat`);
 });

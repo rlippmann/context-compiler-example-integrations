@@ -25,7 +25,22 @@ npm install
 npm run dev
 ```
 
-The server listens on `http://localhost:8080/chat`.
+The server listens on `http://127.0.0.1:8080/chat`.
+
+## Smoke test
+
+If the server is already running in one terminal:
+
+```bash
+curl -X POST http://127.0.0.1:8080/chat \
+  -H 'content-type: application/json' \
+  -d '{"sessionId":"demo","input":"keep replies concise"}'
+```
+
+Some sandboxed CI or agent environments disallow opening local listening
+sockets and may fail with `listen EPERM` even when the example code is valid.
+When that happens, treat `npm run typecheck` as the available validation inside
+that environment and run the HTTP smoke test on a normal local machine.
 
 ## Host flow
 
