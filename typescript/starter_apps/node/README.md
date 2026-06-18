@@ -37,10 +37,15 @@ curl -X POST http://127.0.0.1:8080/chat \
   -d '{"sessionId":"demo","input":"keep replies concise"}'
 ```
 
-Some sandboxed CI or agent environments disallow opening local listening
-sockets and may fail with `listen EPERM` even when the example code is valid.
-When that happens, treat `npm run typecheck` as the available validation inside
-that environment and run the HTTP smoke test on a normal local machine.
+Expected response shape:
+
+```json
+{
+  "kind": "continue",
+  "output": "Normal host workflow would continue here. This example returns the compiled prompt instead of calling a live model.",
+  "systemPrompt": "You are an assistant operating under compiled context.\n..."
+}
+```
 
 ## Host flow
 
