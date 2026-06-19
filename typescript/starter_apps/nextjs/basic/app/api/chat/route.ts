@@ -8,7 +8,7 @@ import {
   isClarify,
   type EngineState
 } from "@rlippmann/context-compiler";
-import { loadSessionState, saveSessionState } from "../../../lib/context-sessions";
+import { loadSessionState, saveSessionState } from "../../../lib/context-sessions.ts";
 
 type ChatMessage = {
   role: string;
