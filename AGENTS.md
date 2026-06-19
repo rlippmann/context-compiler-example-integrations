@@ -32,6 +32,20 @@ Domains are teaching aids. Enforcement points are primary.
 - Always work on a feature branch when a branch is needed.
 - Do not perform history-rewriting operations unless explicitly instructed.
 
+## Commit and PR naming
+
+- Use conventional prefixes in commit messages and PR titles when applicable.
+- Prefer `feat:` for user-visible additions or behavior changes.
+- Prefer `fix:` for bug fixes.
+- Prefer `docs:` for documentation-only changes.
+- Prefer `test:` for test-only changes.
+- Prefer `refactor:` for internal restructures without user-visible behavior change.
+- Prefer `chore:` for maintenance work.
+- Keep commit messages and PR titles concise and behavior-oriented.
+- When creating PRs with `gh`, use the repository PR template when one is available.
+- Prefer a template-aware `gh pr create` flow over writing an ad hoc PR body.
+- If a template is missing task-specific details, add them without dropping the template structure.
+
 ## Scope of changes
 
 - Only modify files necessary for the requested task.
@@ -69,6 +83,11 @@ Examples should clearly distinguish:
 
 ## Documentation
 
+This repository does not define the Context Compiler specification.
+
+Within this repository, documentation that describes example behavior is
+authoritative for the examples it documents.
+
 Documentation is part of the project contract.
 
 Documentation is not commentary.
@@ -81,6 +100,11 @@ Treat documentation requirements in a task as acceptance criteria.
 
 README files, integration example docs, and explicitly requested documentation
 changes are acceptance criteria.
+
+Documentation examples explicitly referenced by a task are part of the
+expected deliverable.
+
+Do not treat documentation as merely illustrative unless explicitly stated.
 
 Do not silently change documented behavior because implementation is easier.
 Do not update documentation merely to match unintended behavior.
@@ -113,5 +137,16 @@ Prefer plain, concrete wording when accurate.
 
 Prefer direct subjects and strong verbs.
 
+Avoid noun stacks and passive phrasing when a simpler active sentence is
+clearer.
+
+Use simpler wording unless technical precision requires formal terminology.
+
 Avoid describing features only in architectural terms when a behavior-first
 explanation is possible.
+
+When documenting guarantees or contracts, preserve precise language and do not
+weaken behavioral commitments for readability.
+
+Do not rewrite captured outputs or fixture-sensitive examples unless explicitly
+asked.
