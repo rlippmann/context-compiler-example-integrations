@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "Context Compiler Next.js starter",
-  description: "Minimal Next.js starter app for Context Compiler example integrations."
+  title: "Context Compiler Next.js starter with drafter",
+  description: "Minimal Next.js starter app with the optional directive-drafter layer."
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

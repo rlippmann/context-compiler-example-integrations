@@ -30,6 +30,11 @@ type ChatResponse =
   | { kind: typeof DECISION_CLARIFY; promptToUser: string | null }
   | { kind: "continue"; output: string; systemPrompt: string };
 
+type ChatResult = {
+  status: number;
+  payload: ChatResponse | { error: string; details?: string };
+};
+
 const checkpointBySession = new Map<string, string>();
 const HOST = "127.0.0.1";
 const PORT = 8080;
@@ -106,17 +111,11 @@ function sendJson(res: http.ServerResponse, status: number, payload: unknown): v
   res.end(body);
 }
 
-const server = http.createServer(async (req, res) => {
-  if (req.method !== "POST" || req.url !== "/chat") {
-    sendJson(res, 404, { error: "not_found" });
-    return;
-  }
-
+export async function handleChatBody(body: ChatBody): Promise<ChatResult> {
   try {
-    const { sessionId, input, history } = await parseJson(req);
+    const { sessionId, input, history } = body;
     if (!sessionId || !input) {
-      sendJson(res, 400, { error: "sessionId and input are required" });
-      return;
+      return { status: 400, payload: { error: "sessionId and input are required" } };
     }
 
     const engine = createEngine();
@@ -133,8 +132,10 @@ const server = http.createServer(async (req, res) => {
 
       if (replay.kind === "confirm") {
         saveCheckpoint(sessionId, engine.exportCheckpointJson());
-        sendJson(res, 200, { kind: DECISION_CLARIFY, promptToUser: replay.prompt_to_user } satisfies ChatResponse);
-        return;
+        return {
+          status: 200,
+          payload: { kind: DECISION_CLARIFY, promptToUser: replay.prompt_to_user } satisfies ChatResponse
+        };
       }
 
       saveCheckpoint(sessionId, engine.exportCheckpointJson());
@@ -145,39 +146,54 @@ const server = http.createServer(async (req, res) => {
 
     if (isClarify(decision)) {
       saveCheckpoint(sessionId, engine.exportCheckpointJson());
-      sendJson(
-        res,
-        200,
-        { kind: DECISION_CLARIFY, promptToUser: getClarifyPrompt(decision) } satisfies ChatResponse
-      );
-      return;
+      return {
+        status: 200,
+        payload: { kind: DECISION_CLARIFY, promptToUser: getClarifyPrompt(decision) } satisfies ChatResponse
+      };
     }
 
     saveCheckpoint(sessionId, engine.exportCheckpointJson());
 
     const usedReplay = !savedCheckpoint && !!history?.length;
-    const payload: ChatResponse = {
-      kind: "continue",
-      output: [
-        "Normal host workflow would continue here.",
-        "This example returns the compiled prompt instead of calling a live model."
-      ].join(" "),
-      systemPrompt: [
-        stateToSystemPrompt(engine.state),
-        "",
-        "RECENT MESSAGES:",
-        JSON.stringify(usedReplay ? [] : minimalRecentContext(history), null, 2),
-        "",
-        `RAW USER INPUT: ${input}`
-      ].join("\n")
+    return {
+      status: 200,
+      payload: {
+        kind: "continue",
+        output: [
+          "Normal host workflow would continue here.",
+          "This example returns the compiled prompt instead of calling a live model."
+        ].join(" "),
+        systemPrompt: [
+          stateToSystemPrompt(engine.state),
+          "",
+          "RECENT MESSAGES:",
+          JSON.stringify(usedReplay ? [] : minimalRecentContext(history), null, 2),
+          "",
+          `RAW USER INPUT: ${input}`
+        ].join("\n")
+      } satisfies ChatResponse
     };
-
-    sendJson(res, 200, payload);
   } catch (error) {
-    sendJson(res, 500, { error: "internal_error", details: String(error) });
+    return { status: 500, payload: { error: "internal_error", details: String(error) } };
   }
-});
+}
 
-server.listen(PORT, HOST, () => {
-  console.log(`Node starter listening on http://${HOST}:${PORT}/chat`);
-});
+export function createChatServer(): http.Server {
+  return http.createServer(async (req, res) => {
+    if (req.method !== "POST" || req.url !== "/chat") {
+      sendJson(res, 404, { error: "not_found" });
+      return;
+    }
+
+    const parsed = await parseJson(req);
+    const result = await handleChatBody(parsed);
+    sendJson(res, result.status, result.payload);
+  });
+}
+
+if (import.meta.url === new URL(process.argv[1], "file://").href) {
+  const server = createChatServer();
+  server.listen(PORT, HOST, () => {
+    console.log(`Node starter listening on http://${HOST}:${PORT}/chat`);
+  });
+}

@@ -48,8 +48,7 @@ There is no parity requirement between Python and TypeScript examples.
 
 Python examples may arrive before TypeScript examples.
 
-TypeScript examples may wait until the TypeScript directive-drafter split
-exists.
+TypeScript starter apps now split compiler-only and with-drafter variants.
 
 ## Repository boundaries
 

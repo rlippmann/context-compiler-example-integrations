@@ -13,7 +13,7 @@ import {
   preprocessHeuristic,
   validatePreprocessorOutput
 } from "@rlippmann/context-compiler-directive-drafter";
-import { loadSessionState, saveSessionState } from "../../../lib/context-sessions";
+import { loadSessionState, saveSessionState } from "../../../lib/context-sessions.ts";
 
 type ChatMessage = {
   role: string;

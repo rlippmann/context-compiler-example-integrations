@@ -15,12 +15,12 @@ export default function HomePage() {
         Context Compiler example
       </p>
       <h1 style={{ margin: 0, fontSize: "clamp(2.5rem, 8vw, 4.75rem)", lineHeight: 0.95 }}>
-        Next.js starter app
+        Next.js basic starter
       </h1>
       <p style={{ margin: 0, fontSize: 18, lineHeight: 1.6 }}>
-        This app keeps the useful part on the server. POST a chat payload to <code>/api/chat</code> and the route
-        will restore authoritative state, optionally validate drafted directive input, and return the request payload
-        the host would send onward.
+        This compiler-only variant keeps the enforcement point on the server. POST a chat payload to{" "}
+        <code>/api/chat</code> and the route will restore authoritative state, run the compiler, and return the
+        request payload the host would send onward.
       </p>
       <pre
         style={{
