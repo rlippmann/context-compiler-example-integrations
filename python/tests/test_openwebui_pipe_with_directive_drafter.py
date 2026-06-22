@@ -36,7 +36,9 @@ def _load_module(module_name: str, monkeypatch: pytest.MonkeyPatch):
         def get_user_by_id(user_id: object) -> dict[str, object]:
             return {"id": user_id}
 
-    async def _chat_completion(_: object, payload: dict[str, object], __: object) -> dict[str, object]:
+    async def _chat_completion(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
         return {"choices": [{"message": {"content": payload.get("_mock_content", "")}}]}
 
     async def _all_models(_: object, user: object = None) -> list[dict[str, str]]:
@@ -50,10 +52,14 @@ def _load_module(module_name: str, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setitem(sys.modules, "fastapi", fastapi_mod)
     monkeypatch.setitem(sys.modules, "open_webui", open_webui_mod)
     monkeypatch.setitem(sys.modules, "open_webui.models", open_webui_models_mod)
-    monkeypatch.setitem(sys.modules, "open_webui.models.users", open_webui_models_users_mod)
+    monkeypatch.setitem(
+        sys.modules, "open_webui.models.users", open_webui_models_users_mod
+    )
     monkeypatch.setitem(sys.modules, "open_webui.utils", open_webui_utils_mod)
     monkeypatch.setitem(sys.modules, "open_webui.utils.chat", open_webui_utils_chat_mod)
-    monkeypatch.setitem(sys.modules, "open_webui.utils.models", open_webui_utils_models_mod)
+    monkeypatch.setitem(
+        sys.modules, "open_webui.utils.models", open_webui_utils_models_mod
+    )
 
     real_import = builtins.__import__
 
@@ -111,7 +117,10 @@ def test_directive_drafting_runs_before_compiler_step(monkeypatch) -> None:
 
     result = asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "please use docker"}]},
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "please use docker"}],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-before-step",
@@ -171,7 +180,9 @@ def test_fallback_to_raw_input_path_preserves_host_behavior(monkeypatch) -> None
     module = _load_module("owui_with_drafter_raw", monkeypatch)
     forwarded: list[dict[str, object]] = []
 
-    async def forward(_: object, payload: dict[str, object], __: object) -> dict[str, object]:
+    async def forward(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
         forwarded.append(payload)
         return {"choices": [{"message": {"content": "downstream"}}]}
 
@@ -203,7 +214,9 @@ def test_local_update_and_clarify_responses_skip_downstream_model(monkeypatch) -
     module = _load_module("owui_with_drafter_local", monkeypatch)
     forwarded: list[dict[str, object]] = []
 
-    async def forward(_: object, payload: dict[str, object], __: object) -> dict[str, object]:
+    async def forward(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
         forwarded.append(payload)
         return {"choices": [{"message": {"content": "downstream"}}]}
 
@@ -218,7 +231,10 @@ def test_local_update_and_clarify_responses_skip_downstream_model(monkeypatch) -
     monkeypatch.setattr(module.Pipe, "_preprocess_user_input", update_draft)
     update = asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "please use docker"}]},
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "please use docker"}],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-update",
@@ -231,7 +247,12 @@ def test_local_update_and_clarify_responses_skip_downstream_model(monkeypatch) -
     monkeypatch.setattr(module.Pipe, "_preprocess_user_input", no_draft)
     clarify = asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "set premise to concise replies"}]},
+            {
+                "model": "pipe-model",
+                "messages": [
+                    {"role": "user", "content": "set premise to concise replies"}
+                ],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-clarify",
@@ -243,11 +264,15 @@ def test_local_update_and_clarify_responses_skip_downstream_model(monkeypatch) -
     assert forwarded == []
 
 
-def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exists(monkeypatch) -> None:
+def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exists(
+    monkeypatch,
+) -> None:
     module = _load_module("owui_with_drafter_passthrough", monkeypatch)
     forwarded: list[dict[str, object]] = []
 
-    async def forward(_: object, payload: dict[str, object], __: object) -> dict[str, object]:
+    async def forward(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
         forwarded.append(payload)
         return {"choices": [{"message": {"content": "downstream"}}]}
 
@@ -263,7 +288,10 @@ def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exis
     monkeypatch.setattr(module.Pipe, "_preprocess_user_input", update_draft)
     asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "please use docker"}]},
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "please use docker"}],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__=chat_id,
@@ -363,7 +391,9 @@ def test_recursion_guard_for_preprocessor_model_id(monkeypatch) -> None:
     )
 
 
-def test_debug_mode_missing_base_model_returns_deterministic_message(monkeypatch) -> None:
+def test_debug_mode_missing_base_model_returns_deterministic_message(
+    monkeypatch,
+) -> None:
     module = _load_module("owui_with_drafter_debug_missing_base", monkeypatch)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = None
@@ -384,7 +414,10 @@ def test_debug_mode_missing_base_model_returns_deterministic_message(monkeypatch
         )
     )
 
-    assert result == "Context Compiler debug mode: BASE_MODEL_ID is empty; skipping model passthrough."
+    assert (
+        result
+        == "Context Compiler debug mode: BASE_MODEL_ID is empty; skipping model passthrough."
+    )
 
 
 def test_preprocessor_model_not_found_is_normalized(monkeypatch) -> None:
@@ -393,13 +426,18 @@ def test_preprocessor_model_not_found_is_normalized(monkeypatch) -> None:
     pipe.valves.BASE_MODEL_ID = "base-model"
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
 
-    async def generate(_: object, payload: dict[str, object], __: object) -> dict[str, object]:
+    async def generate(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
         if payload.get("model") == "prep-model":
             return {"error": {"message": "model not found"}}
         return {"choices": [{"message": {"content": "downstream"}}]}
 
     module.generate_chat_completion = generate
-    module.preprocess_heuristic = lambda _text: {"outcome": "no_directive", "directive": None}
+    module.preprocess_heuristic = lambda _text: {
+        "outcome": "no_directive",
+        "directive": None,
+    }
 
     result = asyncio.run(
         pipe.pipe(
@@ -417,25 +455,35 @@ def test_preprocessor_model_not_found_is_normalized(monkeypatch) -> None:
     )
 
 
-def test_fallback_uses_preprocessor_model_then_forward_uses_base_model(monkeypatch) -> None:
+def test_fallback_uses_preprocessor_model_then_forward_uses_base_model(
+    monkeypatch,
+) -> None:
     module = _load_module("owui_with_drafter_fallback_routing", monkeypatch)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
     calls: list[str] = []
 
-    async def generate(_: object, payload: dict[str, object], __: object) -> dict[str, object]:
+    async def generate(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
         calls.append(str(payload.get("model", "")))
         if len(calls) == 1:
             return {"choices": [{"message": {"content": "no_directive"}}]}
         return {"choices": [{"message": {"content": "downstream"}}]}
 
     module.generate_chat_completion = generate
-    module.preprocess_heuristic = lambda _text: {"outcome": "no_directive", "directive": None}
+    module.preprocess_heuristic = lambda _text: {
+        "outcome": "no_directive",
+        "directive": None,
+    }
 
     result = asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "please use docker"}]},
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "please use docker"}],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-routing",

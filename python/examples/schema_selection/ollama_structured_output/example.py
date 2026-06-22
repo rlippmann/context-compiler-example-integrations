@@ -63,7 +63,9 @@ class TurnPlan(TypedDict):
     format_schema: dict[str, Any] | None
 
 
-def select_ollama_format_schema(state: State) -> tuple[str | None, dict[str, Any] | None]:
+def select_ollama_format_schema(
+    state: State,
+) -> tuple[str | None, dict[str, Any] | None]:
     """Return (policy_item, schema) or (None, None) when no safe match exists.
 
     Unknown/insufficient policy state intentionally selects no schema.

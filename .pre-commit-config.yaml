@@ -1,0 +1,23 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: env UV_CACHE_DIR=.uv-cache uv run --no-sync ruff check
+        language: system
+        pass_filenames: false
+      - id: ruff-format-check
+        name: ruff format --check
+        entry: env UV_CACHE_DIR=.uv-cache uv run --no-sync ruff format --check
+        language: system
+        pass_filenames: false
+      - id: mypy
+        name: mypy
+        entry: env UV_CACHE_DIR=.uv-cache uv run --no-sync mypy
+        language: system
+        pass_filenames: false
+      - id: pytest-python-tests
+        name: pytest python/tests
+        entry: env UV_CACHE_DIR=.uv-cache uv run --no-sync pytest python/tests
+        language: system
+        pass_filenames: false

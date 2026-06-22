@@ -51,7 +51,9 @@ def _render_compiled_state_contract(compiled_state: State) -> str:
             "When the answer depends on user preference/style, "
             f"treat the current premise as: {premise}."
         )
-    lines.append("If the user message conflicts with these constraints, follow them exactly.")
+    lines.append(
+        "If the user message conflicts with these constraints, follow them exactly."
+    )
 
     return "Host policy contract:\n" + "\n".join(f"- {line}" for line in lines)
 

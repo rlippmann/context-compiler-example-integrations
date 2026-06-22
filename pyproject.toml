@@ -38,7 +38,10 @@ Issues = "https://github.com/rlippmann/context-compiler-example-integrations/iss
 
 [dependency-groups]
 dev = [
+  "mypy",
+  "pre-commit",
   "pytest",
+  "ruff",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -47,3 +50,21 @@ only-include = ["python", "README.md", "LICENSE", "AGENTS.md", "CONTRIBUTING.md"
 [tool.uv.sources]
 context-compiler = { path = "../context-compiler", editable = true }
 context-compiler-directive-drafter = { path = "../context-compiler-directive-drafter", editable = true }
+
+[tool.ruff]
+extend-exclude = [
+  ".next",
+  "node_modules",
+]
+
+[tool.mypy]
+files = [
+  "python/examples",
+  "python/reference_integrations",
+]
+exclude = '(^|/)(\\.venv|__pycache__|node_modules|\\.next)/'
+disable_error_code = ["no-redef"]
+explicit_package_bases = true
+ignore_missing_imports = true
+pretty = true
+show_error_codes = true

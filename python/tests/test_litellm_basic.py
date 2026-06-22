@@ -48,7 +48,9 @@ def test_prompt_construction_sends_one_system_message_and_user_message(
             api_key="test-key",
         ),
     )
-    monkeypatch.setattr(basic_module, "print_startup_config", lambda config, logger: None)
+    monkeypatch.setattr(
+        basic_module, "print_startup_config", lambda config, logger: None
+    )
 
     reply = basic_module.handle_turn("Hello from the user", create_engine())
 
@@ -87,7 +89,9 @@ def test_checkpoint_restore_and_confirmation_resume_skip_downstream_call(
     assert clarify == 'Did you mean to use "podman" instead?'
     assert resume == "State updated: Use podman."
     assert llm_calls == []
-    assert second_engine.export_checkpoint()["authoritative_state"]["policies"] == {"podman": "use"}
+    assert second_engine.export_checkpoint()["authoritative_state"]["policies"] == {
+        "podman": "use"
+    }
     assert basic_module._CHECKPOINTS_BY_SESSION_KEY["session-1"]
 
 
@@ -143,7 +147,9 @@ def test_missing_litellm_response_content_raises_runtime_error(
             api_key="test-key",
         ),
     )
-    monkeypatch.setattr(basic_module, "print_startup_config", lambda config, logger: None)
+    monkeypatch.setattr(
+        basic_module, "print_startup_config", lambda config, logger: None
+    )
 
     with pytest.raises(
         RuntimeError, match=r"LiteLLM response missing choices\[0\]\.message\.content"

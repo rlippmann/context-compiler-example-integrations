@@ -9,53 +9,54 @@ on:
       - main
 
 jobs:
-  scaffold-sanity:
+  python-validation:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Sync Python dependencies
+        run: uv sync --group dev
+
+      - name: Run Python validation
+        run: ./scripts/validate_python.sh
+
+  typescript-validation:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Verify required scaffold files exist
-        run: |
-          required_files=(
-            "README.md"
-            "LICENSE"
-            "AGENTS.md"
-            "CONTRIBUTING.md"
-            "SECURITY.md"
-            "CODE_OF_CONDUCT.md"
-            ".github/pull_request_template.md"
-            ".github/ISSUE_TEMPLATE/bug_report.yml"
-            ".github/ISSUE_TEMPLATE/feature_request.yml"
-            "python/README.md"
-            "typescript/README.md"
-          )
-          for path in "${required_files[@]}"; do
-            test -f "$path" || { echo "Missing required file: $path"; exit 1; }
-          done
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            typescript/examples/schema_selection/vercel_ai_sdk_generate_object/package-lock.json
+            typescript/starter_apps/node/basic/package-lock.json
+            typescript/starter_apps/node/with_drafter/package-lock.json
+            typescript/starter_apps/nextjs/basic/package-lock.json
+            typescript/starter_apps/nextjs/with_drafter/package-lock.json
 
-      - name: Verify scaffold directories contain placeholder READMEs
+      - name: Install TypeScript example dependencies
         run: |
-          required_dirs=(
-            "python/examples/gateway_middleware"
-            "python/examples/schema_selection"
-            "python/examples/checkpoint_continuation"
-            "python/examples/execution_authorization"
-            "python/examples/retrieval_filtering"
-            "python/examples/prompt_construction"
-            "python/examples/tool_gating"
-            "python/reference_integrations/litellm_proxy"
-            "python/reference_integrations/openwebui_pipe"
-            "typescript/examples/gateway_middleware"
-            "typescript/examples/schema_selection"
-            "typescript/examples/checkpoint_continuation"
-            "typescript/examples/execution_authorization"
-            "typescript/examples/retrieval_filtering"
-            "typescript/examples/prompt_construction"
-            "typescript/examples/tool_gating"
-            "typescript/starter_apps/node"
-            "typescript/starter_apps/nextjs"
-          )
-          for dir in "${required_dirs[@]}"; do
-            test -f "$dir/README.md" || { echo "Missing placeholder README: $dir/README.md"; exit 1; }
-          done
+          npm ci --prefix typescript/examples/schema_selection/vercel_ai_sdk_generate_object
+          npm ci --prefix typescript/starter_apps/node/basic
+          npm ci --prefix typescript/starter_apps/node/with_drafter
+          npm ci --prefix typescript/starter_apps/nextjs/basic
+          npm ci --prefix typescript/starter_apps/nextjs/with_drafter
+
+      - name: Run TypeScript validation
+        run: ./scripts/validate_typescript.sh

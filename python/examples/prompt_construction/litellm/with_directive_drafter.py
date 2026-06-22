@@ -54,7 +54,10 @@ try:
         summarize_confirmation_update_from_checkpoint,
     )
 except ImportError:
-    from confirmation_helper import is_confirmation_text, summarize_confirmation_update_from_checkpoint
+    from confirmation_helper import (
+        is_confirmation_text,
+        summarize_confirmation_update_from_checkpoint,
+    )
 
 try:
     from host_support import print_startup_config, resolve_provider_config
@@ -154,7 +157,9 @@ def _call_litellm(messages: list[dict[str, str]]) -> str:
     try:
         completion = _get_litellm_completion()
     except ModuleNotFoundError as exc:
-        raise RuntimeError("litellm is required. Install with: pip install litellm") from exc
+        raise RuntimeError(
+            "litellm is required. Install with: pip install litellm"
+        ) from exc
 
     config = resolve_provider_config(default_model="openai/gpt-4o-mini")
     print_startup_config(config, logger=logger)
@@ -237,7 +242,9 @@ def _preprocess_user_input(message: str, state: State) -> str | None:
             and heuristic_result["directive"]
         ):
             parsed = parse_preprocessor_output(heuristic_result["directive"])
-            logger.debug("preprocessor: heuristic_directive=%r", heuristic_result["directive"])
+            logger.debug(
+                "preprocessor: heuristic_directive=%r", heuristic_result["directive"]
+            )
             if parsed is not None:
                 return parsed
     except Exception:
@@ -255,7 +262,9 @@ def _preprocess_user_input(message: str, state: State) -> str | None:
         return None
 
 
-def _restore_session_checkpoint_if_needed(engine: Engine, session_key: str | None) -> None:
+def _restore_session_checkpoint_if_needed(
+    engine: Engine, session_key: str | None
+) -> None:
     if session_key is None:
         return
     engine_id = id(engine)
@@ -290,13 +299,17 @@ def _near_miss_directive_clarify(value: str) -> str | None:
         return "Unknown directive.\nUse 'clear premise' or 'reset policies'."
     if lower.startswith("set premise to "):
         return "Invalid premise syntax.\nUse 'set premise <value>'."
-    if lower.startswith("change premise ") and not lower.startswith("change premise to "):
+    if lower.startswith("change premise ") and not lower.startswith(
+        "change premise to "
+    ):
         return "Invalid premise syntax.\nUse 'change premise to <value>'."
     return None
 
 
 def _summarize_confirmation_update(user_input: str, checkpoint: object) -> str:
-    summarize_fn: Callable[[str, object], str] = summarize_confirmation_update_from_checkpoint
+    summarize_fn: Callable[[str, object], str] = (
+        summarize_confirmation_update_from_checkpoint
+    )
     return summarize_fn(user_input, checkpoint)
 
 
@@ -331,7 +344,9 @@ def _summarize_update_from_input(user_input: str) -> str:
         if item:
             return f"State updated: Prohibit {item}."
 
-    remove_policy_match = re.match(r"^remove\s+policy\s+(.+)$", normalized, flags=re.IGNORECASE)
+    remove_policy_match = re.match(
+        r"^remove\s+policy\s+(.+)$", normalized, flags=re.IGNORECASE
+    )
     if remove_policy_match is not None:
         item = _render_item_label(remove_policy_match.group(1).rstrip(" .!?"))
         if item:
@@ -365,7 +380,9 @@ def _append_trace(
     return f"{response_text}\n\n{trace_text}"
 
 
-def handle_turn(user_input: str, engine: Engine, *, session_key: str | None = None) -> str:
+def handle_turn(
+    user_input: str, engine: Engine, *, session_key: str | None = None
+) -> str:
     _restore_session_checkpoint_if_needed(engine, session_key)
     state_before = engine.state
     has_pending_before = engine.has_pending_clarification()
@@ -416,7 +433,11 @@ def handle_turn(user_input: str, engine: Engine, *, session_key: str | None = No
             llm_called=False,
         )
     _persist_session_checkpoint_if_needed(engine, kind, session_key)
-    if is_update(decision) and is_confirmation_text(user_input) and checkpoint_before is not None:
+    if (
+        is_update(decision)
+        and is_confirmation_text(user_input)
+        and checkpoint_before is not None
+    ):
         response_text = _summarize_confirmation_update(user_input, checkpoint_before)
         return _append_trace(
             response_text,
