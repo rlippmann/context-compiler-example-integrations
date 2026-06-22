@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "context-compiler-example-integrations"
+version = "0.1.0"
+description = "Example integrations and enforcement-point demonstrations for Context Compiler."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Robert Lippmann" }]
+dependencies = [
+  "context-compiler>=0.7.0",
+  "context-compiler-directive-drafter",
+]
+keywords = [
+  "context-compiler",
+  "examples",
+  "integrations",
+  "llm",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/rlippmann/context-compiler-example-integrations"
+Repository = "https://github.com/rlippmann/context-compiler-example-integrations"
+Issues = "https://github.com/rlippmann/context-compiler-example-integrations/issues"
+
+[dependency-groups]
+dev = [
+  "pytest",
+]
+
+[tool.hatch.build.targets.wheel]
+only-include = ["python", "README.md", "LICENSE", "AGENTS.md", "CONTRIBUTING.md"]
+
+[tool.uv.sources]
+context-compiler-directive-drafter = { path = "../context-compiler-directive-drafter", editable = true }
