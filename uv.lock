@@ -357,44 +357,22 @@ wheels = [
 [[package]]
 name = "context-compiler"
 version = "0.7.10"
-source = { editable = "../context-compiler" }
-
-[package.metadata]
-requires-dist = [
-    { name = "coverage", marker = "extra == 'dev'" },
-    { name = "hypothesis", marker = "extra == 'dev'" },
-    { name = "litellm", marker = "extra == 'demos'", specifier = ">=1.0.0" },
-    { name = "litellm", marker = "extra == 'experimental'", specifier = ">=1.0.0" },
-    { name = "litellm", marker = "extra == 'integrations'", specifier = ">=1.0.0" },
-    { name = "litellm", extras = ["proxy"], marker = "extra == 'litellm-proxy'", specifier = ">=1.0.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.12,<2.0" },
-    { name = "pre-commit", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12,<1.0" },
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cd/ee/7d544c0eee402cd581113ed762b2257477427501af6cd2cc7d42c4f5345c/context_compiler-0.7.10.tar.gz", hash = "sha256:49909d88b7c3c2c126239017ed3d5939380cc4048d099e107da253b668f3ac69", size = 400842, upload-time = "2026-06-14T06:02:49.563Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6c/cd/55c8395dccb33316dec9a1daf0e996ef6f7341eb3e46972db9cdcc376039/context_compiler-0.7.10-py3-none-any.whl", hash = "sha256:c4ada911dff617d38c3556e7aa3d3c9c9295ca19e24fb33f79f88289011afb65", size = 93049, upload-time = "2026-06-14T06:02:47.987Z" },
 ]
-provides-extras = ["demos", "experimental", "integrations", "litellm-proxy", "dev"]
 
 [[package]]
 name = "context-compiler-directive-drafter"
 version = "0.1.0"
-source = { editable = "../context-compiler-directive-drafter" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "context-compiler" },
 ]
-
-[package.metadata]
-requires-dist = [{ name = "context-compiler" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "coverage" },
-    { name = "hypothesis" },
-    { name = "mypy", specifier = ">=1.12,<2.0" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff", specifier = ">=0.12,<1.0" },
+sdist = { url = "https://files.pythonhosted.org/packages/d0/80/e2715af893fb9677f785b3e4521870891ed36fab4af2a3fa8fd3a6352b26/context_compiler_directive_drafter-0.1.0.tar.gz", hash = "sha256:f8b26efeebedc66821a80f7aa3d436066bc2073918d62f9e02b75ac44177a67c", size = 103252, upload-time = "2026-06-04T09:55:21.511Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/15/38/0d75db6b253e4dab85a7c2c3225ed1ecd382b6e084540b41c692b5545e33/context_compiler_directive_drafter-0.1.0-py3-none-any.whl", hash = "sha256:6142022cbcc85d8edff252d7aa2aeb0f9876fc8e800df32c6828aa884fea2c62", size = 48809, upload-time = "2026-06-04T09:55:20.157Z" },
 ]
 
 [[package]]
@@ -417,8 +395,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "context-compiler", editable = "../context-compiler" },
-    { name = "context-compiler-directive-drafter", editable = "../context-compiler-directive-drafter" },
+    { name = "context-compiler", specifier = ">=0.7.4" },
+    { name = "context-compiler-directive-drafter" },
     { name = "litellm" },
 ]
 
