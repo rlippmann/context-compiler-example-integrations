@@ -49,23 +49,12 @@ from context_compiler_directive_drafter import (
 )
 
 try:
-    from host_support import is_confirmation_text
-except ImportError:
-    import host_support.confirmation as _confirmation
-
-    is_confirmation_text = _confirmation.is_confirmation_text
-
-try:
-    from host_support.confirmation import summarize_confirmation_update_from_checkpoint
-except ImportError:
-    from host_support.confirmation import (
-        summarize_confirmation_update as _summarize_confirmation_update_from_pending,
+    from .confirmation_helper import (
+        is_confirmation_text,
+        summarize_confirmation_update_from_checkpoint,
     )
-
-    def summarize_confirmation_update_from_checkpoint(user_input: str, checkpoint: object) -> str:
-        pending = checkpoint.get("pending") if isinstance(checkpoint, dict) else None
-        return _summarize_confirmation_update_from_pending(user_input, pending)
-
+except ImportError:
+    from confirmation_helper import is_confirmation_text, summarize_confirmation_update_from_checkpoint
 
 try:
     from host_support import print_startup_config, resolve_provider_config
@@ -81,8 +70,6 @@ _PROMPTS_DIR = files("context_compiler_directive_drafter").joinpath("prompts")
 # or restart continuity for pending flows will be lost.
 _CHECKPOINTS_BY_SESSION_KEY: dict[str, str] = {}
 _RESTORED_ENGINE_BY_SESSION_KEY: dict[str, int] = {}
-_NEGATIVE_CONFIRMATION_TOKENS = {"no", "nope", "no thanks"}
-_TRAILING_CONFIRM_PUNCT_RE = re.compile(r"[.,!?]+$")
 SHOW_CONTEXT_COMPILER_TRACE = False
 
 
@@ -289,13 +276,6 @@ def _persist_session_checkpoint_if_needed(
     if kind not in {DECISION_UPDATE, DECISION_CLARIFY}:
         return
     _CHECKPOINTS_BY_SESSION_KEY[session_key] = engine.export_checkpoint_json()
-
-
-def _normalize_confirmation_for_summary(value: str) -> str:
-    normalized = value.strip().lower()
-    normalized = re.sub(r"\s+", " ", normalized)
-    normalized = _TRAILING_CONFIRM_PUNCT_RE.sub("", normalized).strip()
-    return re.sub(r"\s+", " ", normalized)
 
 
 def _render_item_label(value: str) -> str:
