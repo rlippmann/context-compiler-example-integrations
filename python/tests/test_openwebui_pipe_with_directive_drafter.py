@@ -298,3 +298,170 @@ def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exis
         and message["content"].startswith("[[cc_state]]")
     ]
     assert len(cc_messages) == 1
+
+
+def test_preprocessor_model_defaults_to_base_model(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_model_default", monkeypatch)
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    pipe.valves.PREPROCESSOR_MODEL_ID = None
+
+    assert pipe._resolve_preprocessor_model_id("base-model") == "base-model"
+
+
+def test_preprocessor_model_override_wins(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_model_override", monkeypatch)
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+
+    assert pipe._resolve_preprocessor_model_id("base-model") == "prep-model"
+
+
+def test_invalid_preprocessor_model_id_from_model_list(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_invalid_preprocessor_model", monkeypatch)
+    pipe = module.Pipe()
+
+    async def models(_: object, user: object = None) -> list[dict[str, str]]:
+        del user
+        return [{"id": "base-model"}]
+
+    module.get_all_models = models
+
+    error = asyncio.run(
+        pipe._validate_configured_model_ids(
+            request=object(),
+            user_payload={"id": "u1"},
+            base_model_id="base-model",
+            preprocessor_model_id="missing-prep-model",
+        )
+    )
+
+    assert error == (
+        "Context Compiler pipe misconfigured: PREPROCESSOR_MODEL_ID was not found "
+        "in Open WebUI models."
+    )
+
+
+def test_recursion_guard_for_preprocessor_model_id(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_recursion_guard", monkeypatch)
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    pipe.valves.PREPROCESSOR_MODEL_ID = "pipe-model"
+
+    result = asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "hi"}]},
+            __user__={"id": "u1"},
+            __request__=object(),
+        )
+    )
+
+    assert result == (
+        "Context Compiler pipe misconfigured: PREPROCESSOR_MODEL_ID must not "
+        "match the selected pipe model id to avoid recursive routing."
+    )
+
+
+def test_debug_mode_missing_base_model_returns_deterministic_message(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_debug_missing_base", monkeypatch)
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = None
+    pipe.valves.PREPROCESSOR_MODEL_ID = None
+    pipe.valves.ALLOW_MISSING_BASE_MODEL_FOR_DEBUG = True
+
+    async def no_draft(*args, **kwargs):
+        return None, None
+
+    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", no_draft)
+
+    result = asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "hello"}]},
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-debug-missing-base",
+        )
+    )
+
+    assert result == "Context Compiler debug mode: BASE_MODEL_ID is empty; skipping model passthrough."
+
+
+def test_preprocessor_model_not_found_is_normalized(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_preprocessor_not_found", monkeypatch)
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+
+    async def generate(_: object, payload: dict[str, object], __: object) -> dict[str, object]:
+        if payload.get("model") == "prep-model":
+            return {"error": {"message": "model not found"}}
+        return {"choices": [{"message": {"content": "downstream"}}]}
+
+    module.generate_chat_completion = generate
+    module.preprocess_heuristic = lambda _text: {"outcome": "no_directive", "directive": None}
+
+    result = asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "hello"}]},
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-preprocessor-not-found",
+        )
+    )
+
+    assert result == (
+        "Context Compiler pipe misconfigured: PREPROCESSOR_MODEL_ID is invalid or "
+        "not configured in Open WebUI. Configure a valid model id in "
+        "Admin Panel → Settings → Models."
+    )
+
+
+def test_fallback_uses_preprocessor_model_then_forward_uses_base_model(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_fallback_routing", monkeypatch)
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    calls: list[str] = []
+
+    async def generate(_: object, payload: dict[str, object], __: object) -> dict[str, object]:
+        calls.append(str(payload.get("model", "")))
+        if len(calls) == 1:
+            return {"choices": [{"message": {"content": "no_directive"}}]}
+        return {"choices": [{"message": {"content": "downstream"}}]}
+
+    module.generate_chat_completion = generate
+    module.preprocess_heuristic = lambda _text: {"outcome": "no_directive", "directive": None}
+
+    result = asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "please use docker"}]},
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-routing",
+        )
+    )
+
+    assert result == {"choices": [{"message": {"content": "downstream"}}]}
+    assert calls == ["prep-model", "base-model"]
+
+
+def test_validate_configured_model_ids_supports_async_user_lookup(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_async_user_lookup", monkeypatch)
+    pipe = module.Pipe()
+
+    async def get_user_by_id(user_id: object) -> dict[str, object]:
+        return {"id": user_id}
+
+    monkeypatch.setattr(module.Users, "get_user_by_id", get_user_by_id)
+
+    error = asyncio.run(
+        pipe._validate_configured_model_ids(
+            request=object(),
+            user_payload={"id": "u1"},
+            base_model_id="base-model",
+            preprocessor_model_id="prep-model",
+        )
+    )
+
+    assert error is None
