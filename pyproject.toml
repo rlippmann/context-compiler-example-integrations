@@ -47,9 +47,6 @@ dev = [
 [tool.hatch.build.targets.wheel]
 only-include = ["python", "README.md", "LICENSE", "AGENTS.md", "CONTRIBUTING.md"]
 
-[tool.uv.sources]
-context-compiler = { path = "../context-compiler", editable = true }
-context-compiler-directive-drafter = { path = "../context-compiler-directive-drafter", editable = true }
 
 [tool.ruff]
 extend-exclude = [
