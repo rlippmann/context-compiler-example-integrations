@@ -178,7 +178,11 @@ def _replace_compiler_system_message(
     for message in messages:
         role = message.get("role")
         content = message.get("content")
-        if role == "system" and isinstance(content, str) and content.startswith(_CC_MARKER):
+        if (
+            role == "system"
+            and isinstance(content, str)
+            and content.startswith(_CC_MARKER)
+        ):
             continue
 
         filtered_messages.append(message)
@@ -186,7 +190,10 @@ def _replace_compiler_system_message(
             last_system_index = len(filtered_messages) - 1
 
     insert_at = last_system_index + 1 if last_system_index >= 0 else 0
-    compiler_message: dict[str, Any] = {"role": "system", "content": rendered_state_block}
+    compiler_message: dict[str, Any] = {
+        "role": "system",
+        "content": rendered_state_block,
+    }
     return [
         *filtered_messages[:insert_at],
         compiler_message,
@@ -203,7 +210,9 @@ def _normalize_state(value: object) -> State:
 def _has_non_empty_authoritative_state(state: State) -> bool:
     if get_premise_value(state) is not None:
         return True
-    return bool(get_policy_items(state, POLICY_USE) or get_policy_items(state, POLICY_PROHIBIT))
+    return bool(
+        get_policy_items(state, POLICY_USE) or get_policy_items(state, POLICY_PROHIBIT)
+    )
 
 
 def _build_compact_trace_text(
@@ -231,7 +240,9 @@ def _strip_trace_block_from_text(content: str) -> str:
     return content[:index].rstrip()
 
 
-def _strip_trace_blocks_from_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _strip_trace_blocks_from_messages(
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     cleaned: list[dict[str, Any]] = []
     for message in messages:
         msg = dict(message)
@@ -249,7 +260,9 @@ def _build_forward_messages(
 ) -> list[dict[str, Any]]:
     """Build forwarded messages with trace stripping and optional state injection."""
     messages = (
-        _strip_trace_blocks_from_messages([msg for msg in raw_messages if isinstance(msg, dict)])
+        _strip_trace_blocks_from_messages(
+            [msg for msg in raw_messages if isinstance(msg, dict)]
+        )
         if isinstance(raw_messages, list)
         else []
     )
@@ -283,7 +296,9 @@ def _near_miss_directive_clarify(value: str) -> str | None:
         return "Unknown directive.\nUse 'clear premise' or 'reset policies'."
     if lower.startswith("set premise to "):
         return "Invalid premise syntax.\nUse 'set premise <value>'."
-    if lower.startswith("change premise ") and not lower.startswith("change premise to "):
+    if lower.startswith("change premise ") and not lower.startswith(
+        "change premise to "
+    ):
         return "Invalid premise syntax.\nUse 'change premise to <value>'."
     return None
 
@@ -319,7 +334,9 @@ def _summarize_update_from_input(user_input: str) -> str:
         if item:
             return f"State updated: Prohibit {item}."
 
-    remove_policy_match = re.match(r"^remove\s+policy\s+(.+)$", normalized, flags=re.IGNORECASE)
+    remove_policy_match = re.match(
+        r"^remove\s+policy\s+(.+)$", normalized, flags=re.IGNORECASE
+    )
     if remove_policy_match is not None:
         item = _render_item_label(remove_policy_match.group(1).rstrip(" .!?"))
         if item:
@@ -388,7 +405,9 @@ class Pipe:
 
     def _normalize_forward_exception(self, exc: Exception) -> str | None:
         detail = getattr(exc, "detail", None)
-        if self._contains_model_not_found(detail) or self._contains_model_not_found(str(exc)):
+        if self._contains_model_not_found(detail) or self._contains_model_not_found(
+            str(exc)
+        ):
             return (
                 "Context Compiler pipe misconfigured: BASE_MODEL_ID is invalid or not "
                 "configured in Open WebUI. Configure a valid model id in "
@@ -401,14 +420,18 @@ class Pipe:
 
     def _append_trace_to_response(self, response: Any, trace_text: str) -> Any:
         body_iterator = getattr(response, "body_iterator", None)
-        if body_iterator is not None and callable(getattr(body_iterator, "__aiter__", None)):
+        if body_iterator is not None and callable(
+            getattr(body_iterator, "__aiter__", None)
+        ):
             response.body_iterator = self._append_trace_to_stream(
                 cast(AsyncIterator[object], body_iterator), trace_text
             )
             return response
         aiter = getattr(response, "__aiter__", None)
         if callable(aiter):
-            return self._append_trace_to_stream(cast(AsyncIterator[object], response), trace_text)
+            return self._append_trace_to_stream(
+                cast(AsyncIterator[object], response), trace_text
+            )
         if isinstance(response, str):
             cleaned = _strip_trace_block_from_text(response)
             return f"{cleaned}\n\n{trace_text}"
@@ -441,7 +464,9 @@ class Pipe:
         async def _wrapped() -> AsyncIterator[object]:
             chunk_type: type[str] | type[bytes] | None = None
             saw_done = False
-            trace_json = json.dumps({"choices": [{"delta": {"content": f"\n\n{trace_text}"}}]})
+            trace_json = json.dumps(
+                {"choices": [{"delta": {"content": f"\n\n{trace_text}"}}]}
+            )
             trace_event = f"data: {trace_json}\n\n"
 
             def _matches_done(value: str) -> bool:
@@ -650,7 +675,9 @@ class Pipe:
             )
         if is_passthrough(decision):
             compiled_state = _normalize_state(state_after)
-            state_injected = "yes" if _has_non_empty_authoritative_state(compiled_state) else "no"
+            state_injected = (
+                "yes" if _has_non_empty_authoritative_state(compiled_state) else "no"
+            )
             response = await self._forward_passthrough(
                 body, __user__, __request__, state=compiled_state
             )
@@ -677,7 +704,9 @@ class Pipe:
             )
 
         compiled_state = _normalize_state(state_after)
-        state_injected = "yes" if _has_non_empty_authoritative_state(compiled_state) else "no"
+        state_injected = (
+            "yes" if _has_non_empty_authoritative_state(compiled_state) else "no"
+        )
         response = await self._forward_passthrough(
             body, __user__, __request__, state=compiled_state
         )

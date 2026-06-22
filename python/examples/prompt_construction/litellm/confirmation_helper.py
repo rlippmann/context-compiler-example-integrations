@@ -51,7 +51,11 @@ def _summarize_pending_confirmation_update(pending: object) -> str:
             return f"State updated: Use {new_label}."
         return "State updated."
 
-    if kind == "replace_use" and isinstance(new_item, str) and isinstance(old_item, str):
+    if (
+        kind == "replace_use"
+        and isinstance(new_item, str)
+        and isinstance(old_item, str)
+    ):
         new_label = _render_item_label(new_item)
         old_label = _render_item_label(old_item)
         if not new_label or not old_label:
@@ -63,7 +67,9 @@ def _summarize_pending_confirmation_update(pending: object) -> str:
             f'Did you mean to remove it and use "{new_item}" instead?'
         )
         if prompt == prohibited_old_prompt:
-            return f"State updated: Removed prohibition on {old_label}; use {new_label}."
+            return (
+                f"State updated: Removed prohibition on {old_label}; use {new_label}."
+            )
         return f"State updated: Replaced {old_label} with {new_label}."
 
     return "State updated."
@@ -78,6 +84,8 @@ def summarize_confirmation_update(user_input: str, pending: object) -> str:
     return _summarize_pending_confirmation_update(pending)
 
 
-def summarize_confirmation_update_from_checkpoint(user_input: str, checkpoint: object) -> str:
+def summarize_confirmation_update_from_checkpoint(
+    user_input: str, checkpoint: object
+) -> str:
     pending = checkpoint.get("pending") if isinstance(checkpoint, dict) else None
     return summarize_confirmation_update(user_input, pending)

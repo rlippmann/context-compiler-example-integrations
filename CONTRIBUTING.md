@@ -9,8 +9,27 @@ Contributions are typically submitted via fork and pull request:
 - fork the repository
 - create a feature branch
 - keep changes focused
-- run the lightweight validation checks
+- run the canonical validation checks
 - open a pull request
+
+## Validation
+
+Run these commands before opening a pull request:
+
+```bash
+uv sync --group dev
+./scripts/validate_python.sh
+./scripts/validate_typescript_fast.sh
+./scripts/validate_typescript.sh
+```
+
+Python contributors may use `uv run pre-commit run --all-files` for the
+lightweight local hook set.
+
+TypeScript contributors can run `./scripts/validate_typescript_fast.sh` or
+`./scripts/validate_typescript.sh` directly.
+
+CI is the authoritative cross-language validation path.
 
 ## What belongs here
 

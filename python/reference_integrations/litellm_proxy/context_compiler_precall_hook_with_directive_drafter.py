@@ -65,7 +65,9 @@ def _render_compiled_state_contract(compiled_state: State) -> str:
             "When the answer depends on user preference/style, "
             f"treat the current premise as: {premise}."
         )
-    lines.append("If the user message conflicts with these constraints, follow them exactly.")
+    lines.append(
+        "If the user message conflicts with these constraints, follow them exactly."
+    )
 
     return "Host policy contract:\n" + "\n".join(f"- {line}" for line in lines)
 
@@ -253,7 +255,9 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
                 transcript_for_replay[-1] = {"role": "user", "content": preprocessd}
                 replaced_last_user_message = True
 
-        logger.debug("litellm_proxy: replaced_last_user_message=%s", replaced_last_user_message)
+        logger.debug(
+            "litellm_proxy: replaced_last_user_message=%s", replaced_last_user_message
+        )
 
         replay_result = compile_transcript(transcript_for_replay)
         logger.debug("litellm_proxy: replay_kind=%s", replay_result["kind"])

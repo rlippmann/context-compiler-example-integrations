@@ -76,6 +76,29 @@ Primary examples in this repo should:
 
 See [CONTRIBUTING.md](/Users/rlippmann/Source/context-compiler-example-integrations/CONTRIBUTING.md) and [AGENTS.md](/Users/rlippmann/Source/context-compiler-example-integrations/AGENTS.md) for repository rules.
 
+## Validation
+
+Canonical repo-level validation commands:
+
+```bash
+uv sync --group dev
+./scripts/validate_python.sh
+./scripts/validate_typescript_fast.sh
+./scripts/validate_typescript.sh
+```
+
+Python contributors may install and run local pre-commit hooks:
+
+```bash
+uv run pre-commit install
+uv run pre-commit run --all-files
+```
+
+TypeScript contributors can run the validation scripts directly without
+installing Python pre-commit tooling.
+
+CI is the authoritative cross-language validation path.
+
 ## License
 
 Apache-2.0

@@ -7,8 +7,9 @@ from pathlib import Path
 
 import pytest
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_PATH = (
-    Path("/Users/rlippmann/Source/context-compiler-example-integrations")
+    REPO_ROOT
     / "python"
     / "reference_integrations"
     / "litellm_proxy"
@@ -27,7 +28,9 @@ def _load_proxy_module(monkeypatch: pytest.MonkeyPatch, module_name: str):
     custom_logger_mod.CustomLogger = _CustomLogger
     monkeypatch.setitem(sys.modules, "litellm", litellm_mod)
     monkeypatch.setitem(sys.modules, "litellm.integrations", integrations_mod)
-    monkeypatch.setitem(sys.modules, "litellm.integrations.custom_logger", custom_logger_mod)
+    monkeypatch.setitem(
+        sys.modules, "litellm.integrations.custom_logger", custom_logger_mod
+    )
 
     spec = importlib.util.spec_from_file_location(module_name, MODULE_PATH)
     assert spec is not None and spec.loader is not None
@@ -36,8 +39,14 @@ def _load_proxy_module(monkeypatch: pytest.MonkeyPatch, module_name: str):
     return module
 
 
-def _state(*, premise: str | None = None, policies: dict[str, str] | None = None) -> dict[str, object]:
-    return {"premise": premise, "policies": {} if policies is None else policies, "version": 2}
+def _state(
+    *, premise: str | None = None, policies: dict[str, str] | None = None
+) -> dict[str, object]:
+    return {
+        "premise": premise,
+        "policies": {} if policies is None else policies,
+        "version": 2,
+    }
 
 
 def test_unsupported_call_type_returns_original_data_unchanged(monkeypatch) -> None:
@@ -50,7 +59,9 @@ def test_unsupported_call_type_returns_original_data_unchanged(monkeypatch) -> N
     assert result is data
 
 
-def test_clarify_result_returns_string_and_does_not_mutate_forwarded_messages(monkeypatch) -> None:
+def test_clarify_result_returns_string_and_does_not_mutate_forwarded_messages(
+    monkeypatch,
+) -> None:
     module = _load_proxy_module(monkeypatch, "litellm_proxy_clarify")
     hook = module.ContextCompilerPreCallHook()
     original_messages = [{"role": "user", "content": "use kubectl instead of docker"}]
@@ -85,7 +96,10 @@ def test_update_state_path_prepends_exactly_one_compiler_contract_system_message
     monkeypatch.setattr(
         module,
         "compile_transcript",
-        lambda transcript: {"kind": "state", "state": _state(policies={"peanuts": "prohibit"})},
+        lambda transcript: {
+            "kind": "state",
+            "state": _state(policies={"peanuts": "prohibit"}),
+        },
     )
 
     result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
@@ -133,11 +147,17 @@ def test_mixed_content_extraction_only_replays_user_text_segments(monkeypatch) -
             "role": "user",
             "content": [
                 {"type": "text", "text": "alpha"},
-                {"type": "image_url", "image_url": {"url": "https://example.test/image.png"}},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "https://example.test/image.png"},
+                },
                 {"type": "text", "text": "beta"},
             ],
         },
-        {"role": "user", "content": [{"type": "image_url", "image_url": {"url": "ignored"}}]},
+        {
+            "role": "user",
+            "content": [{"type": "image_url", "image_url": {"url": "ignored"}}],
+        },
         {"role": "user", "content": {"type": "text", "text": "ignored non-list shape"}},
     ]
 

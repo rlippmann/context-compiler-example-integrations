@@ -1,5 +1,4 @@
 import json
-from io import BytesIO
 
 import pytest
 from context_compiler import create_engine

@@ -7,8 +7,9 @@ from pathlib import Path
 
 import pytest
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_PATH = (
-    Path("/Users/rlippmann/Source/context-compiler-example-integrations")
+    REPO_ROOT
     / "python"
     / "reference_integrations"
     / "litellm_proxy"
@@ -27,7 +28,9 @@ def _load_module(monkeypatch: pytest.MonkeyPatch, module_name: str):
     custom_logger_mod.CustomLogger = _CustomLogger
     monkeypatch.setitem(sys.modules, "litellm", litellm_mod)
     monkeypatch.setitem(sys.modules, "litellm.integrations", integrations_mod)
-    monkeypatch.setitem(sys.modules, "litellm.integrations.custom_logger", custom_logger_mod)
+    monkeypatch.setitem(
+        sys.modules, "litellm.integrations.custom_logger", custom_logger_mod
+    )
 
     spec = importlib.util.spec_from_file_location(module_name, MODULE_PATH)
     assert spec is not None and spec.loader is not None
@@ -36,8 +39,14 @@ def _load_module(monkeypatch: pytest.MonkeyPatch, module_name: str):
     return module
 
 
-def _state(*, premise: str | None = None, policies: dict[str, str] | None = None) -> dict[str, object]:
-    return {"premise": premise, "policies": {} if policies is None else policies, "version": 2}
+def _state(
+    *, premise: str | None = None, policies: dict[str, str] | None = None
+) -> dict[str, object]:
+    return {
+        "premise": premise,
+        "policies": {} if policies is None else policies,
+        "version": 2,
+    }
 
 
 def test_latest_user_message_is_drafted_before_transcript_replay(monkeypatch) -> None:
@@ -52,7 +61,9 @@ def test_latest_user_message_is_drafted_before_transcript_replay(monkeypatch) ->
         return {"kind": "state", "state": _state(policies={"docker": "use"})}
 
     monkeypatch.setattr(module, "compile_transcript", compile_transcript)
-    monkeypatch.setattr(module, "_preprocess_last_user_message", lambda message, state: "use docker")
+    monkeypatch.setattr(
+        module, "_preprocess_last_user_message", lambda message, state: "use docker"
+    )
 
     data = {
         "model": "demo",
@@ -81,11 +92,16 @@ def test_clarify_result_returns_string_and_does_not_forward(monkeypatch) -> None
     original_messages = [{"role": "user", "content": "please use docker"}]
     data = {"model": "demo", "messages": deepcopy(original_messages)}
 
-    monkeypatch.setattr(module, "_preprocess_last_user_message", lambda message, state: "use docker")
+    monkeypatch.setattr(
+        module, "_preprocess_last_user_message", lambda message, state: "use docker"
+    )
     monkeypatch.setattr(
         module,
         "compile_transcript",
-        lambda transcript: {"kind": "confirm", "prompt_to_user": 'Did you mean to use "docker" instead?'},
+        lambda transcript: {
+            "kind": "confirm",
+            "prompt_to_user": 'Did you mean to use "docker" instead?',
+        },
     )
 
     result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
@@ -99,11 +115,15 @@ def test_fallback_to_raw_input_path_preserves_host_behavior(monkeypatch) -> None
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
     compile_calls: list[list[dict[str, str]]] = []
 
-    monkeypatch.setattr(module, "_preprocess_last_user_message", lambda message, state: None)
+    monkeypatch.setattr(
+        module, "_preprocess_last_user_message", lambda message, state: None
+    )
     monkeypatch.setattr(
         module,
         "compile_transcript",
-        lambda transcript: compile_calls.append(transcript) or {"kind": "state", "state": _state()},
+        lambda transcript: (
+            compile_calls.append(transcript) or {"kind": "state", "state": _state()}
+        ),
     )
 
     data = {
@@ -139,19 +159,28 @@ def test_forwarded_messages_receive_exactly_one_contract_system_message_when_con
     ]
     data = {"model": "demo", "messages": deepcopy(original_messages)}
 
-    monkeypatch.setattr(module, "_preprocess_last_user_message", lambda message, state: None)
+    monkeypatch.setattr(
+        module, "_preprocess_last_user_message", lambda message, state: None
+    )
     monkeypatch.setattr(
         module,
         "compile_transcript",
-        lambda transcript: {"kind": "state", "state": _state(policies={"docker": "use"})},
+        lambda transcript: {
+            "kind": "state",
+            "state": _state(policies={"docker": "use"}),
+        },
     )
 
     result = asyncio.run(hook.async_pre_call_hook(None, None, data, "chat_completion"))
 
     assert result is data
-    system_messages = [message for message in data["messages"] if message.get("role") == "system"]
+    system_messages = [
+        message for message in data["messages"] if message.get("role") == "system"
+    ]
     contract_messages = [
-        message for message in system_messages if "Host policy contract:" in str(message.get("content"))
+        message
+        for message in system_messages
+        if "Host policy contract:" in str(message.get("content"))
     ]
     assert len(contract_messages) == 1
     assert data["messages"][1:] == original_messages

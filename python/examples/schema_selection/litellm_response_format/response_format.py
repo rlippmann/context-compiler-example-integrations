@@ -88,7 +88,9 @@ class _LiteLLMCallKwargs(TypedDict, total=False):
     response_format: dict[str, Any]
 
 
-def select_litellm_response_format(state: State) -> tuple[str | None, dict[str, Any] | None]:
+def select_litellm_response_format(
+    state: State,
+) -> tuple[str | None, dict[str, Any] | None]:
     """Return (policy_item, response_format) or (None, None) when no safe match exists."""
 
     use_items = set(get_policy_items(state, POLICY_USE))
@@ -166,7 +168,9 @@ def optional_litellm_call(
     try:
         completion = _get_litellm_completion()
     except ModuleNotFoundError as exc:
-        raise RuntimeError("litellm is required. Install with: pip install litellm") from exc
+        raise RuntimeError(
+            "litellm is required. Install with: pip install litellm"
+        ) from exc
 
     config = resolve_provider_config(default_model="openai/gpt-4o-mini")
     print_startup_config(config)

@@ -54,6 +54,15 @@ Domains are teaching aids. Enforcement points are primary.
 - If scope grows beyond one enforcement point, stop and ask for review.
 - If an example needs a real framework, keep framework-specific code isolated.
 
+## Validation
+
+- Canonical Python validation: `./scripts/validate_python.sh`
+- Fast TypeScript validation: `./scripts/validate_typescript_fast.sh`
+- Canonical TypeScript validation: `./scripts/validate_typescript.sh`
+- Python contributors may use local hooks: `uv run pre-commit run --all-files`
+- Do not require TypeScript contributors to install or use Python pre-commit tooling for TypeScript validation.
+- CI is the authoritative cross-language validation path.
+
 
 ## Example design rules
 

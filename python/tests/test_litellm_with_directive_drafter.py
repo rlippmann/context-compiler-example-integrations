@@ -33,7 +33,9 @@ def test_directive_shaped_or_natural_language_input_is_drafted_before_engine_ste
             "directive": "use docker",
         },
     )
-    monkeypatch.setattr(module, "parse_preprocessor_output", lambda value, **kwargs: value)
+    monkeypatch.setattr(
+        module, "parse_preprocessor_output", lambda value, **kwargs: value
+    )
 
     result = module.handle_turn("please use docker", engine)
 
@@ -57,7 +59,9 @@ def test_pending_clarification_bypasses_drafting(monkeypatch) -> None:
     monkeypatch.setattr(
         module,
         "_preprocess_user_input",
-        lambda message, state: (_ for _ in ()).throw(AssertionError("should not draft")),
+        lambda message, state: (_ for _ in ()).throw(
+            AssertionError("should not draft")
+        ),
     )
 
     second = module.handle_turn("yes", engine)
@@ -96,7 +100,9 @@ def test_unknown_or_unsafe_drafting_falls_back_to_raw_input(monkeypatch) -> None
     assert len(llm_calls) == 1
 
 
-def test_local_update_and_clarify_responses_skip_downstream_litellm_call(monkeypatch) -> None:
+def test_local_update_and_clarify_responses_skip_downstream_litellm_call(
+    monkeypatch,
+) -> None:
     llm_calls: list[object] = []
     monkeypatch.setattr(
         module,
@@ -111,7 +117,9 @@ def test_local_update_and_clarify_responses_skip_downstream_litellm_call(monkeyp
             "directive": "use docker",
         },
     )
-    monkeypatch.setattr(module, "parse_preprocessor_output", lambda value, **kwargs: value)
+    monkeypatch.setattr(
+        module, "parse_preprocessor_output", lambda value, **kwargs: value
+    )
 
     update_engine = create_engine()
     update = module.handle_turn("please use docker", update_engine)
@@ -134,7 +142,7 @@ def test_call_litellm_requires_api_key_in_openai_mode(monkeypatch) -> None:
     monkeypatch.delenv("PROVIDER", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.setattr(module, "_get_litellm_completion", lambda: (lambda **_: {}))
+    monkeypatch.setattr(module, "_get_litellm_completion", lambda: lambda **_: {})
 
     with pytest.raises(RuntimeError, match="OPENAI_API_KEY is required in openai mode"):
         module._call_litellm([{"role": "user", "content": "hello"}])
@@ -144,7 +152,7 @@ def test_call_litellm_rejects_unknown_provider(monkeypatch) -> None:
     monkeypatch.setenv("PROVIDER", "bedrock")
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "dummy")
-    monkeypatch.setattr(module, "_get_litellm_completion", lambda: (lambda **_: {}))
+    monkeypatch.setattr(module, "_get_litellm_completion", lambda: lambda **_: {})
 
     with pytest.raises(
         RuntimeError,
@@ -157,7 +165,7 @@ def test_call_litellm_openai_compatible_requires_base_url(monkeypatch) -> None:
     monkeypatch.setenv("PROVIDER", "openai_compatible")
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    monkeypatch.setattr(module, "_get_litellm_completion", lambda: (lambda **_: {}))
+    monkeypatch.setattr(module, "_get_litellm_completion", lambda: lambda **_: {})
 
     with pytest.raises(
         RuntimeError,
@@ -183,7 +191,9 @@ def test_call_litellm_base_url_override_wins_over_provider(monkeypatch) -> None:
     assert "api_key" not in seen
 
 
-def test_call_litellm_logs_startup_config_once(monkeypatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_call_litellm_logs_startup_config_once(
+    monkeypatch, caplog: pytest.LogCaptureFixture
+) -> None:
     import host_support.provider_mode as provider_mode
 
     provider_mode._STARTUP_LOGGED = False
@@ -195,7 +205,7 @@ def test_call_litellm_logs_startup_config_once(monkeypatch, caplog: pytest.LogCa
     monkeypatch.setattr(
         module,
         "_get_litellm_completion",
-        lambda: (lambda **_: {"choices": [{"message": {"content": "ok"}}]}),
+        lambda: lambda **_: {"choices": [{"message": {"content": "ok"}}]},
     )
 
     with caplog.at_level("INFO"):
@@ -226,7 +236,9 @@ def test_preprocessor_model_defaults_to_model(monkeypatch) -> None:
     monkeypatch.delenv("PREPROCESSOR_MODEL", raising=False)
     monkeypatch.setattr(module, "_get_litellm_completion", lambda: completion)
     monkeypatch.setattr(module, "render_prompt", lambda *_: "prompt")
-    monkeypatch.setattr(module, "parse_preprocessor_output", lambda value, **_kwargs: value)
+    monkeypatch.setattr(
+        module, "parse_preprocessor_output", lambda value, **_kwargs: value
+    )
 
     assert module._llm_fallback_preprocess("please use docker", {}) == "use docker"
     assert seen["model"] == "openai/main-model"
@@ -244,7 +256,9 @@ def test_preprocessor_model_override_wins(monkeypatch) -> None:
     monkeypatch.setenv("PREPROCESSOR_MODEL", "openai/preprocessor-model")
     monkeypatch.setattr(module, "_get_litellm_completion", lambda: completion)
     monkeypatch.setattr(module, "render_prompt", lambda *_: "prompt")
-    monkeypatch.setattr(module, "parse_preprocessor_output", lambda value, **_kwargs: value)
+    monkeypatch.setattr(
+        module, "parse_preprocessor_output", lambda value, **_kwargs: value
+    )
 
     assert module._llm_fallback_preprocess("please use docker", {}) == "use docker"
     assert seen["model"] == "openai/preprocessor-model"
@@ -257,7 +271,11 @@ def test_fallback_rejects_premise_near_miss_rewrites(monkeypatch) -> None:
     monkeypatch.setattr(
         module,
         "_get_litellm_completion",
-        lambda: (lambda **_: {"choices": [{"message": {"content": "set premise concise replies"}}]}),
+        lambda: (
+            lambda **_: {
+                "choices": [{"message": {"content": "set premise concise replies"}}]
+            }
+        ),
     )
     monkeypatch.setattr(module, "render_prompt", lambda *_: "prompt")
 
@@ -355,7 +373,9 @@ def test_checkpoint_resume_bypasses_preprocess_and_downstream_while_pending(
 
 def test_checkpoint_restore_and_persist_by_session_key(monkeypatch) -> None:
     class FakeEngine:
-        def __init__(self, kind: str, checkpoint_out: str, *, has_pending: bool = False) -> None:
+        def __init__(
+            self, kind: str, checkpoint_out: str, *, has_pending: bool = False
+        ) -> None:
             self.kind = kind
             self.state: dict[str, object] = {
                 "premise": None,
@@ -379,7 +399,11 @@ def test_checkpoint_restore_and_persist_by_session_key(monkeypatch) -> None:
             if self._has_pending:
                 pending = {
                     "kind": "replacement",
-                    "replacement": {"kind": "use_only", "new_item": "kubectl", "old_item": None},
+                    "replacement": {
+                        "kind": "use_only",
+                        "new_item": "kubectl",
+                        "old_item": None,
+                    },
                     "prompt_to_user": "confirm?",
                 }
             return {
@@ -411,13 +435,21 @@ def test_checkpoint_restore_and_persist_by_session_key(monkeypatch) -> None:
     assert checkpoints["s1"] == "ckpt-in"
 
     update_engine = FakeEngine("update", "ckpt-update")
-    assert module.handle_turn("use docker", update_engine, session_key="s1") == "State updated: Use docker."
+    assert (
+        module.handle_turn("use docker", update_engine, session_key="s1")
+        == "State updated: Use docker."
+    )
     assert update_engine.imported == ["ckpt-in"]
     assert update_engine.export_calls == 1
     assert checkpoints["s1"] == "ckpt-update"
 
     clarify_engine = FakeEngine("clarify", "ckpt-clarify")
-    assert module.handle_turn("use kubectl instead of docker", clarify_engine, session_key="s1") == "confirm?"
+    assert (
+        module.handle_turn(
+            "use kubectl instead of docker", clarify_engine, session_key="s1"
+        )
+        == "confirm?"
+    )
     assert clarify_engine.imported == ["ckpt-update"]
     assert clarify_engine.export_calls == 1
     assert checkpoints["s1"] == "ckpt-clarify"

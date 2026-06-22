@@ -88,8 +88,14 @@ def test_deterministic_summary_for_prohibited_old_item_replacement() -> None:
 
 
 def test_safe_fallback_on_unknown_pending_shapes() -> None:
-    assert summarize_confirmation_update("yes", {"unexpected": "shape"}) == "State updated."
-    assert summarize_confirmation_update_from_checkpoint("yes", {"pending": "unexpected"}) == (
-        "State updated."
+    assert (
+        summarize_confirmation_update("yes", {"unexpected": "shape"})
+        == "State updated."
     )
-    assert summarize_confirmation_update("no", {"unexpected": "shape"}) == "State unchanged."
+    assert summarize_confirmation_update_from_checkpoint(
+        "yes", {"pending": "unexpected"}
+    ) == ("State updated.")
+    assert (
+        summarize_confirmation_update("no", {"unexpected": "shape"})
+        == "State unchanged."
+    )
