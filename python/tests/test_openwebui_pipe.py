@@ -7,8 +7,9 @@ from pathlib import Path
 
 import pytest
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_PATH = (
-    Path("/Users/rlippmann/Source/context-compiler-example-integrations")
+    REPO_ROOT
     / "python"
     / "reference_integrations"
     / "openwebui_pipe"
