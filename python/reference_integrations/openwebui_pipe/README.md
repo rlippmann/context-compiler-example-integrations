@@ -1,8 +1,9 @@
 # Open WebUI Pipe Integration
 
-Examples of Open WebUI Pipe Functions that use Context Compiler.
+These examples show how an Open WebUI pipe changes runtime behavior with saved
+compiler state.
 
-Tested target: Open WebUI `v0.8.12` (latest at time of testing).
+Tested target: Open WebUI `v0.8.12`.
 Validated at runtime on stock Docker Open WebUI with a real backend model provider.
 
 Compatibility note: OpenWebUI `0.9.x` changed `Users.get_user_by_id` to async.
@@ -12,6 +13,17 @@ These examples support both sync (`0.8.x`) and async (`0.9.x`) user lookup.
 
 - `open_webui_pipe.py`: basic integration, no directive-drafter layer (recommended/default).
 - `open_webui_pipe_with_directive_drafter.py`: optional/experimental directive-drafter layer (rule-based check first, then optional model fallback) before `engine.step(...)`.
+
+## What the user sees
+
+- `clarify` is handled locally and does not call the downstream model.
+- `update` stores the new compiler state and returns a local acknowledgment for
+  directive-only input.
+- `passthrough` forwards the chat request normally.
+- When compiler state is non-empty, passthrough adds exactly one `[[cc_state]]`
+  system message to the forwarded request.
+- Exact `show state` is handled locally. Near matches such as `show state please`
+  are treated as normal chat input.
 
 ## Setup
 
@@ -39,7 +51,7 @@ Checkpoint continuation in these examples requires `context-compiler>=0.7.4`.
 
 If using `open_webui_pipe_with_directive_drafter.py`:
 - Install directive-drafter support in the Open WebUI environment:
-  - `pip install context-compiler-directive-drafter`
+  - `pip install "context-compiler>=0.7.4" context-compiler-directive-drafter`
 - Open WebUI executes copied functions from a temp/cached location, so
   directive-drafter imports/resources must come from the installed package (not
   repo-relative paths).
@@ -53,9 +65,6 @@ If using `open_webui_pipe_with_directive_drafter.py`:
   may abstain on mixed-prose natural language (for example, `i think we should
   use docker`). In those cases, behavior may remain passthrough unless fallback
   precompilation returns a validated canonical directive.
-- If you configure invalid model ids, the pipe returns explicit runtime errors:
-  - `BASE_MODEL_ID` not found in Open WebUI models
-  - `PREPROCESSOR_MODEL_ID` not found in Open WebUI models
 
 ### Docker/manual install fallback
 
@@ -82,7 +91,7 @@ Use the Open WebUI model picker/list to copy exact model ids for `BASE_MODEL_ID`
 - No production hardening.
 - Tied to Open WebUI internal helper/import paths by version.
 
-## Manual Validation
+## Manual validation
 
 Validate these behaviors:
 - `clarify` short-circuits the LLM call.
@@ -92,12 +101,14 @@ Validate these behaviors:
 - state is lost after restart (no external persistence).
 - non-text input is bypassed.
 
-Note: In the OpenWebUI example pipes, recognized directive-only `update`
+In the OpenWebUI example pipes, recognized directive-only `update`
 decisions return fixed local acknowledgments and do not call the
 downstream LLM.
 Both pipes support an exact local inspection command: `show state`.
 When the latest user message is exactly `show state` (case-insensitive after trim),
 the pipe returns current compiler state locally and does not call the downstream model.
+Near matches such as `show state please` are not treated as the local command and
+continue through the normal compiler/model flow.
 When trace is enabled, responses include concise evidence of decision kind,
 active state, downstream LLM call/no-call, and whether state was injected.
 
@@ -149,3 +160,18 @@ For the directive-drafter pipe, if `engine.has_pending_clarification()` is true,
 - basic pipe: `Did you mean 'change premise to concise replies'?`
 - directive-drafter pipe: same clarify (near-miss is passed through unchanged)
 - why this matters: the app waits for explicit, valid directive text before changing state.
+
+## Troubleshooting
+
+- `BASE_MODEL_ID is required`: set a valid Open WebUI model id in the function valves, or enable `ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true` only for local testing.
+- `BASE_MODEL_ID was not found in Open WebUI models`: copy the exact id from `Admin Panel → Settings → Models`.
+- `PREPROCESSOR_MODEL_ID was not found in Open WebUI models`: set a valid fallback model id or leave it unset to default to `BASE_MODEL_ID`.
+- `PREPROCESSOR_MODEL_ID must not match the selected pipe model id`: choose a real backend model id, not the pipe model id itself.
+- `PREPROCESSOR_MODEL_ID is invalid or not configured in Open WebUI`: the fallback route hit a missing model; fix the configured fallback model or unset it to reuse `BASE_MODEL_ID`.
+- `ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true`: directive-only updates still run locally, but passthrough returns a deterministic debug message instead of calling a downstream model.
+- imports fail after function upload: install `context-compiler` and `context-compiler-directive-drafter` in the Open WebUI runtime, because the copied function runs from a temp/cached location.
+
+## Notes
+
+- Fallback drafting uses `PREPROCESSOR_MODEL_ID` first, while the main passthrough path still forwards with `BASE_MODEL_ID`.
+- If the fallback model returns `model not found`, the pipe normalizes that into the deterministic `PREPROCESSOR_MODEL_ID` misconfiguration message above.

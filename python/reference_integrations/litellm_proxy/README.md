@@ -1,7 +1,7 @@
 # LiteLLM Proxy (pre-call hook)
 
-This example shows how to run Context Compiler inside a LiteLLM proxy pre-call hook.
-The hook applies fixed state rules before any upstream model call.
+This example shows how a LiteLLM proxy can enforce saved compiler state before
+any upstream model call.
 
 Available hook files:
 
@@ -11,17 +11,17 @@ Available hook files:
 ## Requirements
 
 ```shell
-pip install "context-compiler[litellm_proxy]"
+pip install context-compiler litellm
 export OPENAI_API_KEY=...
 ```
 
-`litellm_proxy` is intentionally separate from the general `integrations`
-extra because this path targets proxy/gateway runtime use.
+Start with the compiler-only hook. Add `context-compiler-directive-drafter`
+only if you want the optional directive-drafter variant.
 
 For `context_compiler_precall_hook_with_directive_drafter.py`:
 
 ```shell
-pip install context-compiler-directive-drafter
+pip install context-compiler litellm context-compiler-directive-drafter
 ```
 
 ## Quickstart (copy/paste)
@@ -29,9 +29,9 @@ pip install context-compiler-directive-drafter
 From the repo root:
 
 ```shell
-pip install "context-compiler[litellm_proxy]"
+pip install context-compiler litellm
 export OPENAI_API_KEY=...
-litellm --config examples/integrations/litellm_proxy/config.example.yaml
+litellm --config python/reference_integrations/litellm_proxy/config.example.yaml
 ```
 
 `config.example.yaml` includes both OpenAI and Ollama model definitions.
@@ -42,7 +42,7 @@ Use the Ollama model entry for local testing without API credentials.
 Typical startup command (environment-sensitive):
 
 ```shell
-litellm --config config.example.yaml
+litellm --config python/reference_integrations/litellm_proxy/config.example.yaml
 ```
 
 Hook behavior and proxy startup were re-validated end-to-end with
@@ -57,6 +57,8 @@ Validated behaviors:
 The proxy runs on `http://localhost:4000` by default.
 By default, `config.example.yaml` points to the basic replay-only hook.
 To use the directive-drafter variant, switch the callback path in the config.
+The callback path must be importable by LiteLLM in the environment where the
+proxy process starts.
 
 ## Make a request
 
@@ -86,18 +88,18 @@ curl http://localhost:4000/v1/chat/completions \
   }'
 ```
 
-## Behavior
+## What the user sees
 
 - User messages are replayed through Context Compiler before the model call.
 - If result is `clarify`, the proxy does not call the model and LiteLLM surfaces the clarification as an HTTP 400 response.
 - If result is `passthrough`, the proxy forwards the request normally.
 - If result is `update`, the proxy injects compiler state as a system message and then calls the model.
+- Unsupported LiteLLM callback `call_type` values return the original request data unchanged.
 
-Directive-drafter-enabled variant behavior:
+Optional directive-drafter behavior:
 
 - Only the latest user transcript message is drafted for compiler replay input.
 - Heuristic runs first; if no directive is found, LLM fallback is attempted.
-- If `engine.has_pending_clarification()` is true, bypass directive drafting and pass raw input directly to `engine.step(...)`.
 - Forwarded upstream request messages are not rewritten (except injected compiler system message).
 
 Optional env vars for directive-drafter fallback:
@@ -112,9 +114,10 @@ export PREPROCESSOR_PROMPT_PROFILE=default
 For heuristic-first usage, keep `PREPROCESSOR_PROMPT_PROFILE=default`.
 Use `llama` only for LLM-only preprocessing with Llama-family models.
 
-## Note
+## Notes
 
-- The callback path in `config.example.yaml` must be importable by LiteLLM.
+- Mixed-content user messages replay only text segments into compiler transcript state.
+- `MODEL` and `PREPROCESSOR_MODEL` use LiteLLM format: `<provider>/<model>`.
 
 ## Troubleshooting
 

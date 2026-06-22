@@ -13,6 +13,7 @@ authors = [{ name = "Robert Lippmann" }]
 dependencies = [
   "context-compiler>=0.7.0",
   "context-compiler-directive-drafter",
+  "litellm",
 ]
 keywords = [
   "context-compiler",
@@ -44,4 +45,5 @@ dev = [
 only-include = ["python", "README.md", "LICENSE", "AGENTS.md", "CONTRIBUTING.md"]
 
 [tool.uv.sources]
+context-compiler = { path = "../context-compiler", editable = true }
 context-compiler-directive-drafter = { path = "../context-compiler-directive-drafter", editable = true }

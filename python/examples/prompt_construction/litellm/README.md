@@ -1,15 +1,14 @@
 # LiteLLM examples
 
-This directory contains three small Context Compiler + LiteLLM integration examples:
+These examples show two user-visible prompt-construction flows with LiteLLM:
 
 - `basic.py`: compiler-only flow (no directive drafter)
-- `response_format.py`: host-side LiteLLM `response_format` selection from saved compiler state
 - `with_directive_drafter.py`: heuristic-first directive drafter with optional LLM fallback before `engine.step(...)`
 
 ## Requirements
 
 ```shell
-pip install "context-compiler[integrations]"
+pip install context-compiler litellm
 export OPENAI_API_KEY=...
 ```
 
@@ -18,18 +17,18 @@ Checkpoint continuation in these examples requires `context-compiler>=0.7.0`.
 For `with_directive_drafter.py`:
 
 ```shell
-pip install context-compiler-directive-drafter
+pip install context-compiler litellm context-compiler-directive-drafter
 ```
 
 ## Quickstart (copy/paste)
 
 ```shell
-pip install "context-compiler[integrations]"
+pip install context-compiler litellm
 export OPENAI_API_KEY=...
 export MODEL=openai/gpt-4o-mini
 python - <<'PY'
 from context_compiler import create_engine
-from examples.integrations.litellm.basic import handle_turn
+from python.examples.prompt_construction.litellm.basic import handle_turn
 engine = create_engine()
 print(handle_turn("set premise concise replies", engine))
 PY
@@ -38,12 +37,12 @@ PY
 For directive-drafter behavior:
 
 ```shell
-pip install context-compiler-directive-drafter
+pip install context-compiler litellm context-compiler-directive-drafter
 export OPENAI_API_KEY=...
 export MODEL=openai/gpt-4o-mini
 python - <<'PY'
 from context_compiler import create_engine
-from examples.integrations.litellm.with_directive_drafter import handle_turn
+from python.examples.prompt_construction.litellm.with_directive_drafter import handle_turn
 engine = create_engine()
 print(handle_turn("set premise to concise replies", engine))
 PY
@@ -51,15 +50,15 @@ PY
 
 This near-miss input should return `clarify` instead of being rewritten.
 
-For host-side response shape selection:
+For host-side response shape selection, see the schema-selection example:
 
 ```shell
-pip install "context-compiler[integrations]"
+pip install context-compiler litellm
 export OPENAI_API_KEY=...
 export MODEL=openai/gpt-4o-mini
 python - <<'PY'
 from context_compiler import create_engine
-from examples.integrations.litellm.response_format import plan_turn
+from python.examples.schema_selection.litellm_response_format.response_format import plan_turn
 engine = create_engine()
 engine.step("use compact_summary")
 print(plan_turn("Summarize the release notes.", engine))
@@ -119,9 +118,21 @@ and resolution `source` (`default`, `PROVIDER`, or `OPENAI_BASE_URL override`).
 For heuristic-first usage, keep `PREPROCESSOR_PROMPT_PROFILE=default`.
 Use `llama` only for LLM-only preprocessing with Llama-family models.
 
+## What the user sees
+
+- Compiler-only flow:
+  - raw user input goes straight to `engine.step(...)`
+  - `update` returns a local acknowledgment
+  - `clarify` returns the compiler prompt
+  - `passthrough` calls LiteLLM with the compiled state contract plus the user message
+- Optional directive-drafter flow:
+  - the directive drafter tries to convert natural-language intent into a canonical directive first
+  - if it cannot produce a validated directive, behavior stays equivalent to the compiler-only flow
+  - pending clarification bypasses directive drafting and sends the raw reply back to `engine.step(...)`
+
 ## Usage pattern
 
-You can import these files as integration references in host applications.
+Use these files as host-side integration references.
 
 - Import `handle_turn(...)` from either `basic.py` or `with_directive_drafter.py`.
 - Create and retain an engine instance in host/session state.
@@ -134,13 +145,15 @@ You can import these files as integration references in host applications.
   checkpoints in external storage (DB/Redis/etc.).
 - Display the returned assistant text.
 
-Note: In these LiteLLM examples, `update` is rendered locally and does not call
+In these LiteLLM examples, `update` is rendered locally and does not call
 the downstream LLM. This makes state changes explicit. Production apps may
 choose different rendering behavior.
 
-## Response format example boundary
+## Related schema-selection example
 
-`response_format.py` shows a different integration boundary from prompt reinjection:
+If you want the host to choose a LiteLLM `response_format` from saved compiler state
+instead of reinjecting a compiled contract, use
+`python/examples/schema_selection/litellm_response_format/response_format.py`.
 
 - Context Compiler owns authoritative state.
 - The host reads saved policy state and selects a LiteLLM `response_format` or omits it.
@@ -152,28 +165,20 @@ choose different rendering behavior.
 
 ## Troubleshooting
 
-- `litellm is required`: install `context-compiler[integrations]` (and `context-compiler-directive-drafter` for directive-drafter flows).
+- `litellm is required`: install `context-compiler` and `litellm` (and `context-compiler-directive-drafter` for directive-drafter flows).
 - `OPENAI_API_KEY is required in openai mode`: export a key or use `ollama` / explicit endpoint override.
 - `Invalid PROVIDER value ...`: set `PROVIDER` to one of `openai`, `ollama`, `openai_compatible`.
 - `OPENAI_BASE_URL is required when PROVIDER=openai_compatible`: set an explicit endpoint URL.
 - model/provider errors (`Model not found`, provider auth errors): confirm `MODEL` uses LiteLLM format and provider credentials are valid.
 
-## Basic vs directive-drafter behavior
+## Decision flow
 
-- Basic: passes raw user input to `engine.step(...)`.
-- With directive drafter: runs heuristic directive drafter first.
-  - If heuristic returns a directive, that directive is passed to `engine.step(...)`.
-  - If heuristic does not produce a directive (`no_directive` or `unknown`), LLM fallback drafting runs.
-  - If fallback yields nothing usable or errors, behavior safely remains equivalent to basic.
-  - If `engine.has_pending_clarification()` is true, bypass directive drafting and pass raw input directly to `engine.step(...)`.
-  - Behavior is reject-first and does not broaden the directive grammar.
-
-Decision flow in both examples:
+In both prompt-construction examples:
 - `passthrough`: call the model with normal input.
 - `clarify`: show `prompt_to_user`; do not treat state as changed.
 - `update`: state changed; use updated state for the next model call.
 
-Decision flow in `response_format.py`:
+Decision flow in the schema-selection example:
 - `passthrough`: let the host decide whether to send `response_format`.
 - `clarify`: show `prompt_to_user`; do not call LiteLLM.
 - `update`: state changed; the next host request may use a different `response_format`.
@@ -191,18 +196,18 @@ Decision flow in `response_format.py`:
   - `use podman instead of docker` without prior `use docker` -> replacement clarify.
 - Directive-adjacent abstain (`with_directive_drafter.py`):
   - `change premise concise replies` is classified as `unknown`, not rewritten, and handled by engine clarify.
-- Host-side request shaping (`response_format.py`):
+- Host-side request shaping (`python/examples/schema_selection/litellm_response_format/response_format.py`):
   - `use compact_summary` -> host selects compact-summary `response_format`.
   - `use action_plan` -> host selects action-plan `response_format`.
   - `prohibit compact_summary` -> host omits that `response_format`.
 
-## Optional smoke run for `response_format.py`
+## Optional smoke run for the schema-selection example
 
 ```shell
 export RUN_LITELLM_SMOKE=1
 export PROVIDER=ollama
 export MODEL=ollama/qwen2.5:1.5b-instruct
-uv run python examples/integrations/litellm/response_format.py
+uv run python python/examples/schema_selection/litellm_response_format/response_format.py
 ```
 
 For local Ollama smoke runs in this repo, `PROVIDER=ollama` is required. A

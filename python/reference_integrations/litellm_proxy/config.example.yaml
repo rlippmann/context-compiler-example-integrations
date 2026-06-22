@@ -15,5 +15,5 @@ litellm_settings:
   callbacks:
     # Basic replay-only hook:
     - context_compiler_precall_hook.proxy_handler_instance
-    # Preprocessor-enabled replay hook (use this instead of the basic hook):
+    # Directive-drafter-enabled replay hook (use this instead of the basic hook):
     # - context_compiler_precall_hook_with_directive_drafter.proxy_handler_instance
