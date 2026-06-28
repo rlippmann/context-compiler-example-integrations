@@ -64,17 +64,39 @@ Domains are teaching aids. Enforcement points are primary.
 - CI is the authoritative cross-language validation path.
 
 
-## Example design rules
+## Example design requirements
 
-- Use explicit authoritative state.
-- Do not derive Context Compiler state from model output.
-- Avoid hidden model-derived state mutation.
-- Keep one primary enforcement point per example.
-- Make runtime behavior changes observable.
-- Ensure every example remains meaningful with an adversarial stub.
-- Prefer small runnable examples over broad framework demonstrations.
+All new examples should:
+
+- Demonstrate one primary enforcement point.
+- Use explicit authoritative Context Compiler state.
+- Avoid model-derived state mutation.
+- Avoid directive-drafter unless the example is specifically about acquisition-layer behavior.
+- Include an adversarial stub or equivalent test where practical.
+- Demonstrate observable runtime behavior change.
+- Use natural domain vocabulary.
+- Keep framework or runtime concerns secondary to the enforcement point.
+- Include documentation.
+- Include tests or smoke checks where practical.
+- Prefer small runnable examples where practical.
 - Prefer mocked or smoke validation over heavy live-runtime end-to-end flows.
-- Primary examples should not depend on directive-drafter.
+- Make clear which component owns authoritative state and which component owns runtime behavior.
+
+## Example completion requirements
+
+Before considering an example complete:
+
+- Run the repository validation path appropriate to the affected language or runtime.
+- Ensure formatting, type checks, and tests or smoke checks pass.
+- Report validation results when completing the task.
+
+## Example self-review
+
+Before reporting a task complete:
+
+- Review the change against the example design requirements.
+- Identify any unmet or partially satisfied requirements.
+- Report them explicitly instead of silently accepting them.
 
 ## Optional Components
 
