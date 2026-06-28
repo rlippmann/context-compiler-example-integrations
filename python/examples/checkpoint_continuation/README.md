@@ -68,3 +68,8 @@ From the repository root:
 uv run python python/examples/checkpoint_continuation/example.py
 uv run pytest python/tests/test_checkpoint_continuation_example.py
 ```
+
+## FastAPI variant
+
+For a request-boundary example, see
+[python/examples/checkpoint_continuation/fastapi/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/checkpoint_continuation/fastapi/README.md).
