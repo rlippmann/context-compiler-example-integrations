@@ -35,7 +35,9 @@ class IntakeHandler:
     name: str
     called: bool = False
 
-    def handle(self, request: IntakeRequest) -> RefundIntakeResult | TechnicalSupportResult:
+    def handle(
+        self, request: IntakeRequest
+    ) -> RefundIntakeResult | TechnicalSupportResult:
         self.called = True
 
         if self.name == "refund_intake":
