@@ -29,7 +29,7 @@ Each example:
 |---|---|---|
 | Gateway middleware | Customer support routing | LiteLLM Proxy |
 | Schema selection | Order / incident intake | Ollama |
-| Checkpoint continuation | Travel booking | FastAPI |
+| Checkpoint continuation | Travel booking | generic Python |
 | Execution authorization | Expense approval | simple tool runner |
 | Retrieval filtering | HR policy / product docs | Simple metadata-filtered retriever |
 | Request construction / context assembly | Writing assistant | Open WebUI |
