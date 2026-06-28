@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 fast_packages=(
+  "typescript/examples/execution_authorization/expense_approval"
   "typescript/examples/schema_selection/vercel_ai_sdk_generate_object"
   "typescript/starter_apps/node/basic"
   "typescript/starter_apps/node/with_drafter"
@@ -20,7 +21,7 @@ for package_dir in "${fast_packages[@]}"; do
   pushd "${repo_root}/${package_dir}" >/dev/null
   npm test
   npm run typecheck
-  if [[ "${package_dir}" == "typescript/examples/schema_selection/vercel_ai_sdk_generate_object" ]]; then
+  if [[ "${package_dir}" == "typescript/examples/schema_selection/vercel_ai_sdk_generate_object" || "${package_dir}" == "typescript/examples/execution_authorization/expense_approval" ]]; then
     npm run build
   fi
   popd >/dev/null
