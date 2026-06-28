@@ -13,6 +13,7 @@ authors = [{ name = "Robert Lippmann" }]
 dependencies = [
   "context-compiler>=0.7.4",
   "context-compiler-directive-drafter",
+  "fastapi",
   "litellm",
 ]
 keywords = [
