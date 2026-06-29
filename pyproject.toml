@@ -11,6 +11,7 @@ requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Robert Lippmann" }]
 dependencies = [
+  "chromadb",
   "context-compiler>=0.7.4",
   "context-compiler-directive-drafter",
   "fastapi",
