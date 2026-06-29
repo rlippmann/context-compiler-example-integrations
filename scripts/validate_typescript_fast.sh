@@ -15,6 +15,7 @@ ensure_package_deps() {
 
 packages=(
   "typescript/examples/execution_authorization/expense_approval"
+  "typescript/examples/prompt_construction/writing_assistant"
   "typescript/examples/retrieval_filtering/hr_policy_lookup"
   "typescript/examples/schema_selection/vercel_ai_sdk_generate_object"
   "typescript/starter_apps/node/basic"
@@ -27,7 +28,7 @@ for package_dir in "${packages[@]}"; do
   ensure_package_deps "${package_dir}"
   npm test
   npm run typecheck
-  if [[ "${package_dir}" == "typescript/examples/schema_selection/vercel_ai_sdk_generate_object" || "${package_dir}" == "typescript/examples/execution_authorization/expense_approval" || "${package_dir}" == "typescript/examples/retrieval_filtering/hr_policy_lookup" ]]; then
+  if [[ "${package_dir}" == "typescript/examples/schema_selection/vercel_ai_sdk_generate_object" || "${package_dir}" == "typescript/examples/execution_authorization/expense_approval" || "${package_dir}" == "typescript/examples/retrieval_filtering/hr_policy_lookup" || "${package_dir}" == "typescript/examples/prompt_construction/writing_assistant" ]]; then
     npm run build
   fi
   popd >/dev/null
