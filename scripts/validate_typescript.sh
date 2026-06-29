@@ -15,6 +15,7 @@ ensure_package_deps() {
 
 fast_packages=(
   "typescript/examples/execution_authorization/expense_approval"
+  "typescript/examples/retrieval_filtering/hr_policy_lookup"
   "typescript/examples/schema_selection/vercel_ai_sdk_generate_object"
   "typescript/starter_apps/node/basic"
   "typescript/starter_apps/node/with_drafter"
@@ -31,7 +32,7 @@ for package_dir in "${fast_packages[@]}"; do
   ensure_package_deps "${package_dir}"
   npm test
   npm run typecheck
-  if [[ "${package_dir}" == "typescript/examples/schema_selection/vercel_ai_sdk_generate_object" || "${package_dir}" == "typescript/examples/execution_authorization/expense_approval" ]]; then
+  if [[ "${package_dir}" == "typescript/examples/schema_selection/vercel_ai_sdk_generate_object" || "${package_dir}" == "typescript/examples/execution_authorization/expense_approval" || "${package_dir}" == "typescript/examples/retrieval_filtering/hr_policy_lookup" ]]; then
     npm run build
   fi
   popd >/dev/null
