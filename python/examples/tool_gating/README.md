@@ -28,3 +28,24 @@ prohibit calendar_admin
 
 The tests cover visible-tool changes, execution blocking, adversarial text, and
 contradiction / clarification behavior.
+
+### `mcp_calendar_admin`
+
+Uses MCP as the integration surface while keeping Context Compiler as the
+authority source.
+
+The host exposes the `calendar_admin_create_event` MCP tool only when state
+contains:
+
+```text
+use calendar_admin
+```
+
+When state is absent or contains:
+
+```text
+prohibit calendar_admin
+```
+
+the MCP tool is absent from the exposed tool set and blocked if invoked
+directly.
