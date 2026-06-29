@@ -86,8 +86,8 @@ def test_latest_user_message_is_drafted_before_transcript_replay(monkeypatch) ->
     ]
 
 
-def test_clarify_result_returns_string_and_does_not_forward(monkeypatch) -> None:
-    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_clarify")
+def test_confirm_result_returns_string_and_does_not_forward(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_confirm")
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
     original_messages = [{"role": "user", "content": "please use docker"}]
     data = {"model": "demo", "messages": deepcopy(original_messages)}
