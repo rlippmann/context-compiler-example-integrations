@@ -59,10 +59,10 @@ def test_unsupported_call_type_returns_original_data_unchanged(monkeypatch) -> N
     assert result is data
 
 
-def test_clarify_result_returns_string_and_does_not_mutate_forwarded_messages(
+def test_confirm_result_returns_string_and_does_not_mutate_forwarded_messages(
     monkeypatch,
 ) -> None:
-    module = _load_proxy_module(monkeypatch, "litellm_proxy_clarify")
+    module = _load_proxy_module(monkeypatch, "litellm_proxy_confirm")
     hook = module.ContextCompilerPreCallHook()
     original_messages = [{"role": "user", "content": "use kubectl instead of docker"}]
     data = {"model": "demo", "messages": deepcopy(original_messages)}

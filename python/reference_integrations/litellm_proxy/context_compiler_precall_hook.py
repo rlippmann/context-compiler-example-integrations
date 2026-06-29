@@ -2,7 +2,7 @@
 
 Architecture:
 - Replay user transcript through Context Compiler before any model call.
-- If clarification is required, block upstream model call.
+- If confirmation is required, block upstream model call.
 - Otherwise inject compiled state guidance into a system message.
 """
 

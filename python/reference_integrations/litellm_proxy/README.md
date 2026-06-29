@@ -1,7 +1,11 @@
 # LiteLLM Proxy (pre-call hook)
 
-This example shows how a LiteLLM proxy can enforce saved compiler state before
-any upstream model call.
+This example shows how LiteLLM Proxy acts as the host-owned gateway surface.
+
+Context Compiler is the authority layer for saved state.
+
+The pre-call hook enforces that authoritative state before any downstream
+model call.
 
 Available hook files:
 
@@ -52,7 +56,7 @@ Validated behaviors:
 
 - passthrough: upstream model called normally
 - update: compiler state injected before upstream model call
-- clarify: request blocked before upstream model call and surfaced as HTTP 400
+- confirm: request blocked before upstream model call and surfaced as HTTP 400
 
 The proxy runs on `http://localhost:4000` by default.
 By default, `config.example.yaml` points to the basic replay-only hook.
@@ -91,7 +95,8 @@ curl http://localhost:4000/v1/chat/completions \
 ## What the user sees
 
 - User messages are replayed through Context Compiler before the model call.
-- If result is `clarify`, the proxy does not call the model and LiteLLM surfaces the clarification as an HTTP 400 response.
+- LiteLLM Proxy is the gateway surface; Context Compiler remains the authority layer for saved state.
+- If result is `confirm`, the proxy does not call the downstream model and LiteLLM surfaces the confirmation as an HTTP 400 response.
 - If result is `passthrough`, the proxy forwards the request normally.
 - If result is `update`, the proxy injects compiler state as a system message and then calls the model.
 - Unsupported LiteLLM callback `call_type` values return the original request data unchanged.
