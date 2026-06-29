@@ -31,7 +31,7 @@ Each example:
 | Schema selection | Order / incident intake | Ollama |
 | Checkpoint continuation | Travel booking | generic Python / TypeScript |
 | Execution authorization | Expense approval | simple tool runner |
-| Retrieval filtering | HR policy / product docs | Simple metadata-filtered retriever |
+| Retrieval filtering | HR policy lookup | generic Python / TypeScript |
 | Request construction / context assembly | Writing assistant | Open WebUI |
 | Tool gating | Calendar / email / admin | MCP |
 
