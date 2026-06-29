@@ -27,7 +27,7 @@ Each example:
 
 | Enforcement Point | Domain | Technology |
 |---|---|---|
-| Gateway middleware | Customer support routing | LiteLLM Proxy |
+| Gateway middleware | Customer support routing | generic Python / TypeScript, LiteLLM Proxy |
 | Schema selection | Order / incident intake | Ollama |
 | Checkpoint continuation | Travel booking | generic Python / TypeScript |
 | Execution authorization | Expense approval | simple tool runner |

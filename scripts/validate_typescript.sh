@@ -15,6 +15,7 @@ ensure_package_deps() {
 
 fast_packages=(
   "typescript/examples/execution_authorization/expense_approval"
+  "typescript/examples/gateway_middleware/customer_support_routing"
   "typescript/examples/prompt_construction/writing_assistant"
   "typescript/examples/retrieval_filtering/hr_policy_lookup"
   "typescript/examples/schema_selection/vercel_ai_sdk_generate_object"
@@ -34,7 +35,7 @@ for package_dir in "${fast_packages[@]}"; do
   ensure_package_deps "${package_dir}"
   npm test
   npm run typecheck
-  if [[ "${package_dir}" == "typescript/examples/schema_selection/vercel_ai_sdk_generate_object" || "${package_dir}" == "typescript/examples/execution_authorization/expense_approval" || "${package_dir}" == "typescript/examples/retrieval_filtering/hr_policy_lookup" || "${package_dir}" == "typescript/examples/prompt_construction/writing_assistant" || "${package_dir}" == "typescript/examples/tool_gating/calendar_admin" ]]; then
+  if [[ "${package_dir}" == "typescript/examples/schema_selection/vercel_ai_sdk_generate_object" || "${package_dir}" == "typescript/examples/execution_authorization/expense_approval" || "${package_dir}" == "typescript/examples/gateway_middleware/customer_support_routing" || "${package_dir}" == "typescript/examples/retrieval_filtering/hr_policy_lookup" || "${package_dir}" == "typescript/examples/prompt_construction/writing_assistant" || "${package_dir}" == "typescript/examples/tool_gating/calendar_admin" ]]; then
     npm run build
   fi
   popd >/dev/null
