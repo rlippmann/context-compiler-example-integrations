@@ -18,6 +18,7 @@ packages=(
   "typescript/examples/prompt_construction/writing_assistant"
   "typescript/examples/retrieval_filtering/hr_policy_lookup"
   "typescript/examples/schema_selection/vercel_ai_sdk_generate_object"
+  "typescript/examples/tool_gating/calendar_admin"
   "typescript/starter_apps/node/basic"
   "typescript/starter_apps/node/with_drafter"
 )
@@ -28,7 +29,7 @@ for package_dir in "${packages[@]}"; do
   ensure_package_deps "${package_dir}"
   npm test
   npm run typecheck
-  if [[ "${package_dir}" == "typescript/examples/schema_selection/vercel_ai_sdk_generate_object" || "${package_dir}" == "typescript/examples/execution_authorization/expense_approval" || "${package_dir}" == "typescript/examples/retrieval_filtering/hr_policy_lookup" || "${package_dir}" == "typescript/examples/prompt_construction/writing_assistant" ]]; then
+  if [[ "${package_dir}" == "typescript/examples/schema_selection/vercel_ai_sdk_generate_object" || "${package_dir}" == "typescript/examples/execution_authorization/expense_approval" || "${package_dir}" == "typescript/examples/retrieval_filtering/hr_policy_lookup" || "${package_dir}" == "typescript/examples/prompt_construction/writing_assistant" || "${package_dir}" == "typescript/examples/tool_gating/calendar_admin" ]]; then
     npm run build
   fi
   popd >/dev/null

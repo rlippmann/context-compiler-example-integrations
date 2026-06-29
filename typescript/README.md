@@ -8,6 +8,7 @@ Current generic TypeScript examples include:
 - [typescript/examples/execution_authorization/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/examples/execution_authorization/README.md)
 - [typescript/examples/prompt_construction/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/examples/prompt_construction/README.md)
 - [typescript/examples/retrieval_filtering/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/examples/retrieval_filtering/README.md)
+- [typescript/examples/tool_gating/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/examples/tool_gating/README.md)
 
 Starter apps are available when a small runnable host makes the enforcement
 point easier to see:
