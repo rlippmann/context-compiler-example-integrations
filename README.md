@@ -32,7 +32,7 @@ Each example:
 | Checkpoint continuation | Travel booking | generic Python / TypeScript |
 | Execution authorization | Expense approval | simple tool runner |
 | Retrieval filtering | HR policy lookup | generic Python / TypeScript |
-| Request construction / context assembly | Writing assistant | Open WebUI |
+| Request construction / context assembly | Writing assistant | generic Python / TypeScript, Open WebUI |
 | Tool gating | Calendar / email / admin | MCP |
 
 ## How this repo is organized
