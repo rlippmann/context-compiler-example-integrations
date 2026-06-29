@@ -63,7 +63,6 @@ Domains are teaching aids. Enforcement points are primary.
 - Do not require TypeScript contributors to install or use Python pre-commit tooling for TypeScript validation.
 - CI is the authoritative cross-language validation path.
 
-
 ## Example design requirements
 
 All new examples should:
@@ -81,6 +80,7 @@ All new examples should:
 - Prefer small runnable examples where practical.
 - Prefer mocked or smoke validation over heavy live-runtime end-to-end flows.
 - Make clear which component owns authoritative state and which component owns runtime behavior.
+- When examples involve conflicting directives, preserve Context Compiler clarification semantics. Do not imply last-directive-wins behavior or host-side conflict resolution.
 
 ## Example completion requirements
 
@@ -89,6 +89,7 @@ Before considering an example complete:
 - Run the repository validation path appropriate to the affected language or runtime.
 - Ensure formatting, type checks, and tests or smoke checks pass.
 - Report validation results when completing the task.
+- 
 
 ## Example self-review
 
@@ -97,6 +98,7 @@ Before reporting a task complete:
 - Review the change against the example design requirements.
 - Identify any unmet or partially satisfied requirements.
 - Report them explicitly instead of silently accepting them.
+- If the example depends on policy state, verify that contradiction/clarification behavior is covered where practical.
 
 ## Optional Components
 

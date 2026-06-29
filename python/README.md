@@ -1,10 +1,12 @@
 # Python examples
 
-Status: placeholder.
+Python examples in this repo stay organized by enforcement point first.
 
-This track will hold Python integrations organized by enforcement point rather
-than framework.
+Current generic Python examples include:
 
-Python examples may arrive before TypeScript examples.
+- [python/examples/checkpoint_continuation/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/checkpoint_continuation/README.md)
+- [python/examples/execution_authorization/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/execution_authorization/README.md)
+- [python/examples/retrieval_filtering/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/retrieval_filtering/README.md)
 
-There is no parity requirement with TypeScript examples.
+Reference integrations and optional framework-specific examples remain
+secondary to the enforcement point.
