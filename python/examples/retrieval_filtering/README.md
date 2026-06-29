@@ -35,3 +35,11 @@ This example is Python-only because ChromaDB has a clean local Python client
 path for a small runnable example. The generic TypeScript
 `retrieval_filtering/hr_policy_lookup` example remains the TypeScript baseline
 for this enforcement point.
+
+## Technology-specific examples
+
+The generic examples teach the retrieval-filtering enforcement point first.
+
+Concrete runtime surface currently linked from this repo:
+
+- [python/examples/retrieval_filtering/chromadb_hr_policy_lookup/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/retrieval_filtering/chromadb_hr_policy_lookup/README.md)

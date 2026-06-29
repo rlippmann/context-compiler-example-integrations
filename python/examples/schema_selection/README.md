@@ -20,3 +20,17 @@ handler does not.
 ### `ollama_structured_output`
 
 Shows a host selecting an Ollama `format` schema from compiled policy state.
+
+### `litellm_response_format`
+
+Shows a host selecting a LiteLLM `response_format` from compiled policy state.
+
+## Technology-specific examples
+
+The generic examples teach the enforcement point first.
+
+Concrete runtime surfaces currently linked from this repo:
+
+- [python/examples/schema_selection/ollama_structured_output/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/schema_selection/ollama_structured_output/README.md)
+- `python/examples/schema_selection/litellm_response_format/response_format.py`
+- [typescript/examples/schema_selection/vercel_ai_sdk_generate_object/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/examples/schema_selection/vercel_ai_sdk_generate_object/README.md)

@@ -75,3 +75,14 @@ npm run build
 npm run typecheck
 npm test
 ```
+
+## Related integrations
+
+The generic example teaches checkpoint continuation without requiring a
+framework.
+
+Related runtime surfaces:
+
+- [python/examples/checkpoint_continuation/fastapi/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/checkpoint_continuation/fastapi/README.md)
+- [typescript/starter_apps/node/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/node/README.md)
+- [typescript/starter_apps/nextjs/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/README.md)
