@@ -41,6 +41,7 @@ Issues = "https://github.com/rlippmann/context-compiler-example-integrations/iss
 
 [dependency-groups]
 dev = [
+  "httpx2>=2.5.0",
   "mypy",
   "pre-commit",
   "pytest",
