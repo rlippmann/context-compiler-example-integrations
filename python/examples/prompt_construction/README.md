@@ -10,6 +10,16 @@ Context Compiler state before any model call would occur.
 - [litellm](./litellm/README.md): LiteLLM-oriented prompt-construction flows,
   including an optional directive-drafter variant
 
+## Related integrations
+
+These generic/examples-first docs teach the enforcement point.
+
+Related concrete runtime surfaces:
+
+- [python/examples/prompt_construction/litellm/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/prompt_construction/litellm/README.md): LiteLLM-oriented prompt construction
+- [python/reference_integrations/openwebui_pipe/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/reference_integrations/openwebui_pipe/README.md): Open WebUI pipe integration
+- [typescript/starter_apps/nextjs/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/README.md): TypeScript Next.js starter variants for the same enforcement point
+
 ## Example requirements
 
 - Host owns prompt assembly.

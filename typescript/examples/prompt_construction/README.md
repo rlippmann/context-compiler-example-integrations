@@ -8,6 +8,16 @@ Context Compiler state before any model call would occur.
 - [writing_assistant](./writing_assistant/README.md): generic TypeScript prompt
   construction for a writing assistant with no LLM call
 
+## Related integrations
+
+These generic/examples-first docs teach the enforcement point.
+
+Related concrete runtime surfaces:
+
+- [typescript/starter_apps/nextjs/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/README.md): TypeScript Next.js starter variants
+- [python/examples/prompt_construction/litellm/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/prompt_construction/litellm/README.md): Python LiteLLM-oriented prompt construction
+- [python/reference_integrations/openwebui_pipe/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/reference_integrations/openwebui_pipe/README.md): Python Open WebUI pipe integration
+
 ## Example requirements
 
 - Host owns prompt assembly.

@@ -73,3 +73,14 @@ uv run pytest python/tests/test_checkpoint_continuation_example.py
 
 For a request-boundary example, see
 [python/examples/checkpoint_continuation/fastapi/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/checkpoint_continuation/fastapi/README.md).
+
+## Related integrations
+
+The generic example teaches checkpoint continuation without framework-specific
+requirements.
+
+Related runtime surfaces:
+
+- [python/examples/checkpoint_continuation/fastapi/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/checkpoint_continuation/fastapi/README.md)
+- [typescript/starter_apps/node/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/node/README.md)
+- [typescript/starter_apps/nextjs/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/README.md)

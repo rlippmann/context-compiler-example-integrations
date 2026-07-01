@@ -27,13 +27,13 @@ Each example:
 
 | Enforcement Point | Domain | Technology |
 |---|---|---|
-| Gateway middleware | Customer support routing | generic Python / TypeScript, LiteLLM Proxy |
-| Schema selection | Order / incident intake | Ollama |
-| Checkpoint continuation | Travel booking | generic Python / TypeScript |
-| Execution authorization | Expense approval | simple tool runner |
-| Retrieval filtering | HR policy lookup | generic Python / TypeScript |
-| Request construction / context assembly | Writing assistant | generic Python / TypeScript, Open WebUI |
-| Tool gating | Calendar / email / admin | MCP |
+| [Gateway middleware](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/gateway_middleware/README.md) | Customer support routing | generic Python / TypeScript, LiteLLM Proxy |
+| [Schema selection](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/schema_selection/README.md) | Order / incident intake | generic Python / TypeScript, Ollama, LiteLLM, Vercel AI SDK |
+| [Checkpoint continuation](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/checkpoint_continuation/README.md) | Travel booking | generic Python / TypeScript, FastAPI, Node, Next.js |
+| [Execution authorization](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/execution_authorization/README.md) | Expense approval | generic Python / TypeScript, Node |
+| [Retrieval filtering](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/retrieval_filtering/README.md) | HR policy lookup | generic Python / TypeScript, ChromaDB |
+| [Request construction / context assembly](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/prompt_construction/README.md) | Writing assistant | generic Python / TypeScript, LiteLLM, Open WebUI, Next.js |
+| [Tool gating](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/tool_gating/README.md) | Calendar / email / admin | generic Python / TypeScript, MCP |
 
 ## How this repo is organized
 

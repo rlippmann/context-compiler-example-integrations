@@ -37,3 +37,13 @@ called.
 The tests cover default-path behavior, authorized routing, blocked routing,
 adversarial text, downstream non-invocation when blocked, and contradiction /
 clarification behavior.
+
+## Related integrations
+
+The generic example teaches the gateway-middleware enforcement point in a small
+host-owned flow.
+
+For a concrete proxy runtime surface, see the LiteLLM Proxy reference
+integration:
+
+- [python/reference_integrations/litellm_proxy/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/reference_integrations/litellm_proxy/README.md)
