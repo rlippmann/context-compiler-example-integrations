@@ -28,6 +28,12 @@ For `context_compiler_precall_hook_with_directive_drafter.py`:
 pip install context-compiler litellm context-compiler-directive-drafter
 ```
 
+For the opt-in runtime smoke test, install the proxy runtime extras:
+
+```shell
+uv sync --group proxy_runtime
+```
+
 ## Quickstart (copy/paste)
 
 From the repo root:
@@ -63,6 +69,13 @@ By default, `config.example.yaml` points to the basic replay-only hook.
 To use the directive-drafter variant, switch the callback path in the config.
 The callback path must be importable by LiteLLM in the environment where the
 proxy process starts.
+
+When starting LiteLLM from the repo root, prefer fully qualified callback
+imports in automated configs, for example:
+
+```text
+python.reference_integrations.litellm_proxy.context_compiler_precall_hook.proxy_handler_instance
+```
 
 ## Make a request
 
@@ -129,3 +142,20 @@ Use `llama` only for LLM-only preprocessing with Llama-family models.
 - Callback import failures: verify the callback path configured in `config.example.yaml` is importable in the current LiteLLM environment.
 - proxy starts but upstream calls fail: check `OPENAI_API_KEY` and upstream model/provider config in `config.example.yaml`.
 - directive-drafter fallback issues: `PREPROCESSOR_MODEL` defaults to `MODEL`; set it explicitly only when using a separate fallback model.
+
+## Opt-in Runtime Smoke Test
+
+This repo includes an opt-in Tier 2 runtime smoke test for the existing
+LiteLLM Proxy reference integration. The test starts a real LiteLLM Proxy
+process, loads the existing pre-call hook, sends local requests through the
+proxy, verifies blocked requests do not reach upstream, verifies allowed
+requests reach a local stub upstream with the injected compiler contract, and
+shuts the proxy down cleanly.
+
+It is intentionally not part of `./scripts/validate_python.sh`.
+
+Run it from the repo root:
+
+```shell
+RUN_LITELLM_PROXY_RUNTIME=1 uv run --group proxy_runtime pytest python/tests/test_litellm_proxy_runtime.py
+```

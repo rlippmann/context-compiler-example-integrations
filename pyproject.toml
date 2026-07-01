@@ -46,6 +46,9 @@ dev = [
   "pytest",
   "ruff",
 ]
+proxy_runtime = [
+  "litellm[proxy]",
+]
 
 [tool.hatch.build.targets.wheel]
 only-include = ["python", "README.md", "LICENSE", "AGENTS.md", "CONTRIBUTING.md"]
