@@ -10,6 +10,7 @@ Prompt reinjection influences model behavior.
 Context Compiler influences runtime behavior.
 
 Each example:
+
 - demonstrates a single runtime enforcement point
 - uses explicit authoritative state
 - remains meaningful with an adversarial model stub
@@ -18,7 +19,7 @@ Each example:
 ## Ecosystem map
 
 | Repo | Question |
-|---|---|
+| --- | --- |
 | context-compiler | What is the authority contract? |
 | context-compiler-directive-drafter | How is authority acquired? |
 | context-compiler-example-integrations | Where can authority be enforced? |
@@ -26,7 +27,7 @@ Each example:
 ## Enforcement-point catalog
 
 | Enforcement Point | Domain | Technology |
-|---|---|---|
+| --- | --- | --- |
 | [Gateway middleware](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/gateway_middleware/README.md) | Customer support routing | generic Python / TypeScript, LiteLLM Proxy |
 | [Schema selection](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/schema_selection/README.md) | Order / incident intake | generic Python / TypeScript, Ollama, LiteLLM, Vercel AI SDK |
 | [Checkpoint continuation](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/checkpoint_continuation/README.md) | Travel booking | generic Python / TypeScript, FastAPI, Node, Next.js |
@@ -53,6 +54,7 @@ TypeScript starter apps now split compiler-only and with-drafter variants.
 ## Repository boundaries
 
 This repo is:
+
 - an examples/integrations repo
 - organized around runtime enforcement points
 - not a library/package repo
@@ -69,6 +71,7 @@ This repo is:
 ## Contribution expectations
 
 Primary examples in this repo should:
+
 - use explicit authoritative state
 - avoid deriving Context Compiler state from model output
 - remain meaningful with an adversarial stub

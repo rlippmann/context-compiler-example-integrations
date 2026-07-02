@@ -21,6 +21,7 @@ uv sync --group dev
 ./scripts/validate_python.sh
 ./scripts/validate_typescript_fast.sh
 ./scripts/validate_typescript.sh
+npx --yes markdownlint-cli2
 ```
 
 Python contributors may use `uv run pre-commit run --all-files` for the
@@ -28,6 +29,8 @@ lightweight local hook set.
 
 TypeScript contributors can run `./scripts/validate_typescript_fast.sh` or
 `./scripts/validate_typescript.sh` directly.
+
+For a local Markdown-only check, run `npx --yes markdownlint-cli2`.
 
 CI is the authoritative cross-language validation path.
 
@@ -40,6 +43,7 @@ Examples here should emphasize runtime behavior changes caused by explicit
 authoritative state.
 
 Examples here should not:
+
 - act as acquisition-layer examples
 - require directive-drafter for the primary example path
 - depend on suggest-state behavior

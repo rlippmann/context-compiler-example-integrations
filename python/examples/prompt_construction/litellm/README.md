@@ -174,11 +174,13 @@ instead of reinjecting a compiled contract, use
 ## Decision flow
 
 In both prompt-construction examples:
+
 - `passthrough`: call the model with normal input.
 - `clarify`: show `prompt_to_user`; do not treat state as changed.
 - `update`: state changed; use updated state for the next model call.
 
 Decision flow in the schema-selection example:
+
 - `passthrough`: let the host decide whether to send `response_format`.
 - `clarify`: show `prompt_to_user`; do not call LiteLLM.
 - `update`: state changed; the next host request may use a different `response_format`.
