@@ -89,7 +89,6 @@ Before considering an example complete:
 - Run the repository validation path appropriate to the affected language or runtime.
 - Ensure formatting, type checks, and tests or smoke checks pass.
 - Report validation results when completing the task.
-- 
 
 ## Example self-review
 

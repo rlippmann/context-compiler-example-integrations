@@ -9,6 +9,20 @@ on:
       - main
 
 jobs:
+  markdownlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Run Markdown lint
+        run: npx --yes markdownlint-cli2
+
   python-validation:
     runs-on: ubuntu-latest
     strategy:

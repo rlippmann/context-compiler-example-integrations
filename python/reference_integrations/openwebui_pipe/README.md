@@ -48,6 +48,7 @@ Checkpoint continuation in these examples requires `context-compiler>=0.7.4`.
 - Model ids are configured in: `Admin Panel → Settings → Models`
 
 If using `open_webui_pipe_with_directive_drafter.py`:
+
 - Install directive-drafter support if needed:
   `pip install "context-compiler>=0.7.4" context-compiler-directive-drafter`
 - Set `PREPROCESSOR_PROMPT_PROFILE=default` for heuristic-first behavior
@@ -61,10 +62,13 @@ If frontmatter dependency installs are disabled, offline, or unavailable:
 
 1. Open a shell in the Open WebUI container:
    - `docker exec -it <openwebui-container> sh`
-2. Install the package manually:
-  - Minimal pipe: `pip install "context-compiler>=0.7.4"`
-  - Directive-drafter pipe: `pip install "context-compiler>=0.7.4" context-compiler-directive-drafter`
-3. Import and enable the function in Open WebUI, then configure valves.
+
+1. Install the package manually:
+
+- Minimal pipe: `pip install "context-compiler>=0.7.4"`
+- Directive-drafter pipe: `pip install "context-compiler>=0.7.4" context-compiler-directive-drafter`
+
+1. Import and enable the function in Open WebUI, then configure valves.
 
 ### Finding valid model ids
 
@@ -94,12 +98,14 @@ use that as an optional advanced check to confirm the exact forwarded
 Use this pipe when you want the simplest Open WebUI integration path.
 
 Suggested verification:
+
 - Send `use docker` and confirm you get `State updated: Use docker.` with trace showing a local turn
 - Send a normal prompt such as `what should I run?` and confirm trace shows a forwarded turn with compiler state included
 - Send `use kubectl instead of docker` and confirm Open WebUI asks for clarification instead of changing state
 - Optionally send `show state` and confirm the state summary is returned locally
 
 Advanced check:
+
 - If you have a local proxy or stub, inspect the forwarded request and confirm it contains exactly one `[[cc_state]]` system message with `Use: docker`
 
 ### Directive-drafter pipe
@@ -107,6 +113,7 @@ Advanced check:
 Use this pipe when you want the same runtime behavior plus directive-drafter preprocessing.
 
 Suggested verification:
+
 - Send `use docker` and confirm you get `State updated: Use docker.` with trace showing a local turn
 - Send `set premise to concise replies` and confirm Open WebUI clarifies locally with `Use 'set premise <value>'.`
 - Send `please use docker` and confirm either:
@@ -116,11 +123,13 @@ Suggested verification:
 - Send a normal prompt such as `what should I run?` and confirm trace shows a forwarded turn with compiler state included
 
 Advanced check:
+
 - If you have a local proxy or stub, inspect the forwarded request and confirm it contains exactly one `[[cc_state]]` system message reflecting the active state
 
 ### Optional extra checks
 
 If you want a slightly broader manual pass:
+
 - verify chat isolation with separate real chat ids
 - verify state is lost after restart because these examples do not use external persistence
 - verify non-text input is bypassed
@@ -141,7 +150,7 @@ If you want a slightly broader manual pass:
 
 ## Behavioral comparisons
 
-**Case 1**
+### Case 1
 
 - prompt(s): `clear state` → `change premise to formal tone`
 - base model: “To adjust the tone… provide the original content…”
@@ -149,7 +158,7 @@ If you want a slightly broader manual pass:
 - directive-drafter pipe: `No premise exists yet. Use 'set premise ...' first.`
 - why this matters: lifecycle rule is enforced in a fixed, repeatable way; base model drifts into generic rewriting help.
 
-**Case 2**
+### Case 2
 
 - prompt(s): `clear state` → `use docker` → `prohibit docker`
 - base model: generic Docker/prohibition guidance text
@@ -157,7 +166,7 @@ If you want a slightly broader manual pass:
 - directive-drafter pipe: same conflict clarify
 - why this matters: the app asks before applying a conflicting change.
 
-**Case 3**
+### Case 3
 
 - prompt(s): `clear state` → `use podman instead of docker`
 - base model: generic “how to switch to Podman” tutorial
@@ -165,7 +174,7 @@ If you want a slightly broader manual pass:
 - directive-drafter pipe: same replacement clarify
 - why this matters: the app only replaces a policy when the old item already exists.
 
-**Case 4**
+### Case 4
 
 - prompt(s): `clear state` → `set premise to concise replies`
 - base model: accepts conversational style phrasing
@@ -173,7 +182,7 @@ If you want a slightly broader manual pass:
 - directive-drafter pipe: same clarify (near-miss is not rewritten)
 - why this matters: near-miss text is not silently rewritten.
 
-**Case 5**
+### Case 5
 
 - prompt(s): `clear state` → `change premise concise replies`
 - base model: generic “please clarify changes” response
@@ -191,7 +200,7 @@ If you want a slightly broader manual pass:
 - `ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true`: directive-only updates still run locally, but passthrough returns a deterministic debug message instead of calling a downstream model.
 - imports fail after function upload: install `context-compiler` and `context-compiler-directive-drafter` in the Open WebUI runtime, because the copied function runs from a temp/cached location.
 
-## Notes
+## Fallback notes
 
 - Fallback drafting uses `PREPROCESSOR_MODEL_ID` first, while the main passthrough path still forwards with `BASE_MODEL_ID`.
 - If the fallback model returns `model not found`, the pipe normalizes that into the deterministic `PREPROCESSOR_MODEL_ID` misconfiguration message above.
