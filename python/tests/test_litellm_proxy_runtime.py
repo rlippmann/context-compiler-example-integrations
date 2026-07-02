@@ -16,9 +16,13 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RUN_RUNTIME_ENV_VAR = "RUN_LITELLM_PROXY_RUNTIME"
-CALLBACK_PATH = (
+CALLBACK_PATH_BASIC = (
     "python.reference_integrations.litellm_proxy."
     "context_compiler_precall_hook.proxy_handler_instance"
+)
+CALLBACK_PATH_WITH_DIRECTIVE_DRAFTER = (
+    "python.reference_integrations.litellm_proxy."
+    "context_compiler_precall_hook_with_directive_drafter.proxy_handler_instance"
 )
 PROXY_MODEL_NAME = "proxy-test-model"
 UPSTREAM_MODEL_NAME = "openai/test-upstream"
@@ -78,9 +82,15 @@ class _ThreadedStubServer(socketserver.ThreadingMixIn, _OpenAICompatibleStubServ
 
 
 class _ProxyRuntime:
-    def __init__(self, process: subprocess.Popen[str], port: int) -> None:
+    def __init__(
+        self,
+        process: subprocess.Popen[str],
+        port: int,
+        callback_path: str,
+    ) -> None:
         self.process = process
         self.port = port
+        self.callback_path = callback_path
 
     def stop(self) -> None:
         if self.process.poll() is not None:
@@ -110,8 +120,31 @@ def litellm_runtime_stub() -> _ThreadedStubServer:
 
 
 @pytest.fixture
-def litellm_proxy_runtime(
+def litellm_proxy_runtime_basic(
     tmp_path: Path, litellm_runtime_stub: _ThreadedStubServer
+) -> _ProxyRuntime:
+    yield from _start_proxy_runtime(
+        tmp_path=tmp_path,
+        litellm_runtime_stub=litellm_runtime_stub,
+        callback_path=CALLBACK_PATH_BASIC,
+    )
+
+
+@pytest.fixture
+def litellm_proxy_runtime_with_directive_drafter(
+    tmp_path: Path, litellm_runtime_stub: _ThreadedStubServer
+) -> _ProxyRuntime:
+    yield from _start_proxy_runtime(
+        tmp_path=tmp_path,
+        litellm_runtime_stub=litellm_runtime_stub,
+        callback_path=CALLBACK_PATH_WITH_DIRECTIVE_DRAFTER,
+    )
+
+
+def _start_proxy_runtime(
+    tmp_path: Path,
+    litellm_runtime_stub: _ThreadedStubServer,
+    callback_path: str,
 ) -> _ProxyRuntime:
     del tmp_path
     litellm_executable = shutil.which("litellm")
@@ -135,7 +168,7 @@ def litellm_proxy_runtime(
                         },
                     }
                 ],
-                "litellm_settings": {"callbacks": [CALLBACK_PATH]},
+                "litellm_settings": {"callbacks": [callback_path]},
             },
             sort_keys=False,
         ),
@@ -163,7 +196,7 @@ def litellm_proxy_runtime(
         stderr=subprocess.STDOUT,
         text=True,
     )
-    runtime = _ProxyRuntime(process, port=proxy_port)
+    runtime = _ProxyRuntime(process, port=proxy_port, callback_path=callback_path)
     try:
         _wait_for_proxy_startup(proxy_port, process)
         litellm_runtime_stub.captured_requests.clear()
@@ -174,10 +207,11 @@ def litellm_proxy_runtime(
 
 
 def test_litellm_proxy_runtime_blocks_confirmation_before_upstream(
-    litellm_proxy_runtime: _ProxyRuntime, litellm_runtime_stub: _ThreadedStubServer
+    litellm_proxy_runtime_basic: _ProxyRuntime,
+    litellm_runtime_stub: _ThreadedStubServer,
 ) -> None:
     response = _post_chat_completion(
-        port=litellm_proxy_runtime.port,
+        port=litellm_proxy_runtime_basic.port,
         messages=[{"role": "user", "content": "use kubectl instead of docker"}],
     )
 
@@ -187,7 +221,8 @@ def test_litellm_proxy_runtime_blocks_confirmation_before_upstream(
 
 
 def test_litellm_proxy_runtime_forwards_allowed_request_with_contract(
-    litellm_proxy_runtime: _ProxyRuntime, litellm_runtime_stub: _ThreadedStubServer
+    litellm_proxy_runtime_basic: _ProxyRuntime,
+    litellm_runtime_stub: _ThreadedStubServer,
 ) -> None:
     original_messages = [
         {"role": "user", "content": "prohibit peanuts"},
@@ -195,7 +230,7 @@ def test_litellm_proxy_runtime_forwards_allowed_request_with_contract(
     ]
 
     response = _post_chat_completion(
-        port=litellm_proxy_runtime.port, messages=original_messages
+        port=litellm_proxy_runtime_basic.port, messages=original_messages
     )
 
     assert response.status_code == 200
@@ -216,6 +251,57 @@ def test_litellm_proxy_runtime_forwards_allowed_request_with_contract(
     ]
     assert len(contract_messages) == 1
     assert "peanuts" in str(contract_messages[0]["content"])
+    assert forwarded_messages[1:] == original_messages
+
+
+def test_litellm_proxy_runtime_with_directive_drafter_blocks_confirmation_before_upstream(
+    litellm_proxy_runtime_with_directive_drafter: _ProxyRuntime,
+    litellm_runtime_stub: _ThreadedStubServer,
+) -> None:
+    response = _post_chat_completion(
+        port=litellm_proxy_runtime_with_directive_drafter.port,
+        messages=[{"role": "user", "content": "use kubectl instead of docker"}],
+    )
+
+    assert response.status_code == 400
+    assert "Did you mean to use" in response.text
+    assert litellm_runtime_stub.captured_requests == []
+
+
+def test_litellm_proxy_runtime_with_directive_drafter_forwards_allowed_request_with_contract(
+    litellm_proxy_runtime_with_directive_drafter: _ProxyRuntime,
+    litellm_runtime_stub: _ThreadedStubServer,
+) -> None:
+    original_messages = [
+        {"role": "user", "content": "prohibit peanuts"},
+        {"role": "user", "content": "please use docker"},
+    ]
+
+    response = _post_chat_completion(
+        port=litellm_proxy_runtime_with_directive_drafter.port,
+        messages=original_messages,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["choices"][0]["message"]["content"] == "stubbed reply"
+    assert len(litellm_runtime_stub.captured_requests) == 1
+
+    forwarded_payload = litellm_runtime_stub.captured_requests[0]
+    forwarded_messages = forwarded_payload["messages"]
+    assert isinstance(forwarded_messages, list)
+    assert len(forwarded_messages) == len(original_messages) + 1
+
+    contract_messages = [
+        message
+        for message in forwarded_messages
+        if isinstance(message, dict)
+        and message.get("role") == "system"
+        and "Host policy contract:" in str(message.get("content"))
+    ]
+    assert len(contract_messages) == 1
+    assert "peanuts" in str(contract_messages[0]["content"])
+    # Drafting changes compiler replay input only; the forwarded request payload
+    # must preserve the user's original prompt text after the injected contract.
     assert forwarded_messages[1:] == original_messages
 
 
