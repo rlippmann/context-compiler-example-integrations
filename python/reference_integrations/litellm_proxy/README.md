@@ -55,10 +55,10 @@ Typical startup command (environment-sensitive):
 litellm --config python/reference_integrations/litellm_proxy/config.example.yaml
 ```
 
-Hook behavior and proxy startup were re-validated end-to-end with
-`litellm==1.88.2`.
+The reference integration is covered by unit tests and an opt-in runtime
+smoke test. See "Opt-in Runtime Smoke Test" below for details.
 
-Validated behaviors:
+Validated basic-hook behaviors:
 
 - passthrough: upstream model called normally
 - update: compiler state injected before upstream model call
@@ -105,7 +105,7 @@ curl http://localhost:4000/v1/chat/completions \
   }'
 ```
 
-## What the user sees
+## Runtime behavior
 
 - User messages are replayed through Context Compiler before the model call.
 - LiteLLM Proxy is the gateway surface; Context Compiler remains the authority layer for saved state.
@@ -119,6 +119,12 @@ Optional directive-drafter behavior:
 - Only the latest user transcript message is drafted for compiler replay input.
 - Heuristic runs first; if no directive is found, LLM fallback is attempted.
 - Forwarded upstream request messages are not rewritten (except injected compiler system message).
+
+Runtime verification boundary:
+
+- Basic hook: opt-in runtime smoke test covers proxy startup, blocked request behavior, and forwarded contract injection at the LiteLLM Proxy runtime boundary.
+- Directive-drafter hook: opt-in runtime smoke test covers the same proxy boundary behaviors, plus verifies drafting only changes compiler replay input and does not rewrite the forwarded upstream request payload.
+- Directive-drafter fallback model behavior remains environment-sensitive and is primarily covered by unit-style tests rather than this local stub runtime smoke path.
 
 Optional env vars for directive-drafter fallback:
 
@@ -145,12 +151,13 @@ Use `llama` only for LLM-only preprocessing with Llama-family models.
 
 ## Opt-in Runtime Smoke Test
 
-This repo includes an opt-in Tier 2 runtime smoke test for the existing
-LiteLLM Proxy reference integration. The test starts a real LiteLLM Proxy
-process, loads the existing pre-call hook, sends local requests through the
-proxy, verifies blocked requests do not reach upstream, verifies allowed
-requests reach a local stub upstream with the injected compiler contract, and
-shuts the proxy down cleanly.
+This repo includes an opt-in Tier 2 runtime smoke test for the LiteLLM Proxy
+reference integration. The test starts a real LiteLLM Proxy process, runs the
+basic hook and the directive-drafter hook in separate proxy launches, sends
+local requests through the proxy, verifies blocked requests do not reach
+upstream, verifies allowed requests reach a local stub upstream with the
+injected compiler contract, verifies the directive-drafter path preserves the
+original forwarded user prompt text, and shuts each proxy down cleanly.
 
 It is intentionally not part of `./scripts/validate_python.sh`.
 
