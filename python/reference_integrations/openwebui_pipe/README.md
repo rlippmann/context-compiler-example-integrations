@@ -14,25 +14,24 @@ These examples support both sync (`0.8.x`) and async (`0.9.x`) user lookup.
 - `open_webui_pipe.py`: basic integration, no directive-drafter layer (recommended/default).
 - `open_webui_pipe_with_directive_drafter.py`: optional/experimental directive-drafter layer (rule-based check first, then optional model fallback) before `engine.step(...)`.
 
-## What the user sees
+## Core behavior
 
-- `clarify` is handled locally and does not call the downstream model.
-- `update` stores the new compiler state and returns a local acknowledgment for
-  directive-only input.
-- `passthrough` forwards the chat request normally.
-- When compiler state is non-empty, passthrough adds exactly one `[[cc_state]]`
-  system message to the forwarded request.
+- Directive-only turns are handled locally and return a fixed response.
+- Normal chat turns are forwarded to the backend model.
+- When compiler state is non-empty, passthrough includes exactly one compiler-owned
+  `[[cc_state]]` system message in the forwarded request.
+- Conflicting or ambiguous updates ask for clarification before state changes.
 - Exact `show state` is handled locally. Near matches such as `show state please`
   are treated as normal chat input.
 
 ## Setup
 
-The minimal pipe path below is the easiest first-run flow and was runtime-validated in Docker via API flow with a real backend model.
+Quick start for the base pipe:
 
-1. Import `open_webui_pipe.py` (recommended/default) as a Function by URL.
-2. Open WebUI installs `context-compiler>=0.7.4` from the function frontmatter requirements.
-3. Enable the function.
-4. Set `BASE_MODEL_ID` to a valid Open WebUI model id (required).
+1. Import `open_webui_pipe.py` as a Function by URL.
+2. Enable the function.
+3. Set `BASE_MODEL_ID` to a valid Open WebUI model id.
+4. Turn on `SHOW_CONTEXT_COMPILER_TRACE=true` if you want easy in-chat verification.
 5. Select the pipe model in chat.
 
 Open WebUI is a separate runtime and must already be installed/configured separately.
@@ -41,30 +40,20 @@ Note: The `PROVIDER` environment contract used in LiteLLM examples/demos does no
 
 Checkpoint continuation in these examples requires `context-compiler>=0.7.4`.
 
-### Model configuration
+### Configuration
 
 - Open: `http://localhost:3000/admin/functions`
-- Verify `BASE_MODEL_ID` matches an existing Open WebUI model id exactly.
-- Example:
-  - `BASE_MODEL_ID = llama3.1:8b`
+- Verify `BASE_MODEL_ID` matches an existing Open WebUI model id exactly
+- Example: `BASE_MODEL_ID = llama3.1:8b`
 - Model ids are configured in: `Admin Panel → Settings → Models`
 
 If using `open_webui_pipe_with_directive_drafter.py`:
-- Install directive-drafter support in the Open WebUI environment:
-  - `pip install "context-compiler>=0.7.4" context-compiler-directive-drafter`
-- Open WebUI executes copied functions from a temp/cached location, so
-  directive-drafter imports/resources must come from the installed package (not
-  repo-relative paths).
-- Set `PREPROCESSOR_PROMPT_PROFILE` to `default` for heuristic-first usage.
-- Use `llama` only for LLM-only preprocessing with Llama-family models.
-- Prompt files are loaded from the installed package prompts (`default`/`llama` profiles).
-- Optional: set `PREPROCESSOR_MODEL_ID` to route fallback precompilation through
-  a separate model. If unset, fallback uses `BASE_MODEL_ID`.
-- Fallback routing is Open WebUI-native (no LiteLLM dependency for this pipe).
-- The heuristic directive drafter is intentionally conservative and high-precision, and
-  may abstain on mixed-prose natural language (for example, `i think we should
-  use docker`). In those cases, behavior may remain passthrough unless fallback
-  precompilation returns a validated canonical directive.
+- Install directive-drafter support if needed:
+  `pip install "context-compiler>=0.7.4" context-compiler-directive-drafter`
+- Set `PREPROCESSOR_PROMPT_PROFILE=default` for heuristic-first behavior
+- Optionally set `PREPROCESSOR_MODEL_ID` to use a separate fallback model
+- If `PREPROCESSOR_MODEL_ID` is unset, fallback uses `BASE_MODEL_ID`
+- Use `llama` only for LLM-only preprocessing with Llama-family models
 
 ### Docker/manual install fallback
 
@@ -82,42 +71,73 @@ If frontmatter dependency installs are disabled, offline, or unavailable:
 Use the Open WebUI model picker/list to copy exact model ids for `BASE_MODEL_ID`
 (and optional `PREPROCESSOR_MODEL_ID` for the directive-drafter pipe).
 
-## Limitations
+## Verify behavior
 
-- No durable external persistence (checkpoint continuation is in-process only).
-- No multi-worker or cross-process guarantees.
-- No Redis/DB/external storage.
-- No Filters or Pipelines.
-- No production hardening.
-- Tied to Open WebUI internal helper/import paths by version.
+### Before you start
 
-## Manual validation
+Use a real Open WebUI runtime that you control locally.
 
-Validate these behaviors:
-- `clarify` short-circuits the LLM call.
-- `passthrough` forwards input without state injection.
-- `update` forwards with compiler state (`[[cc_state]]`) added to the request.
-- chat isolation works with real chat ids.
-- state is lost after restart (no external persistence).
-- non-text input is bypassed.
+Use a backend model/provider that you can observe during verification.
+A local backend or request-capturing proxy is recommended because it makes
+it easier to confirm when model calls occur.
 
-In the OpenWebUI example pipes, recognized directive-only `update`
-decisions return fixed local acknowledgments and do not call the
-downstream LLM.
-Both pipes support an exact local inspection command: `show state`.
-When the latest user message is exactly `show state` (case-insensitive after trim),
-the pipe returns current compiler state locally and does not call the downstream model.
-Near matches such as `show state please` are not treated as the local command and
-continue through the normal compiler/model flow.
-When trace is enabled, responses include concise evidence of decision kind,
-active state, downstream LLM call/no-call, and whether state was injected.
+For the easiest verification, enable `SHOW_CONTEXT_COMPILER_TRACE=true` in the
+function valves before testing. The trace is appended to normal responses and
+gives a quick view of what happened on each turn.
 
-Decision flow in both pipes:
-- `passthrough`: call the downstream model with normal input.
-- `clarify`: show `prompt_to_user`; do not change saved state.
-- `update`: state changed; render local acknowledgment for directive-only input, or call downstream model with updated state injected.
+If you also have a local proxy or stub that records backend requests, you can
+use that as an optional advanced check to confirm the exact forwarded
+`[[cc_state]]` system message.
 
-For the directive-drafter pipe, if `engine.has_pending_clarification()` is true, bypass directive drafting and pass raw input directly to `engine.step(...)`.
+### Base pipe
+
+Use this pipe when you want the simplest Open WebUI integration path.
+
+Suggested verification:
+- Send `use docker` and confirm you get `State updated: Use docker.` with trace showing a local turn
+- Send a normal prompt such as `what should I run?` and confirm trace shows a forwarded turn with compiler state included
+- Send `use kubectl instead of docker` and confirm Open WebUI asks for clarification instead of changing state
+- Optionally send `show state` and confirm the state summary is returned locally
+
+Advanced check:
+- If you have a local proxy or stub, inspect the forwarded request and confirm it contains exactly one `[[cc_state]]` system message with `Use: docker`
+
+### Directive-drafter pipe
+
+Use this pipe when you want the same runtime behavior plus directive-drafter preprocessing.
+
+Suggested verification:
+- Send `use docker` and confirm you get `State updated: Use docker.` with trace showing a local turn
+- Send `set premise to concise replies` and confirm Open WebUI clarifies locally with `Use 'set premise <value>'.`
+- Send `please use docker` and confirm either:
+  - the directive drafter converts it into a local state update, or
+  - trace shows the turn followed the normal compiler path without a silent state change
+- Send `use kubectl instead of docker`, then reply `yes`, and confirm the saved clarification flow resumes locally
+- Send a normal prompt such as `what should I run?` and confirm trace shows a forwarded turn with compiler state included
+
+Advanced check:
+- If you have a local proxy or stub, inspect the forwarded request and confirm it contains exactly one `[[cc_state]]` system message reflecting the active state
+
+### Optional extra checks
+
+If you want a slightly broader manual pass:
+- verify chat isolation with separate real chat ids
+- verify state is lost after restart because these examples do not use external persistence
+- verify non-text input is bypassed
+
+### Notes
+
+- Trace is the easiest way to verify behavior from the Open WebUI chat output.
+- Forwarded-request inspection is optional and most useful when you already have a local proxy or stub.
+- Exact `show state` is a local-state check and does not rely on trace output.
+
+## Limits
+
+- No durable external persistence
+- No multi-worker or cross-process guarantees
+- No Redis, DB, or external storage for checkpoints
+- No Filters or Pipelines
+- No production hardening
 
 ## Behavioral comparisons
 
