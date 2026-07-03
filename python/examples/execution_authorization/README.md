@@ -26,6 +26,10 @@ The tests cover authorized execution, absent-state blocking, prohibited-state
 blocking, adversarial request text, and the runtime behavior change between
 blocked and authorized state.
 
+A FastAPI variant also shows the Tier 3 comparison boundary: a live model can
+say an expense is approved, but the compiler-mediated host still denies the
+protected mutation unless authoritative state authorizes it.
+
 ## Related integrations
 
 The generic examples teach the execution-authorization enforcement point in a
