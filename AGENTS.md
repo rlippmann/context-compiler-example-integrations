@@ -59,6 +59,14 @@ Domains are teaching aids. Enforcement points are primary.
 - Canonical Python validation: `./scripts/validate_python.sh`
 - Fast TypeScript validation: `./scripts/validate_typescript_fast.sh`
 - Canonical TypeScript validation: `./scripts/validate_typescript.sh`
+- Markdown validation: `npx --yes markdownlint-cli2`
+- Before reporting a task complete or opening a PR, run validation relevant to the changed files.
+- If Python files changed, run `./scripts/validate_python.sh`.
+- If TypeScript files changed, run at least `./scripts/validate_typescript_fast.sh`. Use `./scripts/validate_typescript.sh` for canonical or full TypeScript validation when appropriate.
+- If Markdown files changed, run `npx --yes markdownlint-cli2`.
+- If multiple areas changed, run all relevant checks.
+- Report the exact validation commands and results.
+- If a required or relevant validation command cannot be run, report why instead of saying the task is complete.
 - Python contributors may use local hooks: `uv run pre-commit run --all-files`
 - Do not require TypeScript contributors to install or use Python pre-commit tooling for TypeScript validation.
 - CI is the authoritative cross-language validation path.
@@ -86,9 +94,10 @@ All new examples should:
 
 Before considering an example complete:
 
-- Run the repository validation path appropriate to the affected language or runtime.
+- Run the validation relevant to the changed files and affected runtime.
 - Ensure formatting, type checks, and tests or smoke checks pass.
-- Report validation results when completing the task.
+- Report the exact validation commands and results when completing the task.
+- If a required or relevant validation command cannot be run, report why instead of treating the task as complete.
 
 ## Example self-review
 
