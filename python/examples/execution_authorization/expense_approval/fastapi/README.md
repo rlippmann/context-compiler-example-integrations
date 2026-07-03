@@ -1,4 +1,4 @@
-# Model approval is not authorization.
+# Model approval is not authorization
 
 This FastAPI variant provides provider-free runtime-boundary validation by
 default, plus an opt-in live-model validation path.

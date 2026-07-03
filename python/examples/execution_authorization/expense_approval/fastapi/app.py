@@ -181,7 +181,9 @@ def create_app(
     model_approval_getter: Callable[[str], ModelApproval] = get_model_approval_claim,
 ) -> FastAPI:
     if artifact_path is None:
-        artifact_path = Path("/tmp/context_compiler_expense_approval/submitted_expenses.jsonl")
+        artifact_path = Path(
+            "/tmp/context_compiler_expense_approval/submitted_expenses.jsonl"
+        )
 
     side_effect_store = ExpenseSideEffectStore(artifact_path=artifact_path)
     app = FastAPI(title="expense-approval-fastapi-comparison")
