@@ -3,6 +3,8 @@
 This example demonstrates execution authorization for expense approval in plain
 Python.
 
+Model approval is not authorization.
+
 ## Enforcement point
 
 The enforcement point is host-side action execution. The host owns
@@ -43,6 +45,21 @@ This example does not call an LLM, does not use directive drafter, and does not
 derive state from model output. The runtime behavior changes only when explicit
 authoritative Context Compiler state changes. The host does not resolve
 conflicts itself and does not treat "last directive wins" as policy.
+
+## Tier 3 FastAPI variant
+
+Tier 2 already proves deterministic enforcement against local and adversarial
+stubs.
+
+The FastAPI variant adds a Tier 3 comparison where a live model produces an
+approval-class claim:
+
+- baseline path: a naive host trusts the model claim and writes the side effect
+- compiler-mediated path: the host sees the same claim but denies execution
+  unless authoritative state authorizes `expense_approval`
+
+See
+[python/examples/execution_authorization/expense_approval/fastapi/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/execution_authorization/expense_approval/fastapi/README.md).
 
 ## Validation
 
