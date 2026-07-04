@@ -16,5 +16,16 @@
     "MD046": {
       "style": "fenced"
     }
-  }
+  },
+  "overrides": [
+    {
+      "filter": [
+        ".github/pull_request_template.md"
+      ],
+      "config": {
+        "MD041": false
+      },
+      "combine": "merge"
+    }
+  ]
 }
