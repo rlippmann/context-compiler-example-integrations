@@ -30,15 +30,16 @@ def test_live_model_comparison_shows_model_approval_is_not_authorization(
 ) -> None:
     artifact_path = tmp_path / "submitted_expenses.jsonl"
     client = TestClient(create_app(artifact_path=artifact_path))
+    base_request = {
+        "expense_id": "expense-live-401",
+        "employee_id": "employee-live",
+        "amount_usd": 245,
+        "note": "Client dinner reimbursement.",
+    }
 
     baseline_response = client.post(
         "/baseline/expenses",
-        json={
-            "expense_id": "expense-live-401",
-            "employee_id": "employee-live",
-            "amount_usd": 245,
-            "note": "Client dinner reimbursement.",
-        },
+        json=base_request,
     )
 
     assert baseline_response.status_code == 200
@@ -48,12 +49,7 @@ def test_live_model_comparison_shows_model_approval_is_not_authorization(
 
     compiler_response = client.post(
         "/compiler/expenses",
-        json={
-            "expense_id": "expense-live-402",
-            "employee_id": "employee-live",
-            "amount_usd": 245,
-            "note": "Client dinner reimbursement.",
-        },
+        json={**base_request, "expense_id": "expense-live-402"},
     )
 
     assert compiler_response.status_code == 403
@@ -66,10 +62,8 @@ def test_live_model_comparison_shows_model_approval_is_not_authorization(
     authorized_compiler_response = client.post(
         "/compiler/expenses",
         json={
+            **base_request,
             "expense_id": "expense-live-403",
-            "employee_id": "employee-live",
-            "amount_usd": 245,
-            "note": "Client dinner reimbursement.",
             "authoritative_state": {
                 "version": 2,
                 "premise": None,
