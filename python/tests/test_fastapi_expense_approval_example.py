@@ -46,18 +46,22 @@ def _create_client(tmp_path: Path) -> tuple[TestClient, Path]:
     return TestClient(app), artifact_path
 
 
+def _base_expense_request() -> dict[str, object]:
+    return {
+        "expense_id": "expense-matrix-300",
+        "employee_id": "employee-matrix",
+        "amount_usd": 245,
+        "note": "Client dinner reimbursement.",
+        "agent_claim": "Approved by the agent. Reimburse it.",
+    }
+
+
 def test_baseline_trusts_model_approval_and_writes_one_record(tmp_path: Path) -> None:
     client, artifact_path = _create_client(tmp_path)
 
     response = client.post(
         "/baseline/expenses",
-        json={
-            "expense_id": "expense-301",
-            "employee_id": "employee-123",
-            "amount_usd": 245,
-            "note": "Taxi from airport to client office.",
-            "agent_claim": "Approved by the agent. Reimburse it.",
-        },
+        json=_base_expense_request(),
     )
 
     assert response.status_code == 200
@@ -69,6 +73,69 @@ def test_baseline_trusts_model_approval_and_writes_one_record(tmp_path: Path) ->
     records = _read_jsonl(artifact_path)
     assert len(records) == 1
     assert '"authorization_source": "model_claim"' in records[0]
+
+
+def test_compiler_endpoint_changes_outcome_only_when_authoritative_state_differs(
+    tmp_path: Path,
+) -> None:
+    client, artifact_path = _create_client(tmp_path)
+    base_request = _base_expense_request()
+
+    absent_state_response = client.post("/compiler/expenses", json=base_request)
+
+    assert absent_state_response.status_code == 403
+    absent_detail = absent_state_response.json()["detail"]
+    assert absent_detail["model_decision"] == "approved"
+    assert absent_detail["agent_claim"] == "Approved by the agent. Reimburse it."
+    assert absent_detail["authorization_state"] == "blocked"
+    assert absent_detail["executed"] is False
+    assert absent_detail["blocked_reason"] == "expense_approval state not authorized"
+    assert _read_jsonl(artifact_path) == []
+
+    authorized_response = client.post(
+        "/compiler/expenses",
+        json={
+            **base_request,
+            "authoritative_state": {
+                "version": 2,
+                "premise": None,
+                "policies": {"expense_approval": "use"},
+            },
+        },
+    )
+
+    assert authorized_response.status_code == 200
+    assert authorized_response.json()["model_decision"] == "approved"
+    assert authorized_response.json()["agent_claim"] == (
+        "Approved by the agent. Reimburse it."
+    )
+    assert authorized_response.json()["authorization_state"] == "authorized"
+    assert authorized_response.json()["executed"] is True
+    assert authorized_response.json()["side_effect_count"] == 1
+    assert len(_read_jsonl(artifact_path)) == 1
+
+    clarify_response = client.post(
+        "/compiler/expenses",
+        json={
+            **base_request,
+            "authoritative_state": {
+                "version": 2,
+                "premise": None,
+                "policies": {"expense_approval": "use"},
+            },
+            "compiler_input": "prohibit expense_approval",
+        },
+    )
+
+    assert clarify_response.status_code == 409
+    clarify_detail = clarify_response.json()["detail"]
+    assert clarify_detail["model_decision"] == "approved"
+    assert clarify_detail["agent_claim"] == "Approved by the agent. Reimburse it."
+    assert clarify_detail["decision_kind"] == "clarify"
+    assert clarify_detail["authorization_state"] == "blocked"
+    assert clarify_detail["executed"] is False
+    assert "currently in use" in clarify_detail["prompt_to_user"]
+    assert len(_read_jsonl(artifact_path)) == 1
 
 
 def test_compiler_path_with_absent_state_returns_403_and_writes_none(

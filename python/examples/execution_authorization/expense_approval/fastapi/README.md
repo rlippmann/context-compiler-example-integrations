@@ -41,6 +41,18 @@ If a request introduces a contradiction such as `prohibit expense_approval`
 against an already authorized state, Context Compiler returns a clarify flow.
 The host returns a conflict response and writes no record.
 
+## Same request, different state
+
+The compiler-mediated proof uses the same endpoint, the same approval-class
+model claim, and the same expense action. Only authoritative Context Compiler
+state changes.
+
+| Endpoint | Model claim | Authoritative state | Compiler input | Outcome |
+| --- | --- | --- | --- | --- |
+| `/compiler/expenses` | approved | absent | none | `403`, no side effect |
+| `/compiler/expenses` | approved | `use expense_approval` | none | `200`, one side effect |
+| `/compiler/expenses` | approved | `use expense_approval` | `prohibit expense_approval` | `409`, clarify, no new side effect |
+
 ## Enforcement boundary
 
 The model claim is visible in both paths.
