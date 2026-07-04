@@ -49,3 +49,7 @@ prohibit calendar_admin
 
 the MCP tool is absent from the exposed tool set and blocked if invoked
 directly.
+
+This example also includes an opt-in live-model comparison showing that a real
+tool-calling model can only act through the MCP tool surface the host exposes
+from authoritative Context Compiler state.

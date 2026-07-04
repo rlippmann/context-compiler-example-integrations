@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from importlib import import_module
 from typing import cast
 
+from python.examples._shared.litellm_request import build_litellm_provider_kwargs
+
 try:
     from host_support import print_startup_config, resolve_provider_config
 except ImportError:
@@ -80,13 +82,9 @@ def get_model_approval_claim(expense_summary: str) -> ModelApproval:
         f"{expense_summary}"
     )
     kwargs: dict[str, object] = {
-        "model": config.model,
+        **build_litellm_provider_kwargs(config),
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0,
-        "api_base": config.base_url,
     }
-    if config.api_key:
-        kwargs["api_key"] = config.api_key
 
     response = completion(**kwargs)
     message = _extract_response_content(response)
