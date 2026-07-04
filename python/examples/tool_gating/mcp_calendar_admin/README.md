@@ -23,3 +23,71 @@ prohibit calendar_admin
 If a caller still invokes the hidden tool directly, the host blocks execution.
 
 Adversarial request text does not expose the tool or mutate policy state.
+
+The provider-free tests are the canonical proof for this example.
+
+This example also includes an opt-in live-model comparison that shows the same
+admin-calendar intent reaches different outcomes because authoritative Context
+Compiler state changes the model-visible tool surface.
+
+## Live-model comparison
+
+The live-model path keeps the same host-owned MCP tool registry and execution
+rules.
+
+The host exposes only the MCP tools allowed by authoritative state, then asks a
+real tool-calling model to complete the same admin action.
+
+The model can only use the tools the host exposes.
+
+This is not prompt reinjection:
+
+- the host does not derive authority from model output
+- the model does not create or mutate authoritative state
+- Context Compiler state determines whether the protected admin tool is visible
+  and executable
+
+### Same request, different state
+
+User intent:
+
+```text
+Create an admin calendar event named Quarterly access review on calendar ops-admin.
+```
+
+Outcome matrix:
+
+- absent state: protected tool is not exposed, and no protected side effect
+  occurs
+- `use calendar_admin`: protected tool is exposed; if the model selects it, the
+  host executes it and writes one side effect
+- contradiction with `prohibit calendar_admin`: Context Compiler returns
+  clarify/conflict and blocks protected execution before tool execution
+
+### Validation
+
+Canonical provider-free tests:
+
+```bash
+uv run --no-sync pytest python/tests/test_mcp_calendar_admin_tool_gating_example.py
+uv run --no-sync pytest python/tests/test_mcp_calendar_admin_live_model_helper.py
+```
+
+Opt-in live-model validation:
+
+```bash
+export RUN_MCP_CALENDAR_ADMIN_LIVE_MODEL=1
+export MODEL=openai/gpt-4o-mini
+export OPENAI_API_KEY=...
+uv run --no-sync pytest python/tests/test_mcp_calendar_admin_live_model.py
+```
+
+Optional compatible-provider settings:
+
+- `PROVIDER`
+- `OPENAI_BASE_URL`
+
+For local Ollama, this example accepts either:
+
+- `PROVIDER=ollama` with a bare `MODEL` such as `qwen2.5:1.5b-instruct`
+- or an explicit LiteLLM-style `MODEL=ollama/qwen2.5:1.5b-instruct`
