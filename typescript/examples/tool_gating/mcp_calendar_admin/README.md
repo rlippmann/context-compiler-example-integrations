@@ -23,3 +23,67 @@ prohibit calendar_admin
 If a caller still invokes the hidden tool directly, the host blocks execution.
 
 Adversarial request text does not expose the tool or mutate policy state.
+
+The provider-free tests remain the canonical proof for this example.
+
+This example also includes an opt-in live-model comparison that keeps the same
+host-owned MCP registry and execution rules while letting a real model choose
+from the exposed MCP tool surface.
+
+## Live-model validation
+
+The host builds the exposed MCP tool list from authoritative Context Compiler
+state and passes only those tools to the model.
+
+The live-model helper is a plain TypeScript HTTP client. It uses an
+OpenAI-compatible request shape for tool calling. It does not use the OpenAI
+SDK, LiteLLM, or Ollama's native `/api/chat` route.
+
+Use the same intent across states:
+
+```text
+Create an admin calendar event named Quarterly access review on calendar ops-admin.
+```
+
+What to observe:
+
+- absent state: the protected admin tool is not exposed and no protected side
+  effect occurs
+- `use calendar_admin`: the protected tool is exposed; the model must select it
+  for protected execution to occur
+- contradiction with `prohibit calendar_admin`: clarification blocks protected
+  execution before tool use
+
+Run the canonical provider-free tests:
+
+```bash
+npm test
+```
+
+Run the opt-in live-model validation:
+
+```bash
+export RUN_MCP_CALENDAR_ADMIN_LIVE_MODEL=1
+export OPENAI_API_KEY=...
+export MODEL=gpt-4o-mini
+npm test -- --test-name-pattern="live model tool surface changes with authoritative state"
+```
+
+HTTP contract:
+
+- `MODEL` is sent as-is to the target OpenAI-compatible endpoint
+- `OPENAI_BASE_URL` overrides the default OpenAI-compatible base URL
+- if `OPENAI_BASE_URL` is unset, the helper uses
+  `https://api.openai.com/v1`
+- `OPENAI_BASE_URL` overrides the OpenAI-compatible base URL when needed
+- `OPENAI_API_KEY` is required for the live-model HTTP call
+
+Run the same opt-in validation with local Ollama:
+
+```bash
+export RUN_MCP_CALENDAR_ADMIN_LIVE_MODEL=1
+export OPENAI_BASE_URL=http://127.0.0.1:11434/v1
+export OPENAI_API_KEY=ollama
+export MODEL=qwen2.5:1.5b-instruct
+npm test -- --test-name-pattern="live model tool surface changes with authoritative state"
+```
