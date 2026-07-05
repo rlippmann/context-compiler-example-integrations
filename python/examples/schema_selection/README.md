@@ -8,14 +8,20 @@ They demonstrate observable runtime behavior changes rather than model complianc
 
 ### `refund_intake`
 
-Routes requests to a refund workflow when state contains:
+Shows two generic schema-selection mechanisms in the same customer
+order/support intake domain.
+
+Policy-driven selection can route requests when state contains:
 
 ```text
 use refund_intake
 ```
 
-The test verifies that the refund handler runs and the technical-support
-handler does not.
+Premise-driven selection can also change schema choice for the same ambiguous
+request when saved factual order context changes.
+
+This example keeps premise factual. It does not treat premise as a disguised
+workflow command.
 
 ### `ollama_structured_output`
 

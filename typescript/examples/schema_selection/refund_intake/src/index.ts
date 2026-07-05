@@ -2,10 +2,19 @@ import {
   POLICY_USE,
   createEngine,
   getPolicyItems,
+  getPremiseValue,
   type EngineState
 } from "@rlippmann/context-compiler";
 
 declare const process: { argv: string[]; exitCode?: number };
+
+export const DAMAGED_ORDER_PREMISE =
+  "order A-100 is a delivered physical item reported as damaged on arrival";
+export const DIGITAL_LOGIN_FAILURE_PREMISE =
+  "order A-100 is a digital subscription with an active login failure after purchase";
+export type OrderIntakeContext =
+  | "damaged_physical_delivery"
+  | "digital_subscription_login_failure";
 
 export type IntakeRequest = {
   customerId: string;
@@ -29,6 +38,11 @@ export type IntakeRunResult = {
   refundHandlerCalled: boolean;
   technicalSupportHandlerCalled: boolean;
   result: RefundIntakeResult | TechnicalSupportResult | null;
+};
+
+const SCHEMA_BY_ORDER_INTAKE_CONTEXT: Record<OrderIntakeContext, string> = {
+  damaged_physical_delivery: "refund_intake",
+  digital_subscription_login_failure: "technical_support"
 };
 
 export class IntakeHandler {
@@ -55,8 +69,44 @@ export class IntakeHandler {
   }
 }
 
+export function classifyPremiseAsOrderIntakeContext(
+  premise: string | null
+): OrderIntakeContext | null {
+  if (premise === null) {
+    return null;
+  }
+
+  const normalizedPremise = premise.toLowerCase();
+  if (
+    normalizedPremise.includes("delivered physical item") &&
+    normalizedPremise.includes("damaged on arrival")
+  ) {
+    return "damaged_physical_delivery";
+  }
+
+  if (
+    normalizedPremise.includes("digital subscription") &&
+    normalizedPremise.includes("login failure")
+  ) {
+    return "digital_subscription_login_failure";
+  }
+
+  return null;
+}
+
+export function selectSchemaFromOrderIntakeContext(
+  context: OrderIntakeContext | null
+): string | null {
+  if (context === null) {
+    return null;
+  }
+
+  return SCHEMA_BY_ORDER_INTAKE_CONTEXT[context];
+}
+
 export function selectSchemaFromState(state: EngineState): string | null {
   const useItems = new Set(getPolicyItems(state, POLICY_USE));
+  const premise = getPremiseValue(state);
 
   if (useItems.has("refund_intake")) {
     return "refund_intake";
@@ -66,7 +116,8 @@ export function selectSchemaFromState(state: EngineState): string | null {
     return "technical_support";
   }
 
-  return null;
+  const intakeContext = classifyPremiseAsOrderIntakeContext(premise);
+  return selectSchemaFromOrderIntakeContext(intakeContext);
 }
 
 export function runIntake(
