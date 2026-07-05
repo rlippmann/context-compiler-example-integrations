@@ -38,3 +38,25 @@ Then open `http://localhost:3000` or POST to `http://localhost:3000/api/chat`.
 
 The returned `requestPayload` is the stand-in. It shows the compiled system
 prompt, forwarded history, and raw user input.
+
+## Request construction rule
+
+The returned `requestPayload.systemPrompt` makes both kinds of authoritative
+state visible:
+
+- `PREMISE` is authoritative factual or request context
+- `POLICIES` are explicit behavioral constraints
+
+Example:
+
+```text
+You are an assistant operating under compiled context.
+
+PREMISE:
+draft is a board update summarizing quarterly results
+
+POLICIES:
+- USE: concise_style
+
+Follow these constraints strictly.
+```
