@@ -9,7 +9,7 @@ import { z, type ZodTypeAny } from "zod";
 
 declare const process: { argv: string[]; exitCode?: number };
 
-export type StructuredSchemaName = "python_script" | "shell_command";
+export type StructuredSchemaName = "refund_intake" | "technical_support";
 
 export type StructuredSchema = {
   name: StructuredSchemaName;
@@ -27,30 +27,35 @@ export type GenerateObjectLike<TObject> = (
   request: GenerateObjectRequest
 ) => Promise<{ object: TObject }>;
 
-const PYTHON_SCRIPT_SCHEMA = z.object({
-  code: z.string().describe("A complete Python script.")
+const REFUND_INTAKE_SCHEMA = z.object({
+  kind: z.literal("refund"),
+  customerId: z.string().describe("Customer identifier for the refund request."),
+  orderId: z.string().describe("Order identifier for the refund request."),
+  reason: z.string().describe("Customer reason for requesting the refund.")
 });
 
-const SHELL_COMMAND_SCHEMA = z.object({
-  command: z.string().describe("A single shell command.")
+const TECHNICAL_SUPPORT_SCHEMA = z.object({
+  kind: z.literal("technical_support"),
+  customerId: z.string().describe("Customer identifier for the support request."),
+  issue: z.string().describe("Customer issue that needs technical support.")
 });
 
 const SCHEMA_REGISTRY: Record<StructuredSchemaName, StructuredSchema> = {
-  python_script: {
-    name: "python_script",
-    description: "Generate a Python script object.",
-    schema: PYTHON_SCRIPT_SCHEMA
+  refund_intake: {
+    name: "refund_intake",
+    description: "Generate a refund intake object.",
+    schema: REFUND_INTAKE_SCHEMA
   },
-  shell_command: {
-    name: "shell_command",
-    description: "Generate a shell command object.",
-    schema: SHELL_COMMAND_SCHEMA
+  technical_support: {
+    name: "technical_support",
+    description: "Generate a technical support intake object.",
+    schema: TECHNICAL_SUPPORT_SCHEMA
   }
 };
 
 const KNOWN_SCHEMAS: readonly StructuredSchemaName[] = [
-  "python_script",
-  "shell_command"
+  "refund_intake",
+  "technical_support"
 ];
 
 export function selectStructuredSchemasFromState(
@@ -109,19 +114,32 @@ export async function generateStructuredObject<TObject>(
 export async function runExample(): Promise<{
   availableSchemaNames: StructuredSchemaName[];
   requestBuilt: boolean;
-  object: { code: string } | null;
+  object: {
+    kind: "refund";
+    customerId: string;
+    orderId: string;
+    reason: string;
+  } | null;
 }> {
   const engine = createEngine();
-  engine.step("use python_script");
-  engine.step("prohibit shell_command");
+  engine.step("use refund_intake");
+  engine.step("prohibit technical_support");
 
   const availableSchemas = selectStructuredSchemasFromState(engine.state);
-  const generated = await generateStructuredObject<{ code: string }>(
+  const generated = await generateStructuredObject<{
+    kind: "refund";
+    customerId: string;
+    orderId: string;
+    reason: string;
+  }>(
     engine.state,
-    "Write a short Python script that prints hello.",
+    "Customer customer-123 says: I need a refund for order A-100.",
     async (request) => ({
       object: {
-        code: `# schema=${request.schemaName}\nprint("hello")`
+        kind: "refund",
+        customerId: "customer-123",
+        orderId: "A-100",
+        reason: `Selected schema: ${request.schemaName}`
       }
     })
   );

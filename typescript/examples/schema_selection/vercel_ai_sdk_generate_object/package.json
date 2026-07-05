@@ -10,7 +10,9 @@
     "example": "node dist/src/index.js"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.7",
     "@rlippmann/context-compiler": "^0.7.5",
+    "ai": "^7.0.15",
     "zod": "^3.25.76"
   },
   "devDependencies": {
