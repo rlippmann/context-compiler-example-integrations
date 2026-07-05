@@ -6,7 +6,8 @@ Context Compiler state before any model call would occur.
 ## Current examples
 
 - [writing_assistant](./writing_assistant/README.md): generic Python prompt
-  construction for a writing assistant with no LLM call
+  construction for a writing assistant with no LLM call, contrasting factual
+  document context premise with a small concise-style policy
 - [litellm](./litellm/README.md): LiteLLM-oriented prompt-construction flows,
   including an optional directive-drafter variant
 
