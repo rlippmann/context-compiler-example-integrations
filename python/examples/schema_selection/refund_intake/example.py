@@ -3,7 +3,20 @@
 from dataclasses import dataclass
 from typing import Literal, TypedDict
 
-from context_compiler import POLICY_USE, State, create_engine, get_policy_items
+from context_compiler import (
+    POLICY_USE,
+    State,
+    create_engine,
+    get_policy_items,
+    get_premise_value,
+)
+
+DAMAGED_ORDER_PREMISE = (
+    "order A-100 is a delivered physical item reported as damaged on arrival"
+)
+DIGITAL_LOGIN_FAILURE_PREMISE = (
+    "order A-100 is a digital subscription with an active login failure after purchase"
+)
 
 
 class IntakeRequest(TypedDict):
@@ -23,11 +36,22 @@ class TechnicalSupportResult(TypedDict):
     issue: str
 
 
+OrderIntakeContext = Literal[
+    "damaged_physical_delivery", "digital_subscription_login_failure"
+]
+
+
 class IntakeRunResult(TypedDict):
     selected_schema: str | None
     refund_handler_called: bool
     technical_support_handler_called: bool
     result: RefundIntakeResult | TechnicalSupportResult | None
+
+
+_SCHEMA_BY_ORDER_INTAKE_CONTEXT: dict[OrderIntakeContext, str] = {
+    "damaged_physical_delivery": "refund_intake",
+    "digital_subscription_login_failure": "technical_support",
+}
 
 
 @dataclass
@@ -57,10 +81,46 @@ class IntakeHandler:
         raise ValueError(f"unknown handler: {self.name}")
 
 
+def classify_premise_as_order_intake_context(
+    premise: str | None,
+) -> OrderIntakeContext | None:
+    """Map saved order facts to a host-owned intake context."""
+
+    if premise is None:
+        return None
+
+    normalized_premise = premise.casefold()
+    if (
+        "delivered physical item" in normalized_premise
+        and "damaged on arrival" in normalized_premise
+    ):
+        return "damaged_physical_delivery"
+
+    if (
+        "digital subscription" in normalized_premise
+        and "login failure" in normalized_premise
+    ):
+        return "digital_subscription_login_failure"
+
+    return None
+
+
+def select_schema_from_order_intake_context(
+    context: OrderIntakeContext | None,
+) -> str | None:
+    """Map a host-owned intake context to the selected schema."""
+
+    if context is None:
+        return None
+
+    return _SCHEMA_BY_ORDER_INTAKE_CONTEXT[context]
+
+
 def select_schema_from_state(state: State) -> str | None:
     """Select a host-side workflow from authoritative state."""
 
     use_items = set(get_policy_items(state, POLICY_USE))
+    premise = get_premise_value(state)
 
     if "refund_intake" in use_items:
         return "refund_intake"
@@ -68,7 +128,8 @@ def select_schema_from_state(state: State) -> str | None:
     if "technical_support" in use_items:
         return "technical_support"
 
-    return None
+    intake_context = classify_premise_as_order_intake_context(premise)
+    return select_schema_from_order_intake_context(intake_context)
 
 
 def run_intake(
