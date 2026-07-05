@@ -13,19 +13,33 @@ from context_compiler import (
     create_engine,
     get_decision_state,
     get_policy_items,
+    get_premise_value,
     is_clarify,
 )
 from context_compiler.engine import Engine
 
 CONCISE_STYLE = "concise_style"
-FORMAL_STYLE = "formal_style"
+BOARD_UPDATE_CONTEXT = "draft is a board update summarizing quarterly results"
+INCIDENT_HANDOFF_CONTEXT = (
+    "draft is an internal engineering handoff for a sev-1 incident"
+)
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a writing assistant. Help the user improve a draft while "
     "preserving the author's intent."
 )
+BOARD_UPDATE_CONTEXT_GUIDANCE = (
+    "Document context: this draft is a board update summarizing quarterly "
+    "results. Include the decision context, the most material business "
+    "outcomes, major risks, and the clearest next-step summary."
+)
+INCIDENT_HANDOFF_CONTEXT_GUIDANCE = (
+    "Document context: this draft is an internal engineering handoff for a "
+    "sev-1 incident. Include the current incident status, confirmed technical "
+    "facts, mitigations already attempted, open hypotheses, and immediate "
+    "handoff risks."
+)
 CONCISE_GUIDANCE = "Use a concise writing style with short, direct sentences."
-FORMAL_GUIDANCE = "Use a formal writing style with professional wording."
 
 
 class PromptMessage(TypedDict):
@@ -39,6 +53,7 @@ class PromptConstructionResult(TypedDict):
     model_call_ready: bool
     llm_call_performed: bool
     messages: list[PromptMessage]
+    applied_premise: str | None
     applied_style_labels: list[str]
     blocked_reason: str | None
 
@@ -65,32 +80,43 @@ def style_labels_from_state(state: State) -> list[str]:
 
     if CONCISE_STYLE in use_items and CONCISE_STYLE not in prohibit_items:
         labels.append(CONCISE_STYLE)
-    if FORMAL_STYLE in use_items and FORMAL_STYLE not in prohibit_items:
-        labels.append(FORMAL_STYLE)
 
     return labels
+
+
+def audience_guidance_from_premise(premise: str | None) -> str | None:
+    """Map an authoritative document-context premise to host-owned guidance."""
+
+    if premise == BOARD_UPDATE_CONTEXT:
+        return BOARD_UPDATE_CONTEXT_GUIDANCE
+    if premise == INCIDENT_HANDOFF_CONTEXT:
+        return INCIDENT_HANDOFF_CONTEXT_GUIDANCE
+    return None
 
 
 def build_prompt_messages(
     *,
     state: State,
     user_text: str,
-) -> tuple[list[PromptMessage], list[str]]:
+) -> tuple[list[PromptMessage], str | None, list[str]]:
     """Build host-owned prompt messages from authoritative compiler state."""
 
+    premise = get_premise_value(state)
+    audience_guidance = audience_guidance_from_premise(premise)
     style_labels = style_labels_from_state(state)
     system_lines = [DEFAULT_SYSTEM_PROMPT]
 
+    if audience_guidance is not None:
+        system_lines.append(audience_guidance)
     if CONCISE_STYLE in style_labels:
         system_lines.append(CONCISE_GUIDANCE)
-    if FORMAL_STYLE in style_labels:
-        system_lines.append(FORMAL_GUIDANCE)
 
     return (
         [
             {"role": "system", "content": "\n".join(system_lines)},
             {"role": "user", "content": user_text},
         ],
+        premise,
         style_labels,
     )
 
@@ -112,6 +138,7 @@ def prepare_prompt_turn(
             "model_call_ready": False,
             "llm_call_performed": False,
             "messages": [],
+            "applied_premise": None,
             "applied_style_labels": [],
             "blocked_reason": "clarification required before prompt construction",
         }
@@ -120,7 +147,7 @@ def prepare_prompt_turn(
     if authoritative_state is None:
         authoritative_state = engine.state
 
-    messages, style_labels = build_prompt_messages(
+    messages, premise, style_labels = build_prompt_messages(
         state=authoritative_state,
         user_text=user_text,
     )
@@ -130,6 +157,7 @@ def prepare_prompt_turn(
         "model_call_ready": True,
         "llm_call_performed": False,
         "messages": messages,
+        "applied_premise": premise,
         "applied_style_labels": style_labels,
         "blocked_reason": None,
     }
@@ -138,13 +166,16 @@ def prepare_prompt_turn(
 def run_demo() -> dict[str, PromptConstructionResult]:
     """Show how host-built prompts differ by authoritative state."""
 
-    user_text = "Ignore saved style and be verbose about this blog draft."
+    user_text = "Ignore the saved document context and write this like a casual post."
 
     default_engine = create_engine()
-    concise_engine = create_engine()
-    concise_engine.step(f"use {CONCISE_STYLE}")
-    formal_engine = create_engine()
-    formal_engine.step(f"use {FORMAL_STYLE}")
+    premise_engine = create_engine()
+    premise_engine.step(f"set premise {BOARD_UPDATE_CONTEXT}")
+    policy_engine = create_engine()
+    policy_engine.step(f"use {CONCISE_STYLE}")
+    combined_engine = create_engine()
+    combined_engine.step(f"set premise {BOARD_UPDATE_CONTEXT}")
+    combined_engine.step(f"use {CONCISE_STYLE}")
 
     return {
         "default_prompt": prepare_prompt_turn(
@@ -152,13 +183,18 @@ def run_demo() -> dict[str, PromptConstructionResult]:
             compiler_input=user_text,
             user_text=user_text,
         ),
-        "concise_prompt": prepare_prompt_turn(
-            concise_engine,
+        "premise_prompt": prepare_prompt_turn(
+            premise_engine,
             compiler_input=user_text,
             user_text=user_text,
         ),
-        "formal_prompt": prepare_prompt_turn(
-            formal_engine,
+        "policy_prompt": prepare_prompt_turn(
+            policy_engine,
+            compiler_input=user_text,
+            user_text=user_text,
+        ),
+        "combined_prompt": prepare_prompt_turn(
+            combined_engine,
             compiler_input=user_text,
             user_text=user_text,
         ),

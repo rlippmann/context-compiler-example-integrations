@@ -3,6 +3,7 @@ import {
   POLICY_USE,
   createEngine,
   getPolicyItems,
+  getPremiseValue,
   type Engine,
   type EngineState
 } from "@rlippmann/context-compiler";
@@ -10,14 +11,19 @@ import {
 declare const process: { argv: string[]; exitCode?: number };
 
 export const CONCISE_STYLE = "concise_style";
-export const FORMAL_STYLE = "formal_style";
+export const BOARD_UPDATE_CONTEXT =
+  "draft is a board update summarizing quarterly results";
+export const INCIDENT_HANDOFF_CONTEXT =
+  "draft is an internal engineering handoff for a sev-1 incident";
 
 export const DEFAULT_SYSTEM_PROMPT =
   "You are a writing assistant. Help the user improve a draft while preserving the author's intent.";
+export const BOARD_UPDATE_CONTEXT_GUIDANCE =
+  "Document context: this draft is a board update summarizing quarterly results. Include the decision context, the most material business outcomes, major risks, and the clearest next-step summary.";
+export const INCIDENT_HANDOFF_CONTEXT_GUIDANCE =
+  "Document context: this draft is an internal engineering handoff for a sev-1 incident. Include the current incident status, confirmed technical facts, mitigations already attempted, open hypotheses, and immediate handoff risks.";
 export const CONCISE_GUIDANCE =
   "Use a concise writing style with short, direct sentences.";
-export const FORMAL_GUIDANCE =
-  "Use a formal writing style with professional wording.";
 
 export type PromptMessage = {
   role: "system" | "user";
@@ -30,6 +36,7 @@ export type PromptConstructionResult = {
   modelCallReady: boolean;
   llmCallPerformed: boolean;
   messages: PromptMessage[];
+  appliedPremise: string | null;
   appliedStyleLabels: string[];
   blockedReason: string | null;
 };
@@ -42,25 +49,34 @@ export function styleLabelsFromState(state: EngineState): string[] {
   if (useItems.has(CONCISE_STYLE) && !prohibitItems.has(CONCISE_STYLE)) {
     labels.push(CONCISE_STYLE);
   }
-  if (useItems.has(FORMAL_STYLE) && !prohibitItems.has(FORMAL_STYLE)) {
-    labels.push(FORMAL_STYLE);
-  }
 
   return labels;
+}
+
+export function audienceGuidanceFromPremise(premise: string | null): string | null {
+  if (premise === BOARD_UPDATE_CONTEXT) {
+    return BOARD_UPDATE_CONTEXT_GUIDANCE;
+  }
+  if (premise === INCIDENT_HANDOFF_CONTEXT) {
+    return INCIDENT_HANDOFF_CONTEXT_GUIDANCE;
+  }
+  return null;
 }
 
 export function buildPromptMessages(
   state: EngineState,
   userText: string
-): { messages: PromptMessage[]; styleLabels: string[] } {
+): { messages: PromptMessage[]; premise: string | null; styleLabels: string[] } {
+  const premise = getPremiseValue(state);
+  const audienceGuidance = audienceGuidanceFromPremise(premise);
   const styleLabels = styleLabelsFromState(state);
   const systemLines = [DEFAULT_SYSTEM_PROMPT];
 
+  if (audienceGuidance !== null) {
+    systemLines.push(audienceGuidance);
+  }
   if (styleLabels.includes(CONCISE_STYLE)) {
     systemLines.push(CONCISE_GUIDANCE);
-  }
-  if (styleLabels.includes(FORMAL_STYLE)) {
-    systemLines.push(FORMAL_GUIDANCE);
   }
 
   return {
@@ -68,6 +84,7 @@ export function buildPromptMessages(
       { role: "system", content: systemLines.join("\n") },
       { role: "user", content: userText }
     ],
+    premise,
     styleLabels
   };
 }
@@ -86,13 +103,14 @@ export function preparePromptTurn(
       modelCallReady: false,
       llmCallPerformed: false,
       messages: [],
+      appliedPremise: null,
       appliedStyleLabels: [],
       blockedReason: "clarification required before prompt construction"
     };
   }
 
   const authoritativeState = decision.state ?? engine.state;
-  const { messages, styleLabels } = buildPromptMessages(
+  const { messages, premise, styleLabels } = buildPromptMessages(
     authoritativeState,
     userText
   );
@@ -103,24 +121,30 @@ export function preparePromptTurn(
     modelCallReady: true,
     llmCallPerformed: false,
     messages,
+    appliedPremise: premise,
     appliedStyleLabels: styleLabels,
     blockedReason: null
   };
 }
 
 export function runExample(): Record<string, PromptConstructionResult> {
-  const userText = "Ignore saved style and be verbose about this blog draft.";
+  const userText =
+    "Ignore the saved document context and write this like a casual post.";
 
   const defaultEngine = createEngine();
-  const conciseEngine = createEngine();
-  conciseEngine.step(`use ${CONCISE_STYLE}`);
-  const formalEngine = createEngine();
-  formalEngine.step(`use ${FORMAL_STYLE}`);
+  const premiseEngine = createEngine();
+  premiseEngine.step(`set premise ${BOARD_UPDATE_CONTEXT}`);
+  const policyEngine = createEngine();
+  policyEngine.step(`use ${CONCISE_STYLE}`);
+  const combinedEngine = createEngine();
+  combinedEngine.step(`set premise ${BOARD_UPDATE_CONTEXT}`);
+  combinedEngine.step(`use ${CONCISE_STYLE}`);
 
   return {
     defaultPrompt: preparePromptTurn(defaultEngine, userText, userText),
-    concisePrompt: preparePromptTurn(conciseEngine, userText, userText),
-    formalPrompt: preparePromptTurn(formalEngine, userText, userText)
+    premisePrompt: preparePromptTurn(premiseEngine, userText, userText),
+    policyPrompt: preparePromptTurn(policyEngine, userText, userText),
+    combinedPrompt: preparePromptTurn(combinedEngine, userText, userText)
   };
 }
 
