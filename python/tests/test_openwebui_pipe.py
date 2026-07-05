@@ -383,6 +383,68 @@ def test_passthrough_with_non_empty_state_injects_exactly_one_cc_state_system_me
     assert len(cc_messages) == 1
 
 
+def test_passthrough_with_saved_premise_injects_premise_in_cc_state(
+    monkeypatch,
+) -> None:
+    module = _load_module_with_stubs("owui_passthrough_premise", monkeypatch)
+    forwarded: list[dict[str, object]] = []
+
+    async def _forward(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
+        forwarded.append(payload)
+        return {"choices": [{"message": {"content": "downstream"}}]}
+
+    module.generate_chat_completion = _forward
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    chat_id = "chat-premise-state"
+
+    asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "set premise draft is a board update summarizing quarterly results",
+                    }
+                ],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+    asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [
+                    {"role": "system", "content": "original system"},
+                    {"role": "user", "content": "what should I emphasize?"},
+                ],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+
+    cc_messages = [
+        message
+        for message in forwarded[0]["messages"]
+        if message.get("role") == "system"
+        and isinstance(message.get("content"), str)
+        and message["content"].startswith("[[cc_state]]")
+    ]
+    assert len(cc_messages) == 1
+    assert (
+        "Premise: draft is a board update summarizing quarterly results"
+        in cc_messages[0]["content"]
+    )
+
+
 def test_empty_state_passthrough_does_not_inject_compiler_state(monkeypatch) -> None:
     module = _load_module_with_stubs("owui_passthrough_empty", monkeypatch)
     forwarded: list[dict[str, object]] = []

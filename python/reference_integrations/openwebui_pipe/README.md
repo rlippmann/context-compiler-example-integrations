@@ -24,6 +24,25 @@ These examples support both sync (`0.8.x`) and async (`0.9.x`) user lookup.
 - Exact `show state` is handled locally. Near matches such as `show state please`
   are treated as normal chat input.
 
+The forwarded `[[cc_state]]` block makes both kinds of authoritative state
+runtime-visible:
+
+- premise = authoritative factual or request context
+- policy = explicit behavioral constraint
+
+Example forwarded state block with both:
+
+```text
+[[cc_state]]
+Premise: draft is a board update summarizing quarterly results
+Use: concise_style
+Prohibit: slang
+```
+
+The host injects this block into the forwarded request. Premise is not only a
+syntax or lifecycle rule here; it is part of the runtime-visible state that
+shapes the downstream request.
+
 ## Setup
 
 Quick start for the base pipe:
@@ -106,7 +125,8 @@ Suggested verification:
 
 Advanced check:
 
-- If you have a local proxy or stub, inspect the forwarded request and confirm it contains exactly one `[[cc_state]]` system message with `Use: docker`
+- If you have a local proxy or stub, inspect the forwarded request and confirm it contains exactly one `[[cc_state]]` system message.
+- Confirm that saved premise appears as `Premise: ...` and saved policy appears as `Use: ...` or `Prohibit: ...`.
 
 ### Directive-drafter pipe
 
@@ -124,7 +144,8 @@ Suggested verification:
 
 Advanced check:
 
-- If you have a local proxy or stub, inspect the forwarded request and confirm it contains exactly one `[[cc_state]]` system message reflecting the active state
+- If you have a local proxy or stub, inspect the forwarded request and confirm it contains exactly one `[[cc_state]]` system message reflecting the active state.
+- Confirm that saved premise appears as `Premise: ...` and saved policy appears as `Use: ...` or `Prohibit: ...`.
 
 ### Optional extra checks
 

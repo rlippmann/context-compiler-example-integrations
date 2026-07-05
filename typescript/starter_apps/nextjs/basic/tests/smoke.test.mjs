@@ -59,3 +59,22 @@ test("history replay works when no saved checkpoint exists", async () => {
   assert.match(result.json.promptToUser, /prohibited/i);
   assert.ok(!("requestPayload" in result.json));
 });
+
+test("saved premise appears in returned system prompt", async () => {
+  const sessionId = "nextjs-basic-premise";
+  const first = await postJson({
+    sessionId,
+    input: "set premise draft is a board update summarizing quarterly results"
+  });
+  assert.equal(first.json.kind, "continue");
+
+  const second = await postJson({
+    sessionId,
+    input: "Revise this update."
+  });
+  assert.equal(second.json.kind, "continue");
+  assert.match(
+    second.json.requestPayload.systemPrompt,
+    /PREMISE:\ndraft is a board update summarizing quarterly results/
+  );
+});

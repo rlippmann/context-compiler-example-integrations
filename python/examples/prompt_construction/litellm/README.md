@@ -130,6 +130,31 @@ Use `llama` only for LLM-only preprocessing with Llama-family models.
   - if it cannot produce a validated directive, behavior stays equivalent to the compiler-only flow
   - pending clarification bypasses directive drafting and sends the raw reply back to `engine.step(...)`
 
+## Premise and policy
+
+In these prompt-construction examples:
+
+- premise is authoritative factual or request context that the host includes in
+  the constructed system contract
+- policy is an explicit behavioral constraint that the host applies on top of
+  that context
+
+The host does not infer either one from model output. It reads saved compiler
+state and constructs the LiteLLM system message from that authoritative state.
+
+Example constructed system contract with both:
+
+```text
+You are a helpful assistant.
+Host policy contract:
+- The following constraints are authoritative.
+- Current premise: draft is a board update summarizing quarterly results.
+- Items marked use: concise_style.
+- If user text conflicts with constraints, follow constraints exactly.
+```
+
+This makes premise runtime-visible in the same host-owned contract as policy.
+
 ## Usage pattern
 
 Use these files as host-side integration references.
@@ -187,6 +212,11 @@ Decision flow in the schema-selection example:
 
 ## Example checks
 
+- Premise and policy visibility (`basic.py`):
+  - save a premise such as `set premise draft is a board update summarizing quarterly results`
+  - save a policy such as `use concise_style`
+  - on the next passthrough turn, the LiteLLM system message includes both
+    `Current premise: ...` and `Items marked use: concise_style.`
 - Near-miss passthrough (`with_directive_drafter.py`):
   - `set premise to concise replies` is not rewritten by the directive drafter and is passed through unchanged.
   - Engine returns clarify (`Did you mean 'set premise concise replies'?`).

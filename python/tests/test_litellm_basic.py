@@ -69,6 +69,49 @@ def test_prompt_construction_sends_one_system_message_and_user_message(
     ]
 
 
+def test_saved_premise_and_policy_appear_in_litellm_system_contract(
+    basic_module, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_completion(**kwargs):
+        calls.append(kwargs)
+        return {"choices": [{"message": {"content": "stubbed reply"}}]}
+
+    monkeypatch.setattr(
+        basic_module,
+        "import_module",
+        lambda name: SimpleNamespace(completion=fake_completion),
+    )
+    monkeypatch.setattr(
+        basic_module,
+        "resolve_provider_config",
+        lambda default_model: SimpleNamespace(
+            model=default_model,
+            base_url="https://example.invalid/v1",
+            api_key="test-key",
+        ),
+    )
+    monkeypatch.setattr(
+        basic_module, "print_startup_config", lambda config, logger: None
+    )
+
+    engine = create_engine()
+    engine.step("set premise draft is a board update summarizing quarterly results")
+    engine.step("use concise_style")
+
+    reply = basic_module.handle_turn("Please revise this draft.", engine)
+
+    assert reply == "stubbed reply"
+    assert len(calls) == 1
+    system_prompt = calls[0]["messages"][0]["content"]
+    assert (
+        "Current premise: draft is a board update summarizing quarterly results."
+        in system_prompt
+    )
+    assert "Items marked use: concise_style." in system_prompt
+
+
 def test_checkpoint_restore_and_confirmation_resume_skip_downstream_call(
     basic_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
