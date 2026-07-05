@@ -21,6 +21,8 @@ selects it.
 ### `vercel_ai_sdk_generate_object`
 
 Shows a host selecting a structured-output schema from compiled policy state.
+The provider-free tests are canonical, and the example also offers an opt-in
+live-model validation through Vercel AI SDK `generateObject`.
 
 ## Technology-specific examples
 
