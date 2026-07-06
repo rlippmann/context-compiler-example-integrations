@@ -26,7 +26,8 @@ workflow command.
 
 ### `vercel_ai_sdk_generate_object`
 
-Shows a host selecting a structured-output schema from compiled policy state.
+Shows a host selecting a structured-output schema in the same customer
+order/support intake domain through policy state or premise-driven fallback.
 The provider-free tests are canonical, and the example also offers an opt-in
 live-model validation through Vercel AI SDK `generateObject`.
 

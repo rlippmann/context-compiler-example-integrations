@@ -13,6 +13,9 @@ Flow:
 
 - Compiler-only state drives host schema selection.
 - The host chooses which structured-output schema to offer.
+- Policy state can select a schema via `use ...`.
+- Saved factual order premise can drive fallback schema selection through a
+  host-owned order-intake rule.
 - `generateObject` is the downstream host behavior, not the authority layer.
 - No model output mutates compiler state.
 - If compiler state does not authorize a schema, the host omits schema selection.
@@ -22,11 +25,19 @@ Flow:
 
 - `@rlippmann/context-compiler` owns authoritative state transitions.
 - The host reads compiler state and selects a Zod schema, or no schema.
+- The host performs premise classification and schema mapping before
+  `generateObject` runs.
 - The host may pass that schema into Vercel AI SDK `generateObject`.
 - The compiler does not select schemas dynamically.
 - The compiler does not derive state from model output.
 
 ## Deterministic behavior
+
+This example supports two host-side selection paths in the same order/support
+intake domain:
+
+- policy-driven schema selection via `use ...`
+- premise-driven fallback via `saved order facts -> intake context -> selected schema`
 
 Given policy state:
 
@@ -38,6 +49,27 @@ prohibit technical_support
 the host offers the `refund_intake` schema and does not offer the
 `technical_support` schema.
 
+With a factual premise:
+
+```text
+set premise order A-100 is a delivered physical item reported as damaged on arrival
+```
+
+the same ambiguous user request, `I need help with order A-100.`, selects the
+`refund_intake` schema.
+
+With a different factual premise:
+
+```text
+set premise order A-100 is a digital subscription with an active login failure after purchase
+```
+
+the same ambiguous user request selects the `technical_support` schema.
+
+The premise is factual context about the order. It is not a workflow command
+and it is not rewritten as `use refund_intake` or `use technical_support`.
+This mapping is host-owned business logic, not model inference.
+
 If state prohibits every known schema, the host omits schema selection and does
 not build a `generateObject` request.
 
@@ -46,8 +78,11 @@ not build a `generateObject` request.
 Tests assert:
 
 - compiler state -> selected schema
+- premise facts -> intake context -> selected schema fallback
 - selected schema -> request config
 - omit schema when state does not authorize one
+- adversarial prompt wording does not override saved premise
+- policy still overrides premise when both are present
 - contradiction triggers clarification while preserving the previously
   authorized schema in current state
 
