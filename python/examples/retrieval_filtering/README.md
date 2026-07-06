@@ -36,8 +36,25 @@ query text does not mutate authoritative state.
 
 ### `chromadb_hr_policy_lookup`
 
-Uses the Python ChromaDB client to enforce the same HR policy lookup behavior
+Uses the Python ChromaDB client to demonstrate policy-driven access eligibility
 with metadata filters applied before retrieval results are returned.
+
+This ChromaDB example is intentionally narrower than the generic HR retrieval
+example.
+
+The generic examples demonstrate:
+
+- policy deciding which documents are eligible
+- saved premise narrowing relevance inside that eligible set
+
+The ChromaDB example currently demonstrates only:
+
+- policy deciding which documents are eligible
+- host-owned Chroma metadata filters enforcing that access decision
+
+It does not currently demonstrate premise-driven relevance. That is intentional
+scope narrowing for a smaller technology-specific example, not a behavior
+change in the generic retrieval examples.
 
 This example is Python-only because ChromaDB has a clean local Python client
 path for a small runnable example. The generic TypeScript
