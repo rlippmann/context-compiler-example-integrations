@@ -72,7 +72,7 @@ uv run pytest python/tests/test_checkpoint_continuation_example.py
 ## FastAPI variant
 
 For a request-boundary example, see
-[python/examples/checkpoint_continuation/fastapi/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/checkpoint_continuation/fastapi/README.md).
+[python/examples/checkpoint_continuation/fastapi/README.md](fastapi/README.md).
 
 ## Related integrations
 
@@ -81,6 +81,6 @@ requirements.
 
 Related runtime surfaces:
 
-- [python/examples/checkpoint_continuation/fastapi/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/checkpoint_continuation/fastapi/README.md)
-- [typescript/starter_apps/node/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/node/README.md)
-- [typescript/starter_apps/nextjs/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/README.md)
+- [python/examples/checkpoint_continuation/fastapi/README.md](fastapi/README.md)
+- [typescript/starter_apps/node/README.md](../../../typescript/starter_apps/node/README.md)
+- [typescript/starter_apps/nextjs/README.md](../../../typescript/starter_apps/nextjs/README.md)

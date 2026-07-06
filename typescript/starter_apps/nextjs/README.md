@@ -9,8 +9,8 @@ effect visible before any live model call.
 
 The Next.js starter app now comes in two small variants:
 
-- [basic](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/basic/README.md) - compiler-only baseline adapted from the last `nextjs-basic` example in `context-compiler-ts`
-- [with_drafter](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/with_drafter/README.md) - optional directive-drafter layer before `engine.step(...)`
+- [basic](basic/README.md) - compiler-only baseline adapted from the last `nextjs-basic` example in `context-compiler-ts`
+- [with_drafter](with_drafter/README.md) - optional directive-drafter layer before `engine.step(...)`
 
 Open `basic` first if you want the smallest baseline.
 

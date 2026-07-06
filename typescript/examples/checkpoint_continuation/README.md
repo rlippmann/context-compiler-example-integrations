@@ -83,6 +83,6 @@ framework.
 
 Related runtime surfaces:
 
-- [python/examples/checkpoint_continuation/fastapi/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/checkpoint_continuation/fastapi/README.md)
-- [typescript/starter_apps/node/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/node/README.md)
-- [typescript/starter_apps/nextjs/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/README.md)
+- [python/examples/checkpoint_continuation/fastapi/README.md](../../../python/examples/checkpoint_continuation/fastapi/README.md)
+- [typescript/starter_apps/node/README.md](../../starter_apps/node/README.md)
+- [typescript/starter_apps/nextjs/README.md](../../starter_apps/nextjs/README.md)
