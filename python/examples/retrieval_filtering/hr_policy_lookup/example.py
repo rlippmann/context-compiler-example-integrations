@@ -10,12 +10,18 @@ from context_compiler import (
     create_engine,
     get_decision_state,
     get_policy_items,
+    get_premise_value,
     is_clarify,
 )
 from context_compiler.engine import Engine
 
 EMPLOYEE_ACCESS = "employee_hr_access"
 MANAGER_ACCESS = "manager_hr_access"
+LEAVE_CASE_PREMISE = "case concerns leave eligibility after a parental leave request"
+GENERAL_HANDBOOK_PREMISE = (
+    "case concerns general employee handbook expectations for a new hire"
+)
+STAFFING_CASE_PREMISE = "case concerns staffing approval for a team reorganization"
 
 
 class PolicyDocument(TypedDict):
@@ -23,6 +29,7 @@ class PolicyDocument(TypedDict):
     title: str
     audience: Literal["employee", "manager", "executive"]
     keywords: list[str]
+    relevance_tags: list[str]
     content: str
 
 
@@ -39,22 +46,35 @@ class RetrievalTurnResult(TypedDict):
     retrieval_result: RetrievalResult
 
 
+CaseContext = Literal["general_handbook_case", "leave_case", "staffing_case"]
+
+
 @dataclass
 class HRPolicyRetriever:
     """Host-owned retrieval implementation with deterministic filtering."""
 
     documents: list[PolicyDocument] = field(default_factory=list)
 
-    def search(self, query: str, *, allowed_audiences: set[str]) -> RetrievalResult:
+    def search(
+        self,
+        query: str,
+        *,
+        allowed_audiences: set[str],
+        case_context: CaseContext | None,
+    ) -> RetrievalResult:
         eligible_documents = [
             document
             for document in self.documents
             if document["audience"] in allowed_audiences
         ]
+        relevance_filtered_documents = filter_documents_by_case_context(
+            eligible_documents,
+            case_context,
+        )
         normalized_query_terms = set(query.lower().split())
         returned_documents = [
             document
-            for document in eligible_documents
+            for document in relevance_filtered_documents
             if normalized_query_terms & set(document["keywords"])
         ]
 
@@ -77,13 +97,23 @@ def example_documents() -> list[PolicyDocument]:
             "title": "Employee Handbook",
             "audience": "employee",
             "keywords": ["employee", "handbook", "benefits", "leave"],
+            "relevance_tags": ["general_handbook_case", "general_hr"],
             "content": "General HR policy, leave policy, and workplace expectations.",
+        },
+        {
+            "document_id": "leave_of_absence_policy",
+            "title": "Leave of Absence Policy",
+            "audience": "employee",
+            "keywords": ["leave", "eligibility", "parental"],
+            "relevance_tags": ["leave_case"],
+            "content": "Leave eligibility, parental leave steps, and required documentation.",
         },
         {
             "document_id": "manager_handbook",
             "title": "Manager Handbook",
             "audience": "manager",
             "keywords": ["manager", "handbook", "approvals", "staffing"],
+            "relevance_tags": ["general_handbook_case", "staffing_case"],
             "content": "Manager escalation guidance, staffing policy, and approvals.",
         },
         {
@@ -91,6 +121,7 @@ def example_documents() -> list[PolicyDocument]:
             "title": "Executive Compensation Policy",
             "audience": "executive",
             "keywords": ["executive", "compensation", "bonus", "board"],
+            "relevance_tags": ["executive_only"],
             "content": "Executive compensation bands, board review, and bonus structure.",
         },
     ]
@@ -130,6 +161,56 @@ def allowed_audiences_from_state(state: State) -> set[str]:
     return set()
 
 
+def classify_premise_as_case_context(premise: str | None) -> CaseContext | None:
+    """Map saved HR case facts to a host-owned retrieval relevance context."""
+
+    if premise is None:
+        return None
+
+    normalized_premise = premise.casefold()
+    if (
+        "general employee handbook" in normalized_premise
+        and "new hire" in normalized_premise
+    ):
+        return "general_handbook_case"
+
+    if (
+        "leave eligibility" in normalized_premise
+        and "parental leave" in normalized_premise
+    ):
+        return "leave_case"
+
+    if (
+        "staffing approval" in normalized_premise
+        and "team reorganization" in normalized_premise
+    ):
+        return "staffing_case"
+
+    return None
+
+
+def filter_documents_by_case_context(
+    documents: list[PolicyDocument],
+    case_context: CaseContext | None,
+) -> list[PolicyDocument]:
+    """Limit relevance only within the already eligible document set."""
+
+    if case_context is None:
+        return [
+            document
+            for document in documents
+            if "general_handbook_case" in document["relevance_tags"]
+        ]
+
+    relevant_documents = [
+        document for document in documents if case_context in document["relevance_tags"]
+    ]
+    if relevant_documents:
+        return relevant_documents
+
+    return []
+
+
 def retrieve_hr_documents(
     query: str,
     *,
@@ -138,9 +219,11 @@ def retrieve_hr_documents(
 ) -> RetrievalResult:
     """Retrieve only documents the host deems eligible from compiler state."""
 
+    premise = get_premise_value(state)
     return retriever.search(
         query,
         allowed_audiences=allowed_audiences_from_state(state),
+        case_context=classify_premise_as_case_context(premise),
     )
 
 
