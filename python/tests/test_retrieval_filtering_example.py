@@ -2,13 +2,17 @@ from context_compiler import State, create_engine
 
 from python.examples.retrieval_filtering.hr_policy_lookup.example import (
     EMPLOYEE_ACCESS,
+    GENERAL_HANDBOOK_PREMISE,
     MANAGER_ACCESS,
     HRPolicyRetriever,
     allowed_audiences_from_state,
+    classify_premise_as_case_context,
     example_documents,
     handle_retrieval_turn,
     retrieve_hr_documents,
     run_demo,
+    LEAVE_CASE_PREMISE,
+    STAFFING_CASE_PREMISE,
 )
 
 
@@ -17,6 +21,14 @@ def employee_prohibited_state() -> State:
         "version": 2,
         "premise": None,
         "policies": {EMPLOYEE_ACCESS: "prohibit"},
+    }
+
+
+def premise_state(premise: str) -> State:
+    return {
+        "version": 2,
+        "premise": premise,
+        "policies": {EMPLOYEE_ACCESS: "use"},
     }
 
 
@@ -31,7 +43,10 @@ def test_employee_access_retrieves_employee_documents_only() -> None:
         retriever=retriever,
     )
 
-    assert result["eligible_document_ids"] == ["employee_handbook"]
+    assert result["eligible_document_ids"] == [
+        "employee_handbook",
+        "leave_of_absence_policy",
+    ]
     assert result["returned_document_ids"] == ["employee_handbook"]
 
 
@@ -48,6 +63,7 @@ def test_manager_access_retrieves_manager_documents() -> None:
 
     assert result["eligible_document_ids"] == [
         "employee_handbook",
+        "leave_of_absence_policy",
         "manager_handbook",
     ]
     assert result["returned_document_ids"] == [
@@ -67,7 +83,10 @@ def test_restricted_documents_are_filtered() -> None:
         retriever=retriever,
     )
 
-    assert result["eligible_document_ids"] == ["employee_handbook"]
+    assert result["eligible_document_ids"] == [
+        "employee_handbook",
+        "leave_of_absence_policy",
+    ]
     assert result["returned_document_ids"] == []
 
 
@@ -86,7 +105,10 @@ def test_adversarial_queries_do_not_bypass_filtering() -> None:
             state=engine.state,
             retriever=retriever,
         )
-        assert result["eligible_document_ids"] == ["employee_handbook"]
+        assert result["eligible_document_ids"] == [
+            "employee_handbook",
+            "leave_of_absence_policy",
+        ]
         assert result["returned_document_ids"] == []
 
 
@@ -122,6 +144,66 @@ def test_retrieval_behavior_changes_when_authoritative_state_changes() -> None:
     ]
 
 
+def test_same_query_with_different_premises_changes_employee_results() -> None:
+    retriever = HRPolicyRetriever(documents=example_documents())
+    leave_result = retrieve_hr_documents(
+        "leave",
+        state=premise_state(LEAVE_CASE_PREMISE),
+        retriever=retriever,
+    )
+    handbook_result = retrieve_hr_documents(
+        "leave",
+        state=premise_state(GENERAL_HANDBOOK_PREMISE),
+        retriever=retriever,
+    )
+
+    assert leave_result["eligible_document_ids"] == [
+        "employee_handbook",
+        "leave_of_absence_policy",
+    ]
+    assert leave_result["returned_document_ids"] == ["leave_of_absence_policy"]
+    assert handbook_result["eligible_document_ids"] == [
+        "employee_handbook",
+        "leave_of_absence_policy",
+    ]
+    assert handbook_result["returned_document_ids"] == ["employee_handbook"]
+
+
+def test_premise_does_not_expand_access_beyond_eligible_documents() -> None:
+    engine = create_engine()
+    engine.step(f"use {EMPLOYEE_ACCESS}")
+    engine.step(f"set premise {STAFFING_CASE_PREMISE}")
+    retriever = HRPolicyRetriever(documents=example_documents())
+
+    result = retrieve_hr_documents("staffing", state=engine.state, retriever=retriever)
+
+    assert result["eligible_document_ids"] == [
+        "employee_handbook",
+        "leave_of_absence_policy",
+    ]
+    assert result["returned_document_ids"] == []
+
+
+def test_absent_or_unknown_premise_does_not_invent_results() -> None:
+    retriever = HRPolicyRetriever(documents=example_documents())
+    absent_engine = create_engine()
+    absent_engine.step(f"use {EMPLOYEE_ACCESS}")
+
+    absent_result = retrieve_hr_documents(
+        "leave",
+        state=absent_engine.state,
+        retriever=retriever,
+    )
+    unknown_result = retrieve_hr_documents(
+        "leave",
+        state=premise_state("case concerns badge printer toner levels"),
+        retriever=retriever,
+    )
+
+    assert absent_result["returned_document_ids"] == ["employee_handbook"]
+    assert unknown_result["returned_document_ids"] == ["employee_handbook"]
+
+
 def test_contradictory_directives_clarify_instead_of_silent_overwrite() -> None:
     engine = create_engine()
     engine.step(f"use {EMPLOYEE_ACCESS}")
@@ -149,6 +231,19 @@ def test_absent_state_uses_documented_default_behavior() -> None:
     engine = create_engine()
 
     assert allowed_audiences_from_state(engine.state) == set()
+
+
+def test_premise_classifier_maps_saved_case_facts() -> None:
+    assert (
+        classify_premise_as_case_context(GENERAL_HANDBOOK_PREMISE)
+        == "general_handbook_case"
+    )
+    assert classify_premise_as_case_context(LEAVE_CASE_PREMISE) == "leave_case"
+    assert classify_premise_as_case_context(STAFFING_CASE_PREMISE) == "staffing_case"
+    assert (
+        classify_premise_as_case_context("case concerns badge printer toner levels")
+        is None
+    )
 
 
 def test_prohibited_state_blocks_retrieval() -> None:
