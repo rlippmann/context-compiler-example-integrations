@@ -3,6 +3,7 @@ import {
   POLICY_USE,
   createEngine,
   getPolicyItems,
+  getPremiseValue,
   type EngineState
 } from "@rlippmann/context-compiler";
 import { z, type ZodTypeAny } from "zod";
@@ -10,6 +11,13 @@ import { z, type ZodTypeAny } from "zod";
 declare const process: { argv: string[]; exitCode?: number };
 
 export type StructuredSchemaName = "refund_intake" | "technical_support";
+export const DAMAGED_ORDER_PREMISE =
+  "order A-100 is a delivered physical item reported as damaged on arrival";
+export const DIGITAL_LOGIN_FAILURE_PREMISE =
+  "order A-100 is a digital subscription with an active login failure after purchase";
+export type OrderIntakeContext =
+  | "damaged_physical_delivery"
+  | "digital_subscription_login_failure";
 
 export type StructuredSchema = {
   name: StructuredSchemaName;
@@ -58,6 +66,49 @@ const KNOWN_SCHEMAS: readonly StructuredSchemaName[] = [
   "technical_support"
 ];
 
+const SCHEMA_BY_ORDER_INTAKE_CONTEXT: Record<
+  OrderIntakeContext,
+  StructuredSchemaName
+> = {
+  damaged_physical_delivery: "refund_intake",
+  digital_subscription_login_failure: "technical_support"
+};
+
+export function classifyPremiseAsOrderIntakeContext(
+  premise: string | null
+): OrderIntakeContext | null {
+  if (premise === null) {
+    return null;
+  }
+
+  const normalizedPremise = premise.toLowerCase();
+  if (
+    normalizedPremise.includes("delivered physical item") &&
+    normalizedPremise.includes("damaged on arrival")
+  ) {
+    return "damaged_physical_delivery";
+  }
+
+  if (
+    normalizedPremise.includes("digital subscription") &&
+    normalizedPremise.includes("login failure")
+  ) {
+    return "digital_subscription_login_failure";
+  }
+
+  return null;
+}
+
+export function selectSchemaFromOrderIntakeContext(
+  context: OrderIntakeContext | null
+): StructuredSchemaName | null {
+  if (context === null) {
+    return null;
+  }
+
+  return SCHEMA_BY_ORDER_INTAKE_CONTEXT[context];
+}
+
 export function selectStructuredSchemasFromState(
   state: EngineState
 ): StructuredSchema[] {
@@ -71,6 +122,12 @@ export function selectStructuredSchemasFromState(
     return useItems
       .filter((item) => !prohibitItems.has(item))
       .map((item) => SCHEMA_REGISTRY[item]);
+  }
+
+  const intakeContext = classifyPremiseAsOrderIntakeContext(getPremiseValue(state));
+  const fallbackSchema = selectSchemaFromOrderIntakeContext(intakeContext);
+  if (fallbackSchema !== null) {
+    return [SCHEMA_REGISTRY[fallbackSchema]];
   }
 
   return [];
