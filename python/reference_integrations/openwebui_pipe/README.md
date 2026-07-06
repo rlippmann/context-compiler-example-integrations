@@ -205,8 +205,6 @@ If you want a slightly broader manual pass:
 - directive-drafter pipe: same clarify (near-miss is passed through unchanged)
 - why this matters: the app waits for explicit, valid directive text before changing state.
 
-## Troubleshooting
-
 ## Compatibility
 
 Tested target: Open WebUI `v0.8.12`.
@@ -214,6 +212,8 @@ Validated at runtime on stock Docker Open WebUI with a real backend model provid
 
 Compatibility note: OpenWebUI `0.9.x` changed `Users.get_user_by_id` to async.
 These examples support both sync (`0.8.x`) and async (`0.9.x`) user lookup.
+
+## Troubleshooting
 
 - `BASE_MODEL_ID is required`: set a valid Open WebUI model id in the function valves, or enable `ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true` only for local testing.
 - `BASE_MODEL_ID was not found in Open WebUI models`: copy the exact id from `Admin Panel → Settings → Models`.
