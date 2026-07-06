@@ -16,6 +16,16 @@ Each example:
 - remains meaningful with an adversarial model stub
 - focuses on the enforcement point rather than the framework
 
+## Start here
+
+Start with [python/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/README.md) or [typescript/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/README.md) if you want language-level orientation first.
+
+Use the enforcement-point catalog below when you already know which runtime
+behavior you want to inspect.
+
+Both language tracks include generic examples. TypeScript also includes starter
+apps. Python also includes reference integrations.
+
 ## Ecosystem map
 
 | Repo | Question |
