@@ -5,6 +5,43 @@ These examples show two user-visible prompt-construction flows with LiteLLM:
 - `basic.py`: compiler-only flow (no directive drafter)
 - `with_directive_drafter.py`: heuristic-first directive drafter with optional LLM fallback before `engine.step(...)`
 
+## What the user sees
+
+- Compiler-only flow:
+  - raw user input goes straight to `engine.step(...)`
+  - `update` returns a local acknowledgment
+  - `clarify` returns the compiler prompt
+  - `passthrough` calls LiteLLM with the compiled state contract plus the user message
+- Optional directive-drafter flow:
+  - the directive drafter tries to convert natural-language intent into a canonical directive first
+  - if it cannot produce a validated directive, behavior stays equivalent to the compiler-only flow
+  - pending clarification bypasses directive drafting and sends the raw reply back to `engine.step(...)`
+
+## Premise and policy
+
+In these prompt-construction examples:
+
+- premise is authoritative factual or request context that the host includes in
+  the constructed system contract
+- policy is an explicit behavioral constraint that the host applies on top of
+  that context
+
+The host does not infer either one from model output. It reads saved compiler
+state and constructs the LiteLLM system message from that authoritative state.
+
+Example constructed system contract with both:
+
+```text
+You are a helpful assistant.
+Host policy contract:
+- The following constraints are authoritative.
+- Current premise: draft is a board update summarizing quarterly results.
+- Items marked use: concise_style.
+- If user text conflicts with constraints, follow constraints exactly.
+```
+
+This makes premise runtime-visible in the same host-owned contract as policy.
+
 ## Requirements
 
 ```shell
@@ -49,21 +86,6 @@ PY
 ```
 
 This near-miss input should return `clarify` instead of being rewritten.
-
-For host-side response shape selection, see the schema-selection example:
-
-```shell
-pip install context-compiler litellm
-export OPENAI_API_KEY=...
-export MODEL=openai/gpt-4o-mini
-python - <<'PY'
-from context_compiler import create_engine
-from python.examples.schema_selection.litellm_response_format.response_format import plan_turn
-engine = create_engine()
-engine.step("use compact_summary")
-print(plan_turn("Summarize the release notes.", engine))
-PY
-```
 
 ## Environment configuration
 
@@ -117,43 +139,6 @@ and resolution `source` (`default`, `PROVIDER`, or `OPENAI_BASE_URL override`).
 
 For heuristic-first usage, keep `PREPROCESSOR_PROMPT_PROFILE=default`.
 Use `llama` only for LLM-only preprocessing with Llama-family models.
-
-## What the user sees
-
-- Compiler-only flow:
-  - raw user input goes straight to `engine.step(...)`
-  - `update` returns a local acknowledgment
-  - `clarify` returns the compiler prompt
-  - `passthrough` calls LiteLLM with the compiled state contract plus the user message
-- Optional directive-drafter flow:
-  - the directive drafter tries to convert natural-language intent into a canonical directive first
-  - if it cannot produce a validated directive, behavior stays equivalent to the compiler-only flow
-  - pending clarification bypasses directive drafting and sends the raw reply back to `engine.step(...)`
-
-## Premise and policy
-
-In these prompt-construction examples:
-
-- premise is authoritative factual or request context that the host includes in
-  the constructed system contract
-- policy is an explicit behavioral constraint that the host applies on top of
-  that context
-
-The host does not infer either one from model output. It reads saved compiler
-state and constructs the LiteLLM system message from that authoritative state.
-
-Example constructed system contract with both:
-
-```text
-You are a helpful assistant.
-Host policy contract:
-- The following constraints are authoritative.
-- Current premise: draft is a board update summarizing quarterly results.
-- Items marked use: concise_style.
-- If user text conflicts with constraints, follow constraints exactly.
-```
-
-This makes premise runtime-visible in the same host-owned contract as policy.
 
 ## Usage pattern
 

@@ -3,17 +3,6 @@
 These examples show how an Open WebUI pipe changes runtime behavior with saved
 compiler state.
 
-Tested target: Open WebUI `v0.8.12`.
-Validated at runtime on stock Docker Open WebUI with a real backend model provider.
-
-Compatibility note: OpenWebUI `0.9.x` changed `Users.get_user_by_id` to async.
-These examples support both sync (`0.8.x`) and async (`0.9.x`) user lookup.
-
-## Files
-
-- `open_webui_pipe.py`: basic integration, no directive-drafter layer (recommended/default).
-- `open_webui_pipe_with_directive_drafter.py`: optional/experimental directive-drafter layer (rule-based check first, then optional model fallback) before `engine.step(...)`.
-
 ## Core behavior
 
 - Directive-only turns are handled locally and return a fixed response.
@@ -42,6 +31,11 @@ Prohibit: slang
 The host injects this block into the forwarded request. Premise is not only a
 syntax or lifecycle rule here; it is part of the runtime-visible state that
 shapes the downstream request.
+
+## Files
+
+- `open_webui_pipe.py`: basic integration, no directive-drafter layer (recommended/default).
+- `open_webui_pipe_with_directive_drafter.py`: optional/experimental directive-drafter layer (rule-based check first, then optional model fallback) before `engine.step(...)`.
 
 ## Setup
 
@@ -212,6 +206,14 @@ If you want a slightly broader manual pass:
 - why this matters: the app waits for explicit, valid directive text before changing state.
 
 ## Troubleshooting
+
+## Compatibility
+
+Tested target: Open WebUI `v0.8.12`.
+Validated at runtime on stock Docker Open WebUI with a real backend model provider.
+
+Compatibility note: OpenWebUI `0.9.x` changed `Users.get_user_by_id` to async.
+These examples support both sync (`0.8.x`) and async (`0.9.x`) user lookup.
 
 - `BASE_MODEL_ID is required`: set a valid Open WebUI model id in the function valves, or enable `ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true` only for local testing.
 - `BASE_MODEL_ID was not found in Open WebUI models`: copy the exact id from `Admin Panel → Settings → Models`.
