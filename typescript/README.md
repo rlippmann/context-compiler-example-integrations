@@ -3,26 +3,43 @@
 This package will publish TypeScript example integrations organized by
 enforcement point first.
 
-Open this section when you want small TypeScript examples that show a runtime
-behavior change from authoritative state.
+Use it when you want concrete TypeScript examples that show how authoritative
+Context Compiler state changes runtime behavior in a host application.
+
+The core library lives in
+[`context-compiler-ts`](https://github.com/rlippmann/context-compiler-ts).
+Directive recognition can be added with
+[`context-compiler-directive-drafter-ts`](https://github.com/rlippmann/context-compiler-directive-drafter-ts),
+but that layer is optional. This package is the examples and integration
+patterns layer.
+
+`context-compiler-ts` defines the authority contract.
+`context-compiler-directive-drafter-ts` is optional authority acquisition and
+drafting.
+This examples package shows where authority is enforced.
+
+Prompt reinjection influences model behavior.
+Context Compiler influences runtime behavior.
+
+## Start here
 
 Start with a generic example README below if you want the clearest explanation
-of an enforcement point before looking at starter apps.
+of one enforcement point before looking at starter apps.
 
-Current generic TypeScript examples include:
-
-- [typescript/examples/checkpoint_continuation/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/checkpoint_continuation/README.md)
-- [typescript/examples/execution_authorization/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/execution_authorization/README.md)
-- [typescript/examples/gateway_middleware/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/gateway_middleware/README.md)
-- [typescript/examples/prompt_construction/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/prompt_construction/README.md)
-- [typescript/examples/retrieval_filtering/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/retrieval_filtering/README.md)
-- [typescript/examples/schema_selection/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/schema_selection/README.md)
-- [typescript/examples/tool_gating/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/tool_gating/README.md)
+## Generic examples
 
 These generic examples are the main starting point for new readers.
 
-They are the most direct way to see the enforcement point before any framework
-or app runtime details.
+Open the enforcement point that matches the runtime behavior you want to
+inspect:
+
+- [Checkpoint continuation](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/checkpoint_continuation/README.md): persisted confirmation and resume flows change host behavior across turns or requests
+- [Execution authorization](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/execution_authorization/README.md): protected host actions execute only when authoritative state allows them
+- [Gateway middleware](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/gateway_middleware/README.md): the host allows, blocks, or routes requests before downstream work runs
+- [Prompt construction](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/prompt_construction/README.md): the host builds different request or prompt payloads from authoritative state
+- [Retrieval filtering](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/retrieval_filtering/README.md): the host changes which documents are eligible or relevant before returning results
+- [Schema selection](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/schema_selection/README.md): the host picks different workflow or response schemas from authoritative state
+- [Tool gating](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/tool_gating/README.md): the host changes which tools are visible or executable at runtime
 
 ## Starter apps
 
@@ -48,8 +65,14 @@ Each starter app now comes in two variants:
 The compiler-only flow is always the baseline. If a starter includes
 directive-drafter, it is there to help acquisition, not to own state changes.
 
-Choose TypeScript when you want:
+## Run an example
 
-- generic examples in TypeScript with the same enforcement-point taxonomy
-- minimal starter apps that show host/runtime boundaries
-- a direct path into Node or Next.js-oriented examples
+From the repository root, open one generic example README and run that
+example's package commands. For example:
+
+```bash
+cd typescript/examples/execution_authorization/expense_approval
+npm test
+npm run typecheck
+npm run build
+```
