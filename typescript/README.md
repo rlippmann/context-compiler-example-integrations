@@ -67,12 +67,12 @@ directive-drafter, it is there to help acquisition, not to own state changes.
 
 ## Run an example
 
-From the repository root, open one generic example README and run that
-example's package commands. For example:
+These published package docs are for discovery.
 
-```bash
-cd typescript/examples/execution_authorization/expense_approval
-npm test
-npm run typecheck
-npm run build
-```
+To explore or run an example, use a repository checkout:
+
+1. Clone
+   [`context-compiler-example-integrations`](https://github.com/rlippmann/context-compiler-example-integrations).
+2. Choose a generic example or a starter app.
+3. Open that example's README.
+4. Follow the example-specific setup, runtime, and validation instructions.

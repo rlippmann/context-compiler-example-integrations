@@ -57,9 +57,12 @@ integrations to inspect a runtime-specific path:
 
 ## Run an example
 
-From the repository root, open one generic example README and run its focused
-test or example command. For example:
+These published package docs are for discovery.
 
-```bash
-uv run --no-sync pytest python/tests/test_expense_approval_example.py
-```
+To explore or run an example, use a repository checkout:
+
+1. Clone
+   [`context-compiler-example-integrations`](https://github.com/rlippmann/context-compiler-example-integrations).
+2. Choose a generic example or a reference integration.
+3. Open that example's README.
+4. Follow the example-specific setup, runtime, and validation instructions.
