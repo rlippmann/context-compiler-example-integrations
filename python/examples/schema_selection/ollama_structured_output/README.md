@@ -44,7 +44,7 @@ Tests do not assert exact model wording.
 ## Run without Ollama
 
 ```shell
-uv run python examples/integrations/ollama_structured_output/example.py
+uv run python python/examples/schema_selection/ollama_structured_output/example.py
 ```
 
 ## Optional Ollama smoke run
@@ -52,7 +52,7 @@ uv run python examples/integrations/ollama_structured_output/example.py
 ```shell
 export RUN_OLLAMA_SMOKE=1
 export OLLAMA_MODEL=llama3.1
-uv run python examples/integrations/ollama_structured_output/example.py
+uv run python python/examples/schema_selection/ollama_structured_output/example.py
 ```
 
 When smoke mode is enabled, the host sends the selected JSON Schema through Ollama `format`.

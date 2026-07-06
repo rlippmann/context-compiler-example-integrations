@@ -46,4 +46,4 @@ host-owned flow.
 For a concrete proxy runtime surface, see the LiteLLM Proxy reference
 integration:
 
-- [python/reference_integrations/litellm_proxy/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/reference_integrations/litellm_proxy/README.md)
+- [python/reference_integrations/litellm_proxy/README.md](../../reference_integrations/litellm_proxy/README.md)

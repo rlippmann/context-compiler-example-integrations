@@ -16,6 +16,16 @@ Each example:
 - remains meaningful with an adversarial model stub
 - focuses on the enforcement point rather than the framework
 
+## Start here
+
+Start with [python/README.md](python/README.md) or [typescript/README.md](typescript/README.md) if you want language-level orientation first.
+
+Use the enforcement-point catalog below when you already know which runtime
+behavior you want to inspect.
+
+Both language tracks include generic examples. TypeScript also includes starter
+apps. Python also includes reference integrations.
+
 ## Ecosystem map
 
 | Repo | Question |
@@ -28,13 +38,13 @@ Each example:
 
 | Enforcement Point | Domain | Technology |
 | --- | --- | --- |
-| [Gateway middleware](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/gateway_middleware/README.md) | Customer support routing | generic Python / TypeScript, LiteLLM Proxy |
-| [Schema selection](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/schema_selection/README.md) | Order / incident intake | generic Python / TypeScript, Ollama, LiteLLM, Vercel AI SDK |
-| [Checkpoint continuation](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/checkpoint_continuation/README.md) | Travel booking | generic Python / TypeScript, FastAPI, Node, Next.js |
-| [Execution authorization](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/execution_authorization/README.md) | Expense approval | generic Python / TypeScript, Node |
-| [Retrieval filtering](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/retrieval_filtering/README.md) | HR policy lookup | generic Python / TypeScript, ChromaDB |
-| [Request construction / context assembly](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/prompt_construction/README.md) | Writing assistant | generic Python / TypeScript, LiteLLM, Open WebUI, Next.js |
-| [Tool gating](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/tool_gating/README.md) | Calendar / email / admin | generic Python / TypeScript, MCP |
+| [Gateway middleware](python/examples/gateway_middleware/README.md) | Customer support routing | generic Python / TypeScript, LiteLLM Proxy |
+| [Schema selection](python/examples/schema_selection/README.md) | Order / incident intake | generic Python / TypeScript, Ollama, LiteLLM, Vercel AI SDK |
+| [Checkpoint continuation](python/examples/checkpoint_continuation/README.md) | Travel booking | generic Python / TypeScript, FastAPI, Node, Next.js |
+| [Execution authorization](python/examples/execution_authorization/README.md) | Expense approval | generic Python / TypeScript, Node |
+| [Retrieval filtering](python/examples/retrieval_filtering/README.md) | HR policy lookup | generic Python / TypeScript, ChromaDB |
+| [Request construction / context assembly](python/examples/prompt_construction/README.md) | Writing assistant | generic Python / TypeScript, LiteLLM, Open WebUI, Next.js |
+| [Tool gating](python/examples/tool_gating/README.md) | Calendar / email / admin | generic Python / TypeScript, MCP |
 
 ## How this repo is organized
 
@@ -65,8 +75,8 @@ This repo is:
 
 ## Current layout
 
-- [python/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/README.md)
-- [typescript/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/README.md)
+- [python/README.md](python/README.md)
+- [typescript/README.md](typescript/README.md)
 
 ## Contribution expectations
 
@@ -77,7 +87,7 @@ Primary examples in this repo should:
 - remain meaningful with an adversarial stub
 - demonstrate observable runtime behavior changes
 
-See [CONTRIBUTING.md](/Users/rlippmann/Source/context-compiler-example-integrations/CONTRIBUTING.md) and [AGENTS.md](/Users/rlippmann/Source/context-compiler-example-integrations/AGENTS.md) for repository rules.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for repository rules.
 
 ## Validation
 

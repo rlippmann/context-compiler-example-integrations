@@ -37,4 +37,4 @@ small host-owned flow.
 
 For a small TypeScript host runtime surface, see:
 
-- [typescript/starter_apps/node/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/node/README.md)
+- [typescript/starter_apps/node/README.md](../../../typescript/starter_apps/node/README.md)

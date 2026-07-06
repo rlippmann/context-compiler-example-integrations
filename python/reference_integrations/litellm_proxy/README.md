@@ -12,6 +12,27 @@ Available hook files:
 - Basic replay-only hook: `context_compiler_precall_hook.py`
 - Directive-drafter-enabled hook: `context_compiler_precall_hook_with_directive_drafter.py`
 
+## Runtime behavior
+
+- User messages are replayed through Context Compiler before the model call.
+- LiteLLM Proxy is the gateway surface; Context Compiler remains the authority layer for saved state.
+- If result is `confirm`, the proxy does not call the downstream model and LiteLLM surfaces the confirmation as an HTTP 400 response.
+- If result is `passthrough`, the proxy forwards the request normally.
+- If result is `update`, the proxy injects compiler state as a system message and then calls the model.
+- Unsupported LiteLLM callback `call_type` values return the original request data unchanged.
+
+Optional directive-drafter behavior:
+
+- Only the latest user transcript message is drafted for compiler replay input.
+- Heuristic runs first; if no directive is found, LLM fallback is attempted.
+- Forwarded upstream request messages are not rewritten (except injected compiler system message).
+
+Runtime verification boundary:
+
+- Basic hook: opt-in runtime smoke test covers proxy startup, blocked request behavior, and forwarded contract injection at the LiteLLM Proxy runtime boundary.
+- Directive-drafter hook: opt-in runtime smoke test covers the same proxy boundary behaviors, plus verifies drafting only changes compiler replay input and does not rewrite the forwarded upstream request payload.
+- Directive-drafter fallback model behavior remains environment-sensitive and is primarily covered by unit-style tests rather than this local stub runtime smoke path.
+
 ## Requirements
 
 ```shell
@@ -47,36 +68,6 @@ litellm --config python/reference_integrations/litellm_proxy/config.example.yaml
 `config.example.yaml` includes both OpenAI and Ollama model definitions.
 Use the Ollama model entry for local testing without API credentials.
 
-## Run proxy
-
-Typical startup command (environment-sensitive):
-
-```shell
-litellm --config python/reference_integrations/litellm_proxy/config.example.yaml
-```
-
-The reference integration is covered by unit tests and an opt-in runtime
-smoke test. See "Opt-in Runtime Smoke Test" below for details.
-
-Validated basic-hook behaviors:
-
-- passthrough: upstream model called normally
-- update: compiler state injected before upstream model call
-- confirm: request blocked before upstream model call and surfaced as HTTP 400
-
-The proxy runs on `http://localhost:4000` by default.
-By default, `config.example.yaml` points to the basic replay-only hook.
-To use the directive-drafter variant, switch the callback path in the config.
-The callback path must be importable by LiteLLM in the environment where the
-proxy process starts.
-
-When starting LiteLLM from the repo root, prefer fully qualified callback
-imports in automated configs, for example:
-
-```text
-python.reference_integrations.litellm_proxy.context_compiler_precall_hook.proxy_handler_instance
-```
-
 ## Make a request
 
 ```python
@@ -105,26 +96,23 @@ curl http://localhost:4000/v1/chat/completions \
   }'
 ```
 
-## Runtime behavior
+## Run proxy
 
-- User messages are replayed through Context Compiler before the model call.
-- LiteLLM Proxy is the gateway surface; Context Compiler remains the authority layer for saved state.
-- If result is `confirm`, the proxy does not call the downstream model and LiteLLM surfaces the confirmation as an HTTP 400 response.
-- If result is `passthrough`, the proxy forwards the request normally.
-- If result is `update`, the proxy injects compiler state as a system message and then calls the model.
-- Unsupported LiteLLM callback `call_type` values return the original request data unchanged.
+The reference integration is covered by unit tests and an opt-in runtime
+smoke test. See "Opt-in Runtime Smoke Test" below for details.
 
-Optional directive-drafter behavior:
+The proxy runs on `http://localhost:4000` by default.
+By default, `config.example.yaml` points to the basic replay-only hook.
+To use the directive-drafter variant, switch the callback path in the config.
+The callback path must be importable by LiteLLM in the environment where the
+proxy process starts.
 
-- Only the latest user transcript message is drafted for compiler replay input.
-- Heuristic runs first; if no directive is found, LLM fallback is attempted.
-- Forwarded upstream request messages are not rewritten (except injected compiler system message).
+When starting LiteLLM from the repo root, prefer fully qualified callback
+imports in automated configs, for example:
 
-Runtime verification boundary:
-
-- Basic hook: opt-in runtime smoke test covers proxy startup, blocked request behavior, and forwarded contract injection at the LiteLLM Proxy runtime boundary.
-- Directive-drafter hook: opt-in runtime smoke test covers the same proxy boundary behaviors, plus verifies drafting only changes compiler replay input and does not rewrite the forwarded upstream request payload.
-- Directive-drafter fallback model behavior remains environment-sensitive and is primarily covered by unit-style tests rather than this local stub runtime smoke path.
+```text
+python.reference_integrations.litellm_proxy.context_compiler_precall_hook.proxy_handler_instance
+```
 
 Optional env vars for directive-drafter fallback:
 
