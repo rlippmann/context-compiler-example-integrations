@@ -1,6 +1,7 @@
 # Python examples
 
-Python examples in this repo stay organized by enforcement point first.
+This package publishes Python example integrations organized by enforcement
+point first.
 
 Open this section when you want the smallest Python examples that show a
 runtime behavior change from authoritative state.
@@ -10,13 +11,13 @@ of an enforcement point before looking at framework-specific integrations.
 
 Current generic Python examples include:
 
-- [python/examples/checkpoint_continuation/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/checkpoint_continuation/README.md)
-- [python/examples/execution_authorization/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/execution_authorization/README.md)
-- [python/examples/gateway_middleware/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/gateway_middleware/README.md)
-- [python/examples/prompt_construction/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/prompt_construction/README.md)
-- [python/examples/retrieval_filtering/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/retrieval_filtering/README.md)
-- [python/examples/schema_selection/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/schema_selection/README.md)
-- [python/examples/tool_gating/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/tool_gating/README.md)
+- [python/examples/checkpoint_continuation/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/checkpoint_continuation/README.md)
+- [python/examples/execution_authorization/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/execution_authorization/README.md)
+- [python/examples/gateway_middleware/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/gateway_middleware/README.md)
+- [python/examples/prompt_construction/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/prompt_construction/README.md)
+- [python/examples/retrieval_filtering/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/retrieval_filtering/README.md)
+- [python/examples/schema_selection/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/schema_selection/README.md)
+- [python/examples/tool_gating/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/tool_gating/README.md)
 
 These generic examples are the main starting point for new readers.
 
@@ -34,8 +35,8 @@ behavior on a specific host or framework surface.
 Start with the generic example first, then use the Python reference
 integrations to inspect a runtime-specific path:
 
-- [python/reference_integrations/litellm_proxy/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/reference_integrations/litellm_proxy/README.md)
-- [python/reference_integrations/openwebui_pipe/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/reference_integrations/openwebui_pipe/README.md)
+- [python/reference_integrations/litellm_proxy/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/reference_integrations/litellm_proxy/README.md)
+- [python/reference_integrations/openwebui_pipe/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/reference_integrations/openwebui_pipe/README.md)
 
 Choose Python when you want:
 
