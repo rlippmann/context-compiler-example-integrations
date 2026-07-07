@@ -46,13 +46,13 @@ derive state from model output. The runtime behavior changes only when explicit
 authoritative Context Compiler state changes. The host does not resolve
 conflicts itself and does not treat "last directive wins" as policy.
 
-## Tier 3 FastAPI variant
+## FastAPI variant
 
-Tier 2 already proves deterministic enforcement against local and adversarial
-stubs.
+The provider-free tests already prove deterministic enforcement against local
+and adversarial stubs.
 
-The FastAPI variant adds a Tier 3 comparison where a live model produces an
-approval-class claim:
+The FastAPI variant adds a live-model comparison where a live model produces an
+approval claim:
 
 - baseline path: a naive host trusts the model claim and writes the side effect
 - compiler-mediated path: the host sees the same claim but denies execution

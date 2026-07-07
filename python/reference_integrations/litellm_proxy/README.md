@@ -139,7 +139,7 @@ Use `llama` only for LLM-only preprocessing with Llama-family models.
 
 ## Opt-in Runtime Smoke Test
 
-This repo includes an opt-in Tier 2 runtime smoke test for the LiteLLM Proxy
+This repo includes an opt-in runtime smoke test for the LiteLLM Proxy
 reference integration. The test starts a real LiteLLM Proxy process, runs the
 basic hook and the directive-drafter hook in separate proxy launches, sends
 local requests through the proxy, verifies blocked requests do not reach
