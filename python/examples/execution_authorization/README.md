@@ -29,12 +29,3 @@ blocked and authorized state.
 A FastAPI variant also shows the Tier 3 comparison boundary: a live model can
 say an expense is approved, but the compiler-mediated host still denies the
 protected mutation unless authoritative state authorizes it.
-
-## Related integrations
-
-The generic examples teach the execution-authorization enforcement point in a
-small host-owned flow.
-
-For a small TypeScript host runtime surface, see:
-
-- [typescript/starter_apps/node/README.md](../../../typescript/starter_apps/node/README.md)

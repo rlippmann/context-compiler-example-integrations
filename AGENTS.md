@@ -145,6 +145,11 @@ changes are acceptance criteria.
 Documentation examples explicitly referenced by a task are part of the
 expected deliverable.
 
+Root README owns cross-language discovery.
+
+Language-specific and example README files should avoid cross-language links or
+navigation mentions unless there is a deliberate exception.
+
 Do not treat documentation as merely illustrative unless explicitly stated.
 
 Do not silently change documented behavior because implementation is easier.

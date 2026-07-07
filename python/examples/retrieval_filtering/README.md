@@ -56,11 +56,6 @@ It does not currently demonstrate premise-driven relevance. That is intentional
 scope narrowing for a smaller technology-specific example, not a behavior
 change in the generic retrieval examples.
 
-This example is Python-only because ChromaDB has a clean local Python client
-path for a small runnable example. The generic TypeScript
-`retrieval_filtering/hr_policy_lookup` example remains the TypeScript baseline
-for this enforcement point.
-
 ## Technology-specific examples
 
 The generic examples teach the retrieval-filtering enforcement point first.

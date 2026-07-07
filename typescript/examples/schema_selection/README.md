@@ -38,5 +38,3 @@ The generic examples teach the enforcement point first.
 Concrete runtime surfaces currently linked from this repo:
 
 - [typescript/examples/schema_selection/vercel_ai_sdk_generate_object/README.md](vercel_ai_sdk_generate_object/README.md)
-- [python/examples/schema_selection/ollama_structured_output/README.md](../../../python/examples/schema_selection/ollama_structured_output/README.md)
-- `python/examples/schema_selection/litellm_response_format/response_format.py`

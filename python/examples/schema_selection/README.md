@@ -39,4 +39,3 @@ Concrete runtime surfaces currently linked from this repo:
 
 - [python/examples/schema_selection/ollama_structured_output/README.md](ollama_structured_output/README.md)
 - `python/examples/schema_selection/litellm_response_format/response_format.py`
-- [typescript/examples/schema_selection/vercel_ai_sdk_generate_object/README.md](../../../typescript/examples/schema_selection/vercel_ai_sdk_generate_object/README.md)
