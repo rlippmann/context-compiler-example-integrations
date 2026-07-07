@@ -1,10 +1,7 @@
 # Python examples
 
-Use these Python examples to see how saved premise and policy change host
-application behavior at runtime.
-
-They show concrete enforcement points where authoritative Context Compiler
-state changes what the host allows, routes, retrieves, builds, or executes.
+These examples show how saved premise and policy change what a host allows,
+routes, retrieves, builds, or executes at runtime.
 
 Examples are organized by enforcement point first.
 
