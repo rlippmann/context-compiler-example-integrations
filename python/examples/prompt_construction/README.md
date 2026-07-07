@@ -17,7 +17,6 @@ These generic/examples-first docs teach the enforcement point.
 
 Related concrete runtime surfaces:
 
-- [python/examples/prompt_construction/litellm/README.md](litellm/README.md): LiteLLM-oriented prompt construction
 - [python/reference_integrations/openwebui_pipe/README.md](../../reference_integrations/openwebui_pipe/README.md): Open WebUI pipe integration
 
 ## Example requirements
