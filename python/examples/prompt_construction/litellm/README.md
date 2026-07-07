@@ -89,6 +89,9 @@ This near-miss input should return `clarify` instead of being rewritten.
 
 ## Environment configuration
 
+This section is the shared provider-contract reference for live-model examples
+in this repository.
+
 Required (normal `openai` mode):
 
 ```shell
@@ -181,15 +184,17 @@ instead of reinjecting a compiled contract, use
 - `OPENAI_BASE_URL is required when PROVIDER=openai_compatible`: set an explicit endpoint URL.
 - model/provider errors (`Model not found`, provider auth errors): confirm `MODEL` uses LiteLLM format and provider credentials are valid.
 
-## Decision flow
+## Prompt-construction decision flow
 
-In both prompt-construction examples:
+In both prompt-construction examples in this directory:
 
 - `passthrough`: call the model with normal input.
 - `clarify`: show `prompt_to_user`; do not treat state as changed.
 - `update`: state changed; use updated state for the next model call.
 
-Decision flow in the schema-selection example:
+## Related schema-selection decision flow
+
+In the related schema-selection example:
 
 - `passthrough`: let the host decide whether to send `response_format`.
 - `clarify`: show `prompt_to_user`; do not call LiteLLM.
