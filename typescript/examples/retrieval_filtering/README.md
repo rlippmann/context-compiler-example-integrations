@@ -39,5 +39,3 @@ query text does not mutate authoritative state.
 The generic examples teach the retrieval-filtering enforcement point first.
 
 Concrete runtime surface currently linked from this repo:
-
-- [python/examples/retrieval_filtering/chromadb_hr_policy_lookup/README.md](../../../python/examples/retrieval_filtering/chromadb_hr_policy_lookup/README.md)

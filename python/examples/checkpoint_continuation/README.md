@@ -82,5 +82,3 @@ requirements.
 Related runtime surfaces:
 
 - [python/examples/checkpoint_continuation/fastapi/README.md](fastapi/README.md)
-- [typescript/starter_apps/node/README.md](../../../typescript/starter_apps/node/README.md)
-- [typescript/starter_apps/nextjs/README.md](../../../typescript/starter_apps/nextjs/README.md)
