@@ -73,12 +73,3 @@ uv run pytest python/tests/test_checkpoint_continuation_example.py
 
 For a request-boundary example, see
 [python/examples/checkpoint_continuation/fastapi/README.md](fastapi/README.md).
-
-## Related integrations
-
-The generic example teaches checkpoint continuation without framework-specific
-requirements.
-
-Related runtime surfaces:
-
-- [python/examples/checkpoint_continuation/fastapi/README.md](fastapi/README.md)
