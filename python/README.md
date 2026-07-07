@@ -21,6 +21,30 @@ This examples package shows where authority is enforced.
 Prompt reinjection influences model behavior.
 Context Compiler influences runtime behavior.
 
+## Install options
+
+Base installation keeps this package discovery-first:
+
+```shell
+pip install "context-compiler-example-integrations"
+```
+
+That installs the shared core dependency only:
+
+- `context-compiler>=0.8.0`
+
+Add extras only for the examples you want to inspect locally:
+
+- `pip install "context-compiler-example-integrations[drafter]"` for examples that use `context-compiler-directive-drafter`
+- `pip install "context-compiler-example-integrations[retrieval]"` for ChromaDB retrieval filtering examples
+- `pip install "context-compiler-example-integrations[fastapi]"` for FastAPI variants
+- `pip install "context-compiler-example-integrations[litellm]"` for LiteLLM-oriented examples and reference integrations
+- `pip install "context-compiler-example-integrations[all]"` to install all package-managed optional dependencies
+
+Open WebUI is not installed by this package. The Open WebUI reference
+integration assumes Open WebUI is already installed and configured as the host
+runtime.
+
 ## Generic examples
 
 - [Checkpoint continuation](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/checkpoint_continuation/README.md): persisted confirmation and resume flows change host behavior across turns or requests

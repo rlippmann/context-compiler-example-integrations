@@ -11,11 +11,7 @@ requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Robert Lippmann" }]
 dependencies = [
-  "chromadb",
-  "context-compiler>=0.7.4",
-  "context-compiler-directive-drafter",
-  "fastapi",
-  "litellm",
+  "context-compiler>=0.8.0",
 ]
 keywords = [
   "context-compiler",
@@ -39,6 +35,26 @@ Homepage = "https://github.com/rlippmann/context-compiler-example-integrations"
 Repository = "https://github.com/rlippmann/context-compiler-example-integrations"
 Issues = "https://github.com/rlippmann/context-compiler-example-integrations/issues"
 
+[project.optional-dependencies]
+all = [
+  "chromadb",
+  "context-compiler-directive-drafter",
+  "fastapi",
+  "litellm",
+]
+drafter = [
+  "context-compiler-directive-drafter",
+]
+fastapi = [
+  "fastapi",
+]
+litellm = [
+  "litellm",
+]
+retrieval = [
+  "chromadb",
+]
+
 [dependency-groups]
 dev = [
   "httpx2>=2.5.0",
@@ -52,7 +68,22 @@ proxy_runtime = [
 ]
 
 [tool.hatch.build.targets.wheel]
-only-include = ["python", "LICENSE", "AGENTS.md", "CONTRIBUTING.md"]
+only-include = ["python", "LICENSE"]
+exclude = [
+  "python/tests",
+  "python/**/__pycache__",
+  "python/**/*.pyc",
+  "python/**/.DS_Store",
+]
+
+[tool.hatch.build.targets.sdist]
+only-include = ["python", "LICENSE", "pyproject.toml"]
+exclude = [
+  "python/tests",
+  "python/**/__pycache__",
+  "python/**/*.pyc",
+  "python/**/.DS_Store",
+]
 
 
 [tool.ruff]

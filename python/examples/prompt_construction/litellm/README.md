@@ -48,22 +48,22 @@ This makes premise runtime-visible in the same host-owned contract as policy.
 ## Requirements
 
 ```shell
-pip install context-compiler litellm
+pip install "context-compiler-example-integrations[litellm]"
 export OPENAI_API_KEY=...
 ```
 
-Checkpoint continuation in these examples requires `context-compiler>=0.7.4`.
+These examples require `context-compiler>=0.8.0`.
 
 For `with_directive_drafter.py`:
 
 ```shell
-pip install context-compiler litellm context-compiler-directive-drafter
+pip install "context-compiler-example-integrations[all]"
 ```
 
 ## Quickstart (copy/paste)
 
 ```shell
-pip install context-compiler litellm
+pip install "context-compiler-example-integrations[litellm]"
 export OPENAI_API_KEY=...
 export MODEL=openai/gpt-4o-mini
 python - <<'PY'
@@ -77,7 +77,7 @@ PY
 For directive-drafter behavior:
 
 ```shell
-pip install context-compiler litellm context-compiler-directive-drafter
+pip install "context-compiler-example-integrations[all]"
 export OPENAI_API_KEY=...
 export MODEL=openai/gpt-4o-mini
 python - <<'PY'
