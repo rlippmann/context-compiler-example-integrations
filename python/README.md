@@ -14,8 +14,8 @@ but that layer is optional. This package is the examples and integration
 patterns layer.
 
 `context-compiler` defines the authority contract.
-`context-compiler-directive-drafter` is optional authority acquisition and
-drafting.
+`context-compiler-directive-drafter` can optionally help acquire and draft
+authority, but it is not the authority layer.
 This examples package shows where authority is enforced.
 
 Prompt reinjection influences model behavior.

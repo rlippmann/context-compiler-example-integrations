@@ -5,13 +5,13 @@ compiler state.
 
 ## Core behavior
 
-- Directive-only turns are handled locally and return a fixed response.
-- Normal chat turns are forwarded to the backend model.
+- The pipe handles directive-only turns locally and returns a fixed response.
+- The pipe forwards normal chat turns to the backend model.
 - When compiler state is non-empty, passthrough includes exactly one compiler-owned
   `[[cc_state]]` system message in the forwarded request.
 - Conflicting or ambiguous updates ask for clarification before state changes.
-- Exact `show state` is handled locally. Near matches such as `show state please`
-  are treated as normal chat input.
+- The pipe handles exact `show state` locally. The pipe treats near matches such
+  as `show state please` as normal chat input.
 
 The forwarded `[[cc_state]]` block makes both kinds of authoritative state
 runtime-visible:

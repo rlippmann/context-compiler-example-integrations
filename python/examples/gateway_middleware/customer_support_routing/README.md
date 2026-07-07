@@ -6,7 +6,7 @@ Context Compiler state before a downstream support handler runs.
 The gateway reads authoritative state and decides whether a request that asks
 for `billing_support` may cross the middleware boundary.
 
-The downstream support service is called only after the gateway allows the
+The gateway calls the downstream support service only after it allows the
 request.
 
 ## Policy mapping
