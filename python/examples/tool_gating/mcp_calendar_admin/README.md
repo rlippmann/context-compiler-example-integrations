@@ -83,7 +83,7 @@ uv run --no-sync pytest python/tests/test_mcp_calendar_admin_live_model.py
 ```
 
 This live-model path uses the shared provider contract documented in
-[python/examples/prompt_construction/litellm/README.md](../../prompt_construction/litellm/README.md).
+[PROVIDER_CONTRACT.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/PROVIDER_CONTRACT.md).
 
 Example-specific note for local Ollama:
 
