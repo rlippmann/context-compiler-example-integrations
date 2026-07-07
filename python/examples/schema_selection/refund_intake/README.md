@@ -52,9 +52,8 @@ set premise order A-100 is a delivered physical item reported as damaged on arri
 the same ambiguous user request, `I need help with order A-100.`, selects the
 `refund_intake` schema.
 
-In the host rule layer, that saved premise maps to the
-`damaged_physical_delivery` intake category, which then maps to
-`refund_intake`.
+The host maps that saved premise to the `damaged_physical_delivery` intake
+category, which then maps to `refund_intake`.
 
 With a different factual premise:
 
@@ -64,7 +63,7 @@ set premise order A-100 is a digital subscription with an active login failure a
 
 the same ambiguous user request selects the `technical_support` schema.
 
-In the host rule layer, that saved premise maps to the
+The host maps that saved premise to the
 `digital_subscription_login_failure` intake category, which then maps to
 `technical_support`.
 
