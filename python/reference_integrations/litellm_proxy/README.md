@@ -35,7 +35,7 @@ Runtime verification boundary:
 ## Requirements
 
 ```shell
-pip install context-compiler litellm
+pip install "context-compiler-example-integrations[litellm]"
 export OPENAI_API_KEY=...
 ```
 
@@ -45,7 +45,7 @@ only if you want the optional directive-drafter variant.
 For `context_compiler_precall_hook_with_directive_drafter.py`:
 
 ```shell
-pip install context-compiler litellm context-compiler-directive-drafter
+pip install "context-compiler-example-integrations[all]"
 ```
 
 For the opt-in runtime smoke test, install the proxy runtime extras:
@@ -59,7 +59,7 @@ uv sync --group proxy_runtime
 From the repo root:
 
 ```shell
-pip install context-compiler litellm
+pip install "context-compiler-example-integrations[litellm]"
 export OPENAI_API_KEY=...
 litellm --config python/reference_integrations/litellm_proxy/config.example.yaml
 ```
