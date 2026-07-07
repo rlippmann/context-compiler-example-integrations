@@ -72,11 +72,11 @@ npm test -- --test-name-pattern="live model tool surface changes with authoritat
 HTTP contract:
 
 - `MODEL` is sent as-is to the target OpenAI-compatible endpoint
-- `OPENAI_BASE_URL` overrides the default OpenAI-compatible base URL
-- if `OPENAI_BASE_URL` is unset, the helper uses
-  `https://api.openai.com/v1`
-- `OPENAI_BASE_URL` overrides the OpenAI-compatible base URL when needed
 - `OPENAI_API_KEY` is required for the live-model HTTP call
+
+For the shared provider contract used across live-model examples in this repo,
+see
+[python/examples/prompt_construction/litellm/README.md](../../../../python/examples/prompt_construction/litellm/README.md).
 
 Run the same opt-in validation with local Ollama:
 

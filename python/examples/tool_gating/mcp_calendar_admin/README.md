@@ -82,12 +82,11 @@ export OPENAI_API_KEY=...
 uv run --no-sync pytest python/tests/test_mcp_calendar_admin_live_model.py
 ```
 
-Optional compatible-provider settings:
+This live-model path uses the shared provider contract documented in
+[python/examples/prompt_construction/litellm/README.md](../../prompt_construction/litellm/README.md).
 
-- `PROVIDER`
-- `OPENAI_BASE_URL`
+Example-specific note for local Ollama:
 
-For local Ollama, this example accepts either:
-
-- `PROVIDER=ollama` with a bare `MODEL` such as `qwen2.5:1.5b-instruct`
+- this example accepts either `PROVIDER=ollama` with a bare `MODEL` such as
+  `qwen2.5:1.5b-instruct`
 - or an explicit LiteLLM-style `MODEL=ollama/qwen2.5:1.5b-instruct`
