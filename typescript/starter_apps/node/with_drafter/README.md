@@ -10,8 +10,8 @@ state.
 
 ## Files
 
-- [server.ts](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/node/with_drafter/server.ts) - minimal chat endpoint with checkpoint persistence and drafter handoff
-- [package.json](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/node/with_drafter/package.json) - package dependencies for the optional drafter layer
+- [server.ts](server.ts) - minimal chat endpoint with checkpoint persistence and drafter handoff
+- [package.json](package.json) - package dependencies for the optional drafter layer
 
 ## Install
 

@@ -67,7 +67,7 @@ This repo is:
 
 - an examples/integrations repo
 - organized around runtime enforcement points
-- not a library/package repo
+- not the core Context Compiler library package
 - not the authority contract
 - not the directive drafter
 - not an acquisition-layer repo

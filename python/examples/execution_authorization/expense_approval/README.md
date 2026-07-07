@@ -59,7 +59,7 @@ approval-class claim:
   unless authoritative state authorizes `expense_approval`
 
 See
-[python/examples/execution_authorization/expense_approval/fastapi/README.md](/Users/rlippmann/Source/context-compiler-example-integrations/python/examples/execution_authorization/expense_approval/fastapi/README.md).
+[fastapi/README.md](fastapi/README.md).
 
 ## Validation
 

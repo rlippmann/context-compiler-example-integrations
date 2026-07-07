@@ -14,8 +14,8 @@ No directive-drafter dependency is used in this variant.
 
 ## Files
 
-- [server.ts](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/node/basic/server.ts) - minimal chat endpoint with checkpoint persistence
-- [package.json](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/node/basic/package.json) - compiler-only package dependencies
+- [server.ts](server.ts) - minimal chat endpoint with checkpoint persistence
+- [package.json](package.json) - compiler-only package dependencies
 
 ## Install
 

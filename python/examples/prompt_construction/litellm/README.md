@@ -49,7 +49,7 @@ pip install context-compiler litellm
 export OPENAI_API_KEY=...
 ```
 
-Checkpoint continuation in these examples requires `context-compiler>=0.7.0`.
+Checkpoint continuation in these examples requires `context-compiler>=0.7.4`.
 
 For `with_directive_drafter.py`:
 
