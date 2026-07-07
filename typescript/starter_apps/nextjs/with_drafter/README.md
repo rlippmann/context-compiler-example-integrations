@@ -10,9 +10,9 @@ payload the host would send onward.
 
 ## Files
 
-- [app/api/chat/route.ts](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/with_drafter/app/api/chat/route.ts) - route handler with safe drafter handoff
-- [lib/context-sessions.ts](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/with_drafter/lib/context-sessions.ts) - in-memory checkpoint storage for the example
-- [app/page.tsx](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/with_drafter/app/page.tsx) - minimal page that explains the API
+- [app/api/chat/route.ts](app/api/chat/route.ts) - route handler with safe drafter handoff
+- [lib/context-sessions.ts](lib/context-sessions.ts) - in-memory checkpoint storage for the example
+- [app/page.tsx](app/page.tsx) - minimal page that explains the API
 
 ## Install
 

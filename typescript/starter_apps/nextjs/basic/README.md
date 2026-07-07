@@ -12,9 +12,9 @@ runs the compiler, and builds the request payload the host would send onward.
 
 ## Files
 
-- [app/api/chat/route.ts](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/basic/app/api/chat/route.ts) - compiler-only route handler
-- [lib/context-sessions.ts](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/basic/lib/context-sessions.ts) - in-memory checkpoint storage for the example
-- [app/page.tsx](/Users/rlippmann/Source/context-compiler-example-integrations/typescript/starter_apps/nextjs/basic/app/page.tsx) - minimal page that explains the API
+- [app/api/chat/route.ts](app/api/chat/route.ts) - compiler-only route handler
+- [lib/context-sessions.ts](lib/context-sessions.ts) - in-memory checkpoint storage for the example
+- [app/page.tsx](app/page.tsx) - minimal page that explains the API
 
 ## Install
 
