@@ -23,11 +23,6 @@ Context Compiler influences runtime behavior.
 
 ## Generic examples
 
-These generic examples are the main starting point for new readers.
-
-Open the enforcement point that matches the runtime behavior you want to
-inspect:
-
 - [Checkpoint continuation](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/checkpoint_continuation/README.md): persisted confirmation and resume flows change host behavior across turns or requests
 - [Execution authorization](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/execution_authorization/README.md): protected host actions execute only when authoritative state allows them
 - [Gateway middleware](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/gateway_middleware/README.md): the host allows, blocks, or routes requests before downstream work runs
