@@ -1,7 +1,8 @@
 # Checkpoint continuation with FastAPI
 
-This example demonstrates checkpoint continuation across stateless HTTP request
-boundaries.
+A saved checkpoint lets later HTTP requests resume or reject a pending
+itinerary change instead of starting over. This example shows checkpoint
+continuation across stateless HTTP request boundaries.
 
 ## Enforcement point
 

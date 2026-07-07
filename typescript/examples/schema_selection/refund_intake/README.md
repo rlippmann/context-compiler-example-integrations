@@ -1,9 +1,8 @@
 # Refund intake
 
-This example shows two host-side schema-selection mechanisms in the same
-customer order/support intake domain.
-
-The host reads Context Compiler authoritative state and chooses the workflow.
+Authoritative state changes which intake workflow the host selects for the same
+ambiguous order request. This example shows two host-side schema-selection
+mechanisms in a TypeScript customer order/support intake flow.
 
 The enforcement point stays the same:
 

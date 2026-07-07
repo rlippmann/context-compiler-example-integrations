@@ -1,7 +1,8 @@
 # ChromaDB HR policy lookup
 
-This example demonstrates retrieval filtering for HR policy lookup with the
-Python ChromaDB client.
+Authoritative state changes which HR documents Chroma may return for the same
+lookup request. This example shows retrieval filtering for HR policy lookup
+with the Python ChromaDB client.
 
 It is intentionally narrower than the generic HR retrieval example.
 

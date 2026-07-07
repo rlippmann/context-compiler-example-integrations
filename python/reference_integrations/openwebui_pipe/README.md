@@ -1,7 +1,8 @@
 # Open WebUI Pipe Integration
 
-These examples show how an Open WebUI pipe changes runtime behavior with saved
-compiler state.
+Saved compiler state changes which turns the pipe handles locally and what it
+forwards downstream. These examples show that Open WebUI pipe behavior with and
+without directive-drafter preprocessing.
 
 ## Core behavior
 
