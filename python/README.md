@@ -23,11 +23,6 @@ This examples package shows where authority is enforced.
 Prompt reinjection influences model behavior.
 Context Compiler influences runtime behavior.
 
-## Start here
-
-Start with a generic example README below if you want the clearest explanation
-of one enforcement point before looking at runtime-specific integrations.
-
 ## Generic examples
 
 These generic examples are the main starting point for new readers.
