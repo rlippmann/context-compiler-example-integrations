@@ -87,13 +87,8 @@ uv run --no-sync pytest python/tests/test_fastapi_expense_approval_live_model.py
 Unless you run that env-var-gated command, this repo has only validated the
 provider-free runtime-boundary path, not the live-provider path.
 
-The live-model path uses the same shared provider contract already used
-elsewhere in this repo:
-
-- `PROVIDER`
-- `MODEL`
-- `OPENAI_API_KEY`
-- `OPENAI_BASE_URL`
+The live-model path uses the shared provider contract documented in
+[python/examples/prompt_construction/litellm/README.md](../../../prompt_construction/litellm/README.md).
 
 ## Run locally
 
