@@ -88,7 +88,7 @@ Unless you run that env-var-gated command, this repo has only validated the
 provider-free runtime-boundary path, not the live-provider path.
 
 The live-model path uses the shared provider contract documented in
-[python/examples/prompt_construction/litellm/README.md](../../../prompt_construction/litellm/README.md).
+[PROVIDER_CONTRACT.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/PROVIDER_CONTRACT.md).
 
 ## Run locally
 

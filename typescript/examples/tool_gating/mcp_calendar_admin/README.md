@@ -76,7 +76,7 @@ HTTP contract:
 
 For the shared provider contract used across live-model examples in this repo,
 see
-[python/examples/prompt_construction/litellm/README.md](../../../../python/examples/prompt_construction/litellm/README.md).
+[PROVIDER_CONTRACT.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/PROVIDER_CONTRACT.md).
 
 Run the same opt-in validation with local Ollama:
 
