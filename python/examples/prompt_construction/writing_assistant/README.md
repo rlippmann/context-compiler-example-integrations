@@ -1,7 +1,8 @@
 # Writing assistant prompt construction
 
-This example demonstrates prompt construction for a writing assistant in plain
-Python.
+Authoritative state changes the prompt the host builds for the same writing
+request. This example shows prompt construction for a writing assistant in
+plain Python.
 
 ## Enforcement point
 

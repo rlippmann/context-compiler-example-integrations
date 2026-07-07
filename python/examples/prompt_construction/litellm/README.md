@@ -1,6 +1,9 @@
 # LiteLLM examples
 
-These examples show two user-visible prompt-construction flows with LiteLLM:
+Saved compiler state changes the system contract LiteLLM receives for the same
+user input, and directive drafting can change how directive-shaped text reaches
+the compiler. These examples show two user-visible prompt-construction flows
+with LiteLLM:
 
 - `basic.py`: compiler-only flow (no directive drafter)
 - `with_directive_drafter.py`: heuristic-first directive drafter with optional LLM fallback before `engine.step(...)`

@@ -1,7 +1,8 @@
 # `mcp_calendar_admin`
 
-This example shows tool gating where MCP is the integration surface and the
-host owns the MCP registry plus MCP tool execution.
+Authoritative state changes whether the host exposes and executes the calendar
+admin MCP tool. This example shows tool gating with MCP as the integration
+surface.
 
 Context Compiler owns the authoritative policy state that decides whether the
 host exposes the calendar admin MCP tool.

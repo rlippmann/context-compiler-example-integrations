@@ -1,7 +1,8 @@
 # Expense approval
 
-This example demonstrates execution authorization for expense approval in plain
-TypeScript.
+Authoritative state changes whether the host executes `submitExpense` for the
+same expense request. This example shows that execution-authorization behavior
+in plain TypeScript.
 
 ## Enforcement point
 

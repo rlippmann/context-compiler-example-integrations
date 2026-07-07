@@ -1,7 +1,8 @@
 # HR policy lookup
 
-This example demonstrates retrieval filtering for HR policy lookup in plain
-TypeScript.
+Authoritative state changes which HR documents the host may return for the
+same lookup request. This example shows retrieval filtering for HR policy
+lookup in plain TypeScript.
 
 ## Enforcement point
 

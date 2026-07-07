@@ -1,11 +1,10 @@
 # LiteLLM Proxy (pre-call hook)
 
-This example shows how LiteLLM Proxy acts as the host-owned gateway surface.
+Saved compiler state changes whether LiteLLM Proxy blocks a request, forwards
+it unchanged, or injects compiler state before the downstream call. This
+example shows LiteLLM Proxy acting as the host-owned gateway surface.
 
 Context Compiler is the authority layer for saved state.
-
-The pre-call hook enforces that authoritative state before any downstream
-model call.
 
 Available hook files:
 

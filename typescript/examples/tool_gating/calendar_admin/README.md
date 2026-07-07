@@ -1,9 +1,8 @@
 # `calendar_admin`
 
-This example shows host-side tool gating with explicit authoritative Context
-Compiler state.
-
-The host owns the tool registry and tool execution.
+Authoritative state changes whether the host exposes and executes the calendar
+admin tool. This example shows host-side tool gating with explicit
+authoritative Context Compiler state.
 
 Context Compiler owns the policy state that decides whether the host exposes
 `calendar_admin_create_event`.

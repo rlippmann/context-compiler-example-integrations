@@ -1,7 +1,8 @@
 # Expense approval
 
-This example demonstrates execution authorization for expense approval in plain
-Python.
+Authoritative state changes whether the host executes `submit_expense` for the
+same expense request. This example shows that execution-authorization behavior
+in plain Python.
 
 Model approval is not authorization.
 

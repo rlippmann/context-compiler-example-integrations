@@ -1,6 +1,8 @@
 # Ollama structured output (host-side selection)
 
-This example shows a visible host behavior change that is different from prompt reinjection.
+Policy state changes which schema the host sends through Ollama's `format`
+field, or whether it sends none. This example shows that host-side
+schema-selection behavior without relying on prompt reinjection.
 
 Flow:
 

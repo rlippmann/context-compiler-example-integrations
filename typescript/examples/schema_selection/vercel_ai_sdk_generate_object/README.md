@@ -1,7 +1,8 @@
 # Vercel AI SDK `generateObject` schema selection
 
-This example shows the TypeScript counterpart to the Python schema-selection
-examples in this repository.
+Compiler state changes which schema the host passes to `generateObject`, or
+whether it omits schema selection entirely. This TypeScript example is the
+counterpart to the Python schema-selection examples in this repository.
 
 The enforcement point is schema selection.
 

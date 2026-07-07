@@ -1,6 +1,8 @@
 # Checkpoint continuation
 
-This example demonstrates checkpoint continuation as an enforcement point.
+Restoring a saved checkpoint changes whether a fresh host process can resume
+and apply a pending itinerary change. This example shows checkpoint
+continuation in a generic TypeScript travel-booking flow.
 
 ## Domain
 

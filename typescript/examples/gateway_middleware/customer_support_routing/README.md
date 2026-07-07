@@ -1,10 +1,8 @@
 # Customer support routing
 
-This example demonstrates a host-owned gateway enforcing authoritative
-Context Compiler state before a downstream support handler runs.
-
-The gateway reads authoritative state and decides whether a request that asks
-for `billing_support` may cross the middleware boundary.
+Authoritative state changes whether the gateway lets a billing request reach
+the downstream support handler. This example shows that gateway behavior in a
+host-owned customer support routing flow.
 
 The downstream support service is called only after the gateway allows the
 request.
