@@ -1,10 +1,12 @@
 # Python examples
 
-This package publishes Python example integrations organized by enforcement
-point first.
+Use these Python examples to see how saved premise and policy change host
+application behavior at runtime.
 
-Use it when you want concrete Python examples that show how authoritative
-Context Compiler state changes runtime behavior in a host application.
+They show concrete enforcement points where authoritative Context Compiler
+state changes what the host allows, routes, retrieves, builds, or executes.
+
+Examples are organized by enforcement point first.
 
 The core library lives in
 [`context-compiler`](https://github.com/rlippmann/context-compiler).
@@ -56,8 +58,6 @@ integrations to inspect a runtime-specific path:
 - [python/reference_integrations/openwebui_pipe/README.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/reference_integrations/openwebui_pipe/README.md)
 
 ## Run an example
-
-These published package docs are for discovery.
 
 To explore or run an example, use a repository checkout:
 
