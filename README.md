@@ -30,9 +30,11 @@ apps. Python also includes reference integrations.
 
 | Repo | Question |
 | --- | --- |
-| context-compiler | What is the authority contract? |
-| context-compiler-directive-drafter | How is authority acquired? |
-| context-compiler-example-integrations | Where can authority be enforced? |
+| [context-compiler](https://github.com/rlippmann/context-compiler) | What is the authority contract? |
+| [context-compiler-ts](https://github.com/rlippmann/context-compiler-ts) | Where is the TypeScript core library? |
+| [context-compiler-directive-drafter](https://github.com/rlippmann/context-compiler-directive-drafter) | How is authority acquired? |
+| [context-compiler-directive-drafter-ts](https://github.com/rlippmann/context-compiler-directive-drafter-ts) | Where is the TypeScript directive drafter? |
+| [context-compiler-example-integrations](https://github.com/rlippmann/context-compiler-example-integrations) | Where can authority be enforced? |
 
 ## Enforcement-point catalog
 
