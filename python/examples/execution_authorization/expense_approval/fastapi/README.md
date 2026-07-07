@@ -3,11 +3,11 @@
 This FastAPI variant provides provider-free runtime-boundary validation by
 default, plus an opt-in live-model validation path.
 
-Tier 2 already proves deterministic enforcement against local and adversarial
-stubs.
+The provider-free tests already prove deterministic enforcement against local
+and adversarial stubs.
 
 The default tests here prove the runtime boundary behavior with a visible
-approval-class claim present at the request surface.
+approval claim present at the request surface.
 
 If you also run the opt-in live-model validation with
 `RUN_EXPENSE_APPROVAL_LIVE_MODEL=1`, this variant demonstrates that the same
@@ -28,7 +28,7 @@ caller-supplied or model-supplied approval text.
 
 The observable proof is a host-owned append-only JSONL file:
 
-- baseline writes one record when the model returns an approval-class claim
+- baseline writes one record when the model returns an approval claim
 - compiler-mediated returns `403` and writes no record when state does not
   authorize execution
 - compiler-mediated writes one record only when authoritative state includes:
@@ -43,9 +43,9 @@ The host returns a conflict response and writes no record.
 
 ## Same request, different state
 
-The compiler-mediated proof uses the same endpoint, the same approval-class
-model claim, and the same expense action. Only authoritative Context Compiler
-state changes.
+The compiler-mediated proof uses the same endpoint, the same model approval
+claim, and the same expense action. Only authoritative Context Compiler state
+changes.
 
 | Endpoint | Model claim | Authoritative state | Compiler input | Outcome |
 | --- | --- | --- | --- | --- |
@@ -65,7 +65,7 @@ The compiler-mediated host does not treat the visible approval text as
 authorization.
 
 Context Compiler state is the only authorization source for the protected
-mutation after an approval-class claim is present in the compiler-mediated path.
+mutation after an approval claim is present in the compiler-mediated path.
 
 ## Validation
 

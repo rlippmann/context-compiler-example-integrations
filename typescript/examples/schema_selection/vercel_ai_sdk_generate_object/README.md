@@ -90,8 +90,8 @@ Primary tests are deterministic and do not call a model.
 
 ## Opt-in live-model validation
 
-The example also includes an opt-in Tier 3 path that uses the real Vercel AI
-SDK `generateObject` call with the same host-side schema selection logic.
+The example also includes an opt-in live-model path that uses the real Vercel
+AI SDK `generateObject` call with the same host-side schema selection logic.
 
 Use the same prompt across states:
 
