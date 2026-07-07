@@ -1,10 +1,12 @@
 # TypeScript examples
 
-This package will publish TypeScript example integrations organized by
-enforcement point first.
+Use these TypeScript examples to see how saved premise and policy change host
+application behavior at runtime.
 
-Use it when you want concrete TypeScript examples that show how authoritative
-Context Compiler state changes runtime behavior in a host application.
+They show concrete enforcement points where authoritative Context Compiler
+state changes what the host allows, routes, retrieves, builds, or executes.
+
+Examples are organized by enforcement point first.
 
 The core library lives in
 [`context-compiler-ts`](https://github.com/rlippmann/context-compiler-ts).
@@ -66,8 +68,6 @@ The compiler-only flow is always the baseline. If a starter includes
 directive-drafter, it is there to help acquisition, not to own state changes.
 
 ## Run an example
-
-These published package docs are for discovery.
 
 To explore or run an example, use a repository checkout:
 
