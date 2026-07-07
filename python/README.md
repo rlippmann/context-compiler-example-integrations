@@ -1,9 +1,10 @@
 # Python examples
 
-These examples show how saved premise and policy change what a host allows,
-routes, retrieves, builds, or executes at runtime.
+These examples show how Context Compiler state changes application behavior at
+runtime.
 
-Examples are organized by enforcement point first.
+Each example focuses on an enforcement point where saved premise and policy
+affect what a host allows, routes, retrieves, builds, or executes.
 
 The core library lives in
 [`context-compiler`](https://github.com/rlippmann/context-compiler).
