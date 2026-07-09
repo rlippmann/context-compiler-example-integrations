@@ -59,9 +59,9 @@ from context_compiler import (
     is_clarify,
     is_passthrough,
     is_update,
+    state_diff,
 )
 from context_compiler.engine import Engine
-from context_compiler.observability import build_compact_trace_text
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +215,21 @@ def _has_non_empty_authoritative_state(state: State) -> bool:
     )
 
 
+def _render_state_summary_line(state: object) -> str:
+    if not isinstance(state, dict):
+        return "unavailable"
+    typed_state = cast(State, state)
+
+    premise = get_premise_value(typed_state)
+    use_items = sorted(get_policy_items(typed_state, POLICY_USE))
+    prohibit_items = sorted(get_policy_items(typed_state, POLICY_PROHIBIT))
+    return (
+        f"premise={premise if premise is not None else '(none)'}; "
+        f"use={', '.join(use_items) if use_items else '(none)'}; "
+        f"prohibit={', '.join(prohibit_items) if prohibit_items else '(none)'}"
+    )
+
+
 def _build_compact_trace_text(
     *,
     decision: object,
@@ -223,12 +238,26 @@ def _build_compact_trace_text(
     llm_called: bool,
     state_injected: str,
 ) -> str:
-    return build_compact_trace_text(
-        decision=decision,
-        state_before=state_before,
-        state_after=state_after,
-        llm_called=llm_called,
-        state_injected=state_injected,
+    kind = decision.get("kind", "unknown") if isinstance(decision, dict) else "unknown"
+    changed = "unknown"
+    if isinstance(state_before, dict) and isinstance(state_after, dict):
+        changed = (
+            "yes"
+            if state_diff(cast(State, state_before), cast(State, state_after))[
+                "changed"
+            ]
+            else "no"
+        )
+    return "\n".join(
+        [
+            "Context Compiler trace",
+            f"- decision: {kind}",
+            f"- llm_called: {'yes' if llm_called else 'no'}",
+            f"- state_changed: {changed}",
+            f"- state_injected: {state_injected}",
+            f"- state_before: {_render_state_summary_line(state_before)}",
+            f"- state_after: {_render_state_summary_line(state_after)}",
+        ]
     )
 
 
