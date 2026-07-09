@@ -16,7 +16,11 @@
     "typescript",
     "examples",
     "starter-apps",
-    "llm"
+    "llm",
+    "nextjs",
+    "vercel-ai-sdk",
+    "mcp",
+    "tool-calling"
   ],
   "files": [
     "README.md",
