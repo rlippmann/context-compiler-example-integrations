@@ -76,6 +76,9 @@ exclude = [
   "python/**/.DS_Store",
 ]
 
+[tool.hatch.build.targets.wheel.sources]
+"python" = "context_compiler_example_integrations"
+
 [tool.hatch.build.targets.sdist]
 only-include = ["python", "LICENSE", "pyproject.toml"]
 exclude = [
