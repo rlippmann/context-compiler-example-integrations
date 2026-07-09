@@ -7,15 +7,15 @@ Each example focuses on an enforcement point where saved premise and policy
 affect what a host allows, routes, retrieves, builds, or executes.
 
 The core library lives in
-[`context-compiler-ts`](https://github.com/rlippmann/context-compiler-ts).
+[`@rlippmann/context-compiler`](https://www.npmjs.com/package/@rlippmann/context-compiler).
 Directive recognition can be added with
-[`context-compiler-directive-drafter-ts`](https://github.com/rlippmann/context-compiler-directive-drafter-ts),
+[`@rlippmann/context-compiler-directive-drafter`](https://www.npmjs.com/package/@rlippmann/context-compiler-directive-drafter),
 but that layer is optional. This package is the examples and integration
 patterns layer.
 
-`context-compiler-ts` defines the authority contract.
-`context-compiler-directive-drafter-ts` can optionally help acquire and draft
-authority, but it is not the authority layer.
+`@rlippmann/context-compiler` defines the authority contract.
+`@rlippmann/context-compiler-directive-drafter` can optionally help acquire and
+draft authority, but it is not the authority layer.
 This examples package shows where authority is enforced.
 
 Prompt reinjection influences model behavior.
