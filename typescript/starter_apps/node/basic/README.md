@@ -2,9 +2,10 @@
 
 Small Node HTTP server showing the compiler-only starter flow.
 
-This variant was adapted from the last `examples/integrations/node-basic`
-version in `context-compiler-ts`, using the old compiler-only request flow as
-source material while keeping this repo's current stand-in response style.
+This variant was adapted from the last standalone TypeScript core
+`examples/integrations/node-basic` example, using the old compiler-only
+request flow as source material while keeping this repo's current stand-in
+response style.
 
 `@rlippmann/context-compiler` is enough here. Raw user input goes straight to
 `engine.step(...)`, the compiler decides whether to update state or return

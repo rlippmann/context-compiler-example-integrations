@@ -3,9 +3,10 @@
 Minimal Next.js App Router starter with one `/api/chat` route and no
 directive-drafter dependency.
 
-This variant was adapted from the last `examples/integrations/nextjs-basic`
-version in `context-compiler-ts`, using the old compiler-only route flow as
-source material while keeping this repo's request-payload stand-in.
+This variant was adapted from the last standalone TypeScript core
+`examples/integrations/nextjs-basic` example, using the old compiler-only
+route flow as source material while keeping this repo's request-payload
+stand-in.
 
 The enforcement point is request construction. The route restores saved state,
 runs the compiler, and builds the request payload the host would send onward.

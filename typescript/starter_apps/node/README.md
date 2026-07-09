@@ -9,7 +9,7 @@ model or tool path would continue.
 
 The Node starter app now comes in two small variants:
 
-- [basic](basic/README.md) - compiler-only baseline adapted from the last `node-basic` example in `context-compiler-ts`
+- [basic](basic/README.md) - compiler-only baseline adapted from the last standalone TypeScript core `node-basic` example
 - [with_drafter](with_drafter/README.md) - optional directive-drafter layer before `engine.step(...)`
 
 Open `basic` first if you want the smallest baseline.
