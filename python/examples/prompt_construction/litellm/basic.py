@@ -47,10 +47,10 @@ except ImportError:
         summarize_confirmation_update_from_checkpoint,
     )
 
-try:
-    from host_support import print_startup_config, resolve_provider_config
-except ImportError:
-    from host_support.provider_mode import print_startup_config, resolve_provider_config
+from context_compiler_example_integrations.examples._shared.provider_mode import (
+    print_startup_config,
+    resolve_provider_config,
+)
 
 logger = logging.getLogger(__name__)
 # Example-only in-memory checkpoint store.

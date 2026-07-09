@@ -707,7 +707,12 @@ retrieval = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "chromadb" },
+    { name = "context-compiler-directive-drafter" },
+    { name = "fastapi" },
+    { name = "httpx" },
     { name = "httpx2" },
+    { name = "litellm" },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "pytest" },
@@ -733,7 +738,12 @@ provides-extras = ["all", "drafter", "fastapi", "litellm", "retrieval"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "chromadb" },
+    { name = "context-compiler-directive-drafter" },
+    { name = "fastapi" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "httpx2", specifier = ">=2.5.0" },
+    { name = "litellm" },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "pytest" },

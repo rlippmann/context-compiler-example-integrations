@@ -1,6 +1,6 @@
 from context_compiler import State, create_engine
 
-from python.examples.prompt_construction.writing_assistant.example import (
+from context_compiler_example_integrations.examples.prompt_construction.writing_assistant.example import (
     BOARD_UPDATE_CONTEXT,
     BOARD_UPDATE_CONTEXT_GUIDANCE,
     CONCISE_GUIDANCE,

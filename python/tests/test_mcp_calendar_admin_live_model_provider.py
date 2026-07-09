@@ -2,9 +2,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from host_support.provider_mode import ProviderConfig
-from python.examples._shared.litellm_request import build_litellm_provider_kwargs
-from python.examples.tool_gating.mcp_calendar_admin import live_model as module
+from context_compiler_example_integrations.examples._shared.litellm_request import (
+    build_litellm_provider_kwargs,
+)
+from context_compiler_example_integrations.examples._shared.provider_mode import (
+    ProviderConfig,
+)
+from context_compiler_example_integrations.examples.tool_gating.mcp_calendar_admin import (
+    live_model as module,
+)
 
 
 def test_build_litellm_provider_kwargs_prefixes_bare_ollama_model() -> None:

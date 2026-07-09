@@ -3,10 +3,10 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from typing_extensions import TypedDict
 
-from python.examples.execution_authorization.expense_approval.fastapi.app import (
+from context_compiler_example_integrations.examples.execution_authorization.expense_approval.fastapi.app import (
     create_app,
 )
-from python.examples.execution_authorization.expense_approval.fastapi.model_approval import (
+from context_compiler_example_integrations.examples.execution_authorization.expense_approval.fastapi.model_approval import (
     ModelApproval,
 )
 

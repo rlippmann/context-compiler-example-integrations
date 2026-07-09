@@ -1,6 +1,6 @@
 from context_compiler import State, create_engine
 
-from python.examples.tool_gating.mcp_calendar_admin.example import (
+from context_compiler_example_integrations.examples.tool_gating.mcp_calendar_admin.example import (
     CalendarAdminMcpHost,
     calendar_admin_mcp_tools_are_allowed,
     describe_exposed_mcp_tools,

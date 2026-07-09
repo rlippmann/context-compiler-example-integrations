@@ -3,7 +3,7 @@ import json
 import pytest
 from context_compiler import create_engine
 
-from python.examples.schema_selection.ollama_structured_output.example import (
+from context_compiler_example_integrations.examples.schema_selection.ollama_structured_output.example import (
     PYTHON_SCRIPT_SCHEMA,
     optional_ollama_call,
     plan_turn,
@@ -79,7 +79,7 @@ def test_optional_ollama_call_includes_format_when_schema_provided(
         return _FakeResponse({"message": {"content": "stubbed"}})
 
     monkeypatch.setattr(
-        "python.examples.schema_selection.ollama_structured_output.example.urllib.request.urlopen",
+        "context_compiler_example_integrations.examples.schema_selection.ollama_structured_output.example.urllib.request.urlopen",
         fake_urlopen,
     )
 
@@ -103,7 +103,7 @@ def test_optional_ollama_call_omits_format_when_schema_not_provided(
         return _FakeResponse({"message": {"content": "stubbed"}})
 
     monkeypatch.setattr(
-        "python.examples.schema_selection.ollama_structured_output.example.urllib.request.urlopen",
+        "context_compiler_example_integrations.examples.schema_selection.ollama_structured_output.example.urllib.request.urlopen",
         fake_urlopen,
     )
 

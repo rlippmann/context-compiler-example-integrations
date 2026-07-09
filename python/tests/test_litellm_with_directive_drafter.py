@@ -4,7 +4,9 @@ from typing import Any, cast
 import pytest
 from context_compiler import create_engine
 
-from python.examples.prompt_construction.litellm import with_directive_drafter as module
+from context_compiler_example_integrations.examples.prompt_construction.litellm import (
+    with_directive_drafter as module,
+)
 
 
 def setup_function() -> None:
@@ -194,7 +196,7 @@ def test_call_litellm_base_url_override_wins_over_provider(monkeypatch) -> None:
 def test_call_litellm_logs_startup_config_once(
     monkeypatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    import host_support.provider_mode as provider_mode
+    from context_compiler_example_integrations.examples._shared import provider_mode
 
     provider_mode._STARTUP_LOGGED = False
 

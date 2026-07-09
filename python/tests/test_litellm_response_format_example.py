@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 from context_compiler import create_engine
 
-from python.examples.schema_selection.litellm_response_format.response_format import (
+from context_compiler_example_integrations.examples.schema_selection.litellm_response_format.response_format import (
     ACTION_PLAN_RESPONSE_FORMAT,
     COMPACT_SUMMARY_RESPONSE_FORMAT,
     optional_litellm_call,
@@ -133,11 +133,11 @@ def test_optional_litellm_call_preserves_selected_response_format(
         return {"choices": [{"message": {"content": "stubbed reply"}}]}
 
     monkeypatch.setattr(
-        "python.examples.schema_selection.litellm_response_format.response_format._get_litellm_completion",
+        "context_compiler_example_integrations.examples.schema_selection.litellm_response_format.response_format._get_litellm_completion",
         lambda: fake_completion,
     )
     monkeypatch.setattr(
-        "python.examples.schema_selection.litellm_response_format.response_format.resolve_provider_config",
+        "context_compiler_example_integrations.examples.schema_selection.litellm_response_format.response_format.resolve_provider_config",
         lambda default_model: SimpleNamespace(
             model=default_model,
             base_url="https://example.invalid/v1",
@@ -145,7 +145,7 @@ def test_optional_litellm_call_preserves_selected_response_format(
         ),
     )
     monkeypatch.setattr(
-        "python.examples.schema_selection.litellm_response_format.response_format.print_startup_config",
+        "context_compiler_example_integrations.examples.schema_selection.litellm_response_format.response_format.print_startup_config",
         lambda config: None,
     )
 
@@ -168,11 +168,11 @@ def test_optional_litellm_call_omits_response_format_when_none_selected(
         return {"choices": [{"message": {"content": "stubbed reply"}}]}
 
     monkeypatch.setattr(
-        "python.examples.schema_selection.litellm_response_format.response_format._get_litellm_completion",
+        "context_compiler_example_integrations.examples.schema_selection.litellm_response_format.response_format._get_litellm_completion",
         lambda: fake_completion,
     )
     monkeypatch.setattr(
-        "python.examples.schema_selection.litellm_response_format.response_format.resolve_provider_config",
+        "context_compiler_example_integrations.examples.schema_selection.litellm_response_format.response_format.resolve_provider_config",
         lambda default_model: SimpleNamespace(
             model=default_model,
             base_url="https://example.invalid/v1",
@@ -180,7 +180,7 @@ def test_optional_litellm_call_omits_response_format_when_none_selected(
         ),
     )
     monkeypatch.setattr(
-        "python.examples.schema_selection.litellm_response_format.response_format.print_startup_config",
+        "context_compiler_example_integrations.examples.schema_selection.litellm_response_format.response_format.print_startup_config",
         lambda config: None,
     )
 
@@ -202,7 +202,7 @@ def test_litellm_runtime_sends_selected_response_format(
     assert plan["response_format"] == COMPACT_SUMMARY_RESPONSE_FORMAT
 
     monkeypatch.setattr(
-        "python.examples.schema_selection.litellm_response_format.response_format.resolve_provider_config",
+        "context_compiler_example_integrations.examples.schema_selection.litellm_response_format.response_format.resolve_provider_config",
         lambda default_model: SimpleNamespace(
             model=default_model,
             base_url=f"http://127.0.0.1:{litellm_runtime_stub.server_port}/v1",
@@ -210,7 +210,7 @@ def test_litellm_runtime_sends_selected_response_format(
         ),
     )
     monkeypatch.setattr(
-        "python.examples.schema_selection.litellm_response_format.response_format.print_startup_config",
+        "context_compiler_example_integrations.examples.schema_selection.litellm_response_format.response_format.print_startup_config",
         lambda config: None,
     )
 
@@ -235,7 +235,7 @@ def test_litellm_runtime_omits_response_format_when_unselected(
     assert plan["response_format"] is None
 
     monkeypatch.setattr(
-        "python.examples.schema_selection.litellm_response_format.response_format.resolve_provider_config",
+        "context_compiler_example_integrations.examples.schema_selection.litellm_response_format.response_format.resolve_provider_config",
         lambda default_model: SimpleNamespace(
             model=default_model,
             base_url=f"http://127.0.0.1:{litellm_runtime_stub.server_port}/v1",
@@ -243,7 +243,7 @@ def test_litellm_runtime_omits_response_format_when_unselected(
         ),
     )
     monkeypatch.setattr(
-        "python.examples.schema_selection.litellm_response_format.response_format.print_startup_config",
+        "context_compiler_example_integrations.examples.schema_selection.litellm_response_format.response_format.print_startup_config",
         lambda config: None,
     )
 

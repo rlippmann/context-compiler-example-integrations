@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from python.examples.execution_authorization.expense_approval.fastapi.app import (
+from context_compiler_example_integrations.examples.execution_authorization.expense_approval.fastapi.app import (
     create_app,
 )
 

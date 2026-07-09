@@ -1,6 +1,6 @@
 from context_compiler import State, create_engine
 
-from python.examples.tool_gating.calendar_admin.example import (
+from context_compiler_example_integrations.examples.tool_gating.calendar_admin.example import (
     CalendarAdminHost,
     calendar_admin_tools_are_allowed,
     execute_calendar_admin_tool_if_allowed,

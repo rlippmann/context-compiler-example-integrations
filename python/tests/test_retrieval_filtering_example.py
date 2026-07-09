@@ -1,6 +1,6 @@
 from context_compiler import State, create_engine
 
-from python.examples.retrieval_filtering.hr_policy_lookup.example import (
+from context_compiler_example_integrations.examples.retrieval_filtering.hr_policy_lookup.example import (
     EMPLOYEE_ACCESS,
     GENERAL_HANDBOOK_PREMISE,
     MANAGER_ACCESS,

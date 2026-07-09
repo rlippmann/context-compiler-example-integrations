@@ -11,16 +11,17 @@ from typing import Literal, TypedDict, cast
 
 from context_compiler import State, create_engine, get_decision_state, is_clarify
 
-from python.examples._shared.litellm_request import build_litellm_provider_kwargs
-from python.examples.tool_gating.mcp_calendar_admin.example import (
+from context_compiler_example_integrations.examples._shared.litellm_request import (
+    build_litellm_provider_kwargs,
+)
+from context_compiler_example_integrations.examples.tool_gating.mcp_calendar_admin.example import (
     CalendarAdminMcpHost,
     McpToolCall,
 )
-
-try:
-    from host_support import print_startup_config, resolve_provider_config
-except ImportError:
-    from host_support.provider_mode import print_startup_config, resolve_provider_config
+from context_compiler_example_integrations.examples._shared.provider_mode import (
+    print_startup_config,
+    resolve_provider_config,
+)
 
 
 class SideEffectRecord(TypedDict):

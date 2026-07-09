@@ -1,6 +1,6 @@
 from context_compiler import create_engine
 
-from python.examples.schema_selection.refund_intake.example import (
+from context_compiler_example_integrations.examples.schema_selection.refund_intake.example import (
     DAMAGED_ORDER_PREMISE,
     DIGITAL_LOGIN_FAILURE_PREMISE,
     IntakeHandler,
