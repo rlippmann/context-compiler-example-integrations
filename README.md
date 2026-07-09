@@ -94,7 +94,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for repository
 Canonical repo-level validation commands:
 
 ```bash
-uv sync --group dev
+uv sync --group dev --no-editable
 ./scripts/validate_python.sh
 ./scripts/validate_typescript_fast.sh
 ./scripts/validate_typescript.sh

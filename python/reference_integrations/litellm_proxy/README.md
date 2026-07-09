@@ -51,7 +51,7 @@ pip install "context-compiler-example-integrations[all]"
 For the opt-in runtime smoke test, install the proxy runtime extras:
 
 ```shell
-uv sync --group proxy_runtime
+uv sync --group proxy_runtime --no-editable
 ```
 
 ## Quickstart (copy/paste)
