@@ -1,25 +1,16 @@
-# Python examples
+# Context Compiler Example Integrations for Python
 
-These examples show how Context Compiler state changes application behavior at
-runtime.
+These examples show how authoritative state changes application behavior at runtime.
 
-Each example focuses on an enforcement point where saved premise and policy
-affect what a host allows, routes, retrieves, builds, or executes.
+Each example demonstrates a single enforcement point where premise and policy influence what a host allows, routes, retrieves, builds, or executes.
 
-The core library lives in
-[`context-compiler`](https://github.com/rlippmann/context-compiler).
-Directive recognition can be added with
-[`context-compiler-directive-drafter`](https://github.com/rlippmann/context-compiler-directive-drafter),
-but that layer is optional. This package is the examples and integration
-patterns layer.
+- The core authority contract is provided by [`context-compiler`](https://github.com/rlippmann/context-compiler).
+- Directive recognition can optionally be added with [`context-compiler-directive-drafter`](https://github.com/rlippmann/context-compiler-directive-drafter).
+- These examples focus on where authoritative state changes application behavior.
 
-`context-compiler` defines the authority contract.
-`context-compiler-directive-drafter` can optionally help acquire and draft
-authority, but it is not the authority layer.
-This examples package shows where authority is enforced.
+*Prompt reinjection* influences ***model behavior***.
 
-Prompt reinjection influences model behavior.
-Context Compiler influences runtime behavior.
+*Context Compiler* influences ***runtime behavior***.
 
 ## Install options
 

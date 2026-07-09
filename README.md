@@ -2,12 +2,17 @@
 
 What runtime behavior changes when authoritative state exists?
 
-These examples demonstrate how Context Compiler's authority contract can
-influence runtime behavior across different AI pipeline stages.
+These examples show how authoritative state changes application behavior at runtime.
 
-Prompt reinjection influences model behavior.
+Each example demonstrates a single enforcement point where premise and policy influence what a host allows, routes, retrieves, builds, or executes.
 
-Context Compiler influences runtime behavior.
+- The core authority contract is provided by [`context-compiler`](https://github.com/rlippmann/context-compiler) and [`context-compiler`](https://github.com/rlippmann/context-compiler-ts).
+- Directive recognition can optionally be added with [`context-compiler-directive-drafter`](https://github.com/rlippmann/context-compiler-directive-drafter) and [`context-compiler-directive-drafter`](https://github.com/rlippmann/context-compiler-directive-drafter-ts).
+- This repository focuses on where authoritative state changes runtime behavior.
+
+*Prompt reinjection* influences ***model behavior***.
+
+*Context Compiler* influences ***runtime behavior***.
 
 Each example:
 
