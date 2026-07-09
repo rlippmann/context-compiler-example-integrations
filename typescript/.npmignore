@@ -1,0 +1,9 @@
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/tests/
+**/*.test.*
+**/package-lock.json
+**/tsconfig.tsbuildinfo
+**/.DS_Store
