@@ -41,7 +41,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Sync Python dependencies
-        run: uv sync --group dev
+        run: uv sync --group dev --no-editable
 
       - name: Run Python validation
         run: ./scripts/validate_python.sh

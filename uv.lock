@@ -658,11 +658,11 @@ wheels = [
 
 [[package]]
 name = "context-compiler"
-version = "0.7.10"
+version = "0.8.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cd/ee/7d544c0eee402cd581113ed762b2257477427501af6cd2cc7d42c4f5345c/context_compiler-0.7.10.tar.gz", hash = "sha256:49909d88b7c3c2c126239017ed3d5939380cc4048d099e107da253b668f3ac69", size = 400842, upload-time = "2026-06-14T06:02:49.563Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/22/1ef1185f83f58f74de3079ef1111e650d17f986cc620325b66a6150ab0c5/context_compiler-0.8.1.tar.gz", hash = "sha256:c94c45ae4694f306e039448a4e820e943fc586011a3635c8d95526b7b3518752", size = 51659, upload-time = "2026-06-28T03:37:20.518Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6c/cd/55c8395dccb33316dec9a1daf0e996ef6f7341eb3e46972db9cdcc376039/context_compiler-0.7.10-py3-none-any.whl", hash = "sha256:c4ada911dff617d38c3556e7aa3d3c9c9295ca19e24fb33f79f88289011afb65", size = 93049, upload-time = "2026-06-14T06:02:47.987Z" },
+    { url = "https://files.pythonhosted.org/packages/37/42/82ba8fdcb067840afafba6a924dd2891af77d62a0a9182a1d3b1c6bba2f4/context_compiler-0.8.1-py3-none-any.whl", hash = "sha256:6085163a1cb5358fb087b706a84a69b18a874b106ea02ad34eea5cb33162dbd1", size = 24151, upload-time = "2026-06-28T03:37:19.271Z" },
 ]
 
 [[package]]
@@ -682,11 +682,27 @@ name = "context-compiler-example-integrations"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "chromadb" },
     { name = "context-compiler" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "chromadb" },
     { name = "context-compiler-directive-drafter" },
     { name = "fastapi" },
     { name = "litellm" },
+]
+drafter = [
+    { name = "context-compiler-directive-drafter" },
+]
+fastapi = [
+    { name = "fastapi" },
+]
+litellm = [
+    { name = "litellm" },
+]
+retrieval = [
+    { name = "chromadb" },
 ]
 
 [package.dev-dependencies]
@@ -703,12 +719,17 @@ proxy-runtime = [
 
 [package.metadata]
 requires-dist = [
-    { name = "chromadb" },
-    { name = "context-compiler", specifier = ">=0.7.4" },
-    { name = "context-compiler-directive-drafter" },
-    { name = "fastapi" },
-    { name = "litellm" },
+    { name = "chromadb", marker = "extra == 'all'" },
+    { name = "chromadb", marker = "extra == 'retrieval'" },
+    { name = "context-compiler", specifier = ">=0.8.0" },
+    { name = "context-compiler-directive-drafter", marker = "extra == 'all'" },
+    { name = "context-compiler-directive-drafter", marker = "extra == 'drafter'" },
+    { name = "fastapi", marker = "extra == 'all'" },
+    { name = "fastapi", marker = "extra == 'fastapi'" },
+    { name = "litellm", marker = "extra == 'all'" },
+    { name = "litellm", marker = "extra == 'litellm'" },
 ]
+provides-extras = ["all", "drafter", "fastapi", "litellm", "retrieval"]
 
 [package.metadata.requires-dev]
 dev = [
