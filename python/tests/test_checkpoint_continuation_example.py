@@ -1,6 +1,6 @@
 from context_compiler import create_engine
 
-from python.examples.checkpoint_continuation.example import (
+from context_compiler_example_integrations.examples.checkpoint_continuation.example import (
     BookingHost,
     CheckpointStore,
     continue_itinerary_change,

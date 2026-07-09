@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
-from python.examples.execution_authorization.expense_approval.example import (
+from context_compiler_example_integrations.examples.execution_authorization.expense_approval.example import (
     expense_execution_is_authorized,
 )
 

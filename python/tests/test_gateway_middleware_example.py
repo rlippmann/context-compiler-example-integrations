@@ -1,6 +1,6 @@
 from context_compiler import State, create_engine
 
-from python.examples.gateway_middleware.customer_support_routing.example import (
+from context_compiler_example_integrations.examples.gateway_middleware.customer_support_routing.example import (
     SupportGateway,
     SupportService,
     billing_support_is_allowed,

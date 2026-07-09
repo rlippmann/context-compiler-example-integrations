@@ -1,4 +1,4 @@
-from python.examples.prompt_construction.litellm.confirmation_helper import (
+from context_compiler_example_integrations.examples.prompt_construction.litellm.confirmation_helper import (
     is_confirmation_text,
     summarize_confirmation_update,
     summarize_confirmation_update_from_checkpoint,

@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from context_compiler import create_engine
 
-from python.examples.tool_gating.mcp_calendar_admin.live_model import (
+from context_compiler_example_integrations.examples.tool_gating.mcp_calendar_admin.live_model import (
     run_live_model_turn,
 )
 

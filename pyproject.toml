@@ -57,7 +57,12 @@ retrieval = [
 
 [dependency-groups]
 dev = [
+  "chromadb",
+  "context-compiler-directive-drafter",
+  "fastapi",
   "httpx2>=2.5.0",
+  "httpx>=0.28.1",
+  "litellm",
   "mypy",
   "pre-commit",
   "pytest",

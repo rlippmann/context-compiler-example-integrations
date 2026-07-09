@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from python.examples.checkpoint_continuation.fastapi.app import (
+from context_compiler_example_integrations.examples.checkpoint_continuation.fastapi.app import (
     BookingStore,
     CheckpointStore,
     create_app,

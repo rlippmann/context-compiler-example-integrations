@@ -1,6 +1,6 @@
 from context_compiler import State, create_engine
 
-from python.examples.execution_authorization.expense_approval.example import (
+from context_compiler_example_integrations.examples.execution_authorization.expense_approval.example import (
     ExpenseHost,
     execute_expense_if_authorized,
     expense_execution_is_authorized,

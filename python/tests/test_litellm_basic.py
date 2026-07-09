@@ -5,7 +5,9 @@ from types import SimpleNamespace
 import pytest
 from context_compiler import create_engine
 
-MODULE_NAME = "python.examples.prompt_construction.litellm.basic"
+MODULE_NAME = (
+    "context_compiler_example_integrations.examples.prompt_construction.litellm.basic"
+)
 
 
 @pytest.fixture
