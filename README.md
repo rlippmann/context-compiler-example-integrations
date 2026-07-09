@@ -18,7 +18,7 @@ Each example:
 
 ## Start here
 
-Start with [python/README.md](python/README.md) or [typescript/README.md](typescript/README.md) if you want language-level orientation first.
+Start with [Python guide](python/README.md) or [TypeScript guide](typescript/README.md) if you want language-level orientation first.
 
 Use the enforcement-point catalog below when you already know which runtime
 behavior you want to inspect.
@@ -28,10 +28,10 @@ apps. Python also includes reference integrations.
 
 ## Ecosystem map
 
-| Repo | Question |
+| Project | Question |
 | --- | --- |
-| [context-compiler (Python)](https://github.com/rlippmann/context-compiler), [context-compiler-ts (TypeScript)](https://github.com/rlippmann/context-compiler-ts) | What is the authority contract? |
-| [context-compiler-directive-drafter (Python)](https://github.com/rlippmann/context-compiler-directive-drafter), [context-compiler-directive-drafter-ts (TypeScript)](https://github.com/rlippmann/context-compiler-directive-drafter-ts) | How is authority acquired? |
+| [context-compiler (Python)](https://github.com/rlippmann/context-compiler), [context-compiler (TypeScript)](https://github.com/rlippmann/context-compiler-ts) | What is the authority contract? |
+| [context-compiler-directive-drafter (Python)](https://github.com/rlippmann/context-compiler-directive-drafter), [context-compiler-directive-drafter (TypeScript)](https://github.com/rlippmann/context-compiler-directive-drafter-ts) | How is authority acquired? |
 | [context-compiler-example-integrations](https://github.com/rlippmann/context-compiler-example-integrations) | Where can authority be enforced? |
 
 ## Enforcement-point catalog
@@ -46,48 +46,29 @@ apps. Python also includes reference integrations.
 | [Request construction / context assembly](python/examples/prompt_construction/README.md) | Writing assistant | generic Python / TypeScript, LiteLLM, Open WebUI, Next.js |
 | [Tool gating](python/examples/tool_gating/README.md) | Calendar / email / admin | generic Python / TypeScript, MCP |
 
-## How this repo is organized
+## Organization
 
-Technology is secondary to enforcement point.
+Examples are organized by enforcement point.
 
-Examples are organized by enforcement point, not framework.
-
-Python and TypeScript share the taxonomy. Implementations may differ by
-language.
-
-There is no parity requirement between Python and TypeScript examples.
-
-Python examples may arrive before TypeScript examples.
-
-TypeScript starter apps now split compiler-only and with-drafter variants.
-
-## Repository boundaries
-
-This repo is:
-
-- an examples/integrations repo
-- organized around runtime enforcement points
-- not the core Context Compiler library package
-- not the authority contract
-- not the directive drafter
-- not an acquisition-layer repo
-- not a framework showcase
+- Python includes generic examples and reference integrations.
+- TypeScript includes generic examples and starter apps.
+- Available examples differ between Python and TypeScript.
 
 ## Current layout
 
-- [python/README.md](python/README.md)
-- [typescript/README.md](typescript/README.md)
+- [python/README.md](python/README.md) - Python examples and reference integrations
+- [typescript/README.md](typescript/README.md) - TypeScript examples and starter apps
 
-## Contribution expectations
+## Adding examples
 
-Primary examples in this repo should:
+Examples in this repo should:
 
 - use explicit authoritative state
 - avoid deriving Context Compiler state from model output
 - remain meaningful with an adversarial stub
 - demonstrate observable runtime behavior changes
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for repository rules.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for more detail.
 
 ## Validation
 
