@@ -94,7 +94,7 @@ This near-miss input should return `clarify` instead of being rewritten.
 
 The shared provider contract for live-model examples in this repository is
 documented in
-[PROVIDER_CONTRACT.md](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/PROVIDER_CONTRACT.md).
+[PROVIDER_CONTRACT.md](../../../../PROVIDER_CONTRACT.md).
 
 ## Usage pattern
 
