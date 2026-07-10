@@ -64,7 +64,7 @@ These examples require `context-compiler>=0.8.0`.
 If using `open_webui_pipe_with_directive_drafter.py`:
 
 - Install directive-drafter support if needed:
-  `pip install "context-compiler-example-integrations[drafter]"`
+  `pip install "context-compiler>=0.8.0" "context-compiler-directive-drafter>=0.1.0"`
 - Set `PREPROCESSOR_PROMPT_PROFILE=default` for heuristic-first behavior
 - Optionally set `PREPROCESSOR_MODEL_ID` to use a separate fallback model
 - If `PREPROCESSOR_MODEL_ID` is unset, fallback uses `BASE_MODEL_ID`
@@ -79,8 +79,8 @@ If frontmatter dependency installs are disabled, offline, or unavailable:
 
 1. Install the package manually:
 
-- Minimal pipe: `pip install "context-compiler-example-integrations"`
-- Directive-drafter pipe: `pip install "context-compiler-example-integrations[drafter]"`
+- Minimal pipe: `pip install "context-compiler>=0.8.0"`
+- Directive-drafter pipe: `pip install "context-compiler>=0.8.0" "context-compiler-directive-drafter>=0.1.0"`
 
 1. Import and enable the function in Open WebUI, then configure valves.
 
