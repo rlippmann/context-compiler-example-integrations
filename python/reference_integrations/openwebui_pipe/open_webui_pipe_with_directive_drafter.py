@@ -1,10 +1,9 @@
 """
-title: Context Compiler Pipe (Directive Drafter)
+title: Context Compiler Open WebUI Pipe (Directive Drafter)
 author: rlippmann
-author_url: https://github.com/rlippmann/context-compiler
-funding_url: https://github.com/rlippmann/context-compiler
-version: 0.9.3
-requirements: context-compiler>=0.7.4, context-compiler-directive-drafter>=0.1.0
+author_url: https://github.com/rlippmann/context-compiler-example-integrations
+version: 0.9.4
+requirements: context-compiler>=0.8.0, context-compiler-directive-drafter>=0.1.0
 
 Open WebUI integration with Context Compiler directive drafter.
 
