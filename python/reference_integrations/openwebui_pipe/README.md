@@ -222,7 +222,7 @@ These examples support both sync (`0.8.x`) and async (`0.9.x`) user lookup.
 - `PREPROCESSOR_MODEL_ID must not match the selected pipe model id`: choose a real backend model id, not the pipe model id itself.
 - `PREPROCESSOR_MODEL_ID is invalid or not configured in Open WebUI`: the fallback route hit a missing model; fix the configured fallback model or unset it to reuse `BASE_MODEL_ID`.
 - `ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true`: directive-only updates still run locally, but passthrough returns a deterministic debug message instead of calling a downstream model.
-- imports fail after function upload: install `context-compiler` in the Open WebUI runtime, and add `context-compiler-directive-drafter` only for the directive-drafter pipe, because the copied function runs from a temp/cached location.
+- imports fail after function upload: install `context-compiler>=0.8.0` in the Open WebUI runtime, and add `context-compiler-directive-drafter>=0.1.0` only for the directive-drafter pipe, because the copied function runs from a temp/cached location.
 
 ## Fallback notes
 
