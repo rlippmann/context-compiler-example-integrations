@@ -82,7 +82,7 @@ proxy_runtime = [
 ]
 
 [tool.hatch.build.targets.wheel]
-only-include = ["python", "LICENSE"]
+packages = ["context_compiler_example_integrations"]
 exclude = [
   "python/tests",
   "python/**/__pycache__",
@@ -90,11 +90,18 @@ exclude = [
   "python/**/.DS_Store",
 ]
 
-[tool.hatch.build.targets.wheel.sources]
-"python" = "context_compiler_example_integrations"
+[tool.hatch.build.targets.wheel.force-include]
+"python/README.md" = "context_compiler_example_integrations/README.md"
+"python/examples" = "context_compiler_example_integrations/examples"
+"python/reference_integrations" = "context_compiler_example_integrations/reference_integrations"
 
 [tool.hatch.build.targets.sdist]
-only-include = ["python", "LICENSE", "pyproject.toml"]
+only-include = [
+  "context_compiler_example_integrations",
+  "python",
+  "LICENSE",
+  "pyproject.toml",
+]
 exclude = [
   "python/tests",
   "python/**/__pycache__",
