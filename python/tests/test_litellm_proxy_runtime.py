@@ -213,6 +213,7 @@ def test_litellm_proxy_runtime_blocks_confirmation_before_upstream(
     response = _post_chat_completion(
         port=litellm_proxy_runtime_basic.port,
         messages=[{"role": "user", "content": "use kubectl instead of docker"}],
+        session_key="runtime-basic-confirm",
     )
 
     assert response.status_code == 400
@@ -230,7 +231,9 @@ def test_litellm_proxy_runtime_forwards_allowed_request_with_contract(
     ]
 
     response = _post_chat_completion(
-        port=litellm_proxy_runtime_basic.port, messages=original_messages
+        port=litellm_proxy_runtime_basic.port,
+        messages=original_messages,
+        session_key="runtime-basic-forward",
     )
 
     assert response.status_code == 200
@@ -261,6 +264,7 @@ def test_litellm_proxy_runtime_with_directive_drafter_blocks_confirmation_before
     response = _post_chat_completion(
         port=litellm_proxy_runtime_with_directive_drafter.port,
         messages=[{"role": "user", "content": "use kubectl instead of docker"}],
+        session_key="runtime-drafter-confirm",
     )
 
     assert response.status_code == 400
@@ -280,6 +284,7 @@ def test_litellm_proxy_runtime_with_directive_drafter_forwards_allowed_request_w
     response = _post_chat_completion(
         port=litellm_proxy_runtime_with_directive_drafter.port,
         messages=original_messages,
+        session_key="runtime-drafter-forward",
     )
 
     assert response.status_code == 200
@@ -305,12 +310,21 @@ def test_litellm_proxy_runtime_with_directive_drafter_forwards_allowed_request_w
     assert forwarded_messages[1:] == original_messages
 
 
-def _post_chat_completion(port: int, messages: list[dict[str, str]]) -> httpx.Response:
+def _post_chat_completion(
+    port: int,
+    messages: list[dict[str, str]],
+    *,
+    session_key: str,
+) -> httpx.Response:
     with httpx.Client(timeout=10.0) as client:
         return client.post(
             f"http://127.0.0.1:{port}/v1/chat/completions",
             headers={"Authorization": "Bearer anything"},
-            json={"model": PROXY_MODEL_NAME, "messages": messages},
+            json={
+                "model": PROXY_MODEL_NAME,
+                "messages": messages,
+                "context_compiler_session_key": session_key,
+            },
         )
 
 

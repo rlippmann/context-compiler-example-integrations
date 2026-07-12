@@ -13,7 +13,11 @@ model_list:
 
 litellm_settings:
   callbacks:
-    # Basic replay-only hook:
+    # Basic checkpoint-backed hook.
+    # Default mode is stateless unless the request or environment sets
+    # CONTEXT_COMPILER_SESSION_MODE=persistent.
     - context_compiler_precall_hook.proxy_handler_instance
-    # Directive-drafter-enabled replay hook (use this instead of the basic hook):
+    # Directive-drafter-enabled checkpoint-backed hook (use this instead).
+    # Persistent mode requires context_compiler_session_key or
+    # metadata.context_compiler_session_key on the request.
     # - context_compiler_precall_hook_with_directive_drafter.proxy_handler_instance

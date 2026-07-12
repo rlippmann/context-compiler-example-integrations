@@ -39,37 +39,22 @@ def _load_module(monkeypatch: pytest.MonkeyPatch, module_name: str):
     return module
 
 
-def _state(
-    *, premise: str | None = None, policies: dict[str, str] | None = None
-) -> dict[str, object]:
-    return {
-        "premise": premise,
-        "policies": {} if policies is None else policies,
-        "version": 2,
-    }
-
-
-def test_latest_user_message_is_drafted_before_transcript_replay(monkeypatch) -> None:
-    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_latest")
+def test_drafter_runs_only_for_current_turn(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_current_only")
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
-    compile_calls: list[list[dict[str, str]]] = []
+    drafted_calls: list[tuple[str, dict[str, object]]] = []
 
-    def compile_transcript(transcript):
-        compile_calls.append(transcript)
-        if len(compile_calls) == 1:
-            return {"kind": "state", "state": _state()}
-        return {"kind": "state", "state": _state(policies={"docker": "use"})}
+    def fake_preprocess(message: str, state: dict[str, object] | None) -> str | None:
+        drafted_calls.append((message, {} if state is None else dict(state)))
+        return None
 
-    monkeypatch.setattr(module, "compile_transcript", compile_transcript)
-    monkeypatch.setattr(
-        module, "_preprocess_last_user_message", lambda message, state: "use docker"
-    )
-
+    monkeypatch.setattr(module, "_preprocess_last_user_message", fake_preprocess)
     data = {
         "model": "demo",
+        "context_compiler_mode": "stateless",
         "messages": [
-            {"role": "user", "content": "hello there"},
-            {"role": "assistant", "content": "hi"},
+            {"role": "user", "content": "prohibit peanuts"},
+            {"role": "assistant", "content": "noted"},
             {"role": "user", "content": "please use docker"},
         ],
     }
@@ -77,110 +62,290 @@ def test_latest_user_message_is_drafted_before_transcript_replay(monkeypatch) ->
     result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
 
     assert result is data
-    assert compile_calls == [
-        [{"role": "user", "content": "hello there"}],
-        [
-            {"role": "user", "content": "hello there"},
-            {"role": "user", "content": "use docker"},
-        ],
+    assert drafted_calls == [
+        ("please use docker", {"premise": None, "policies": {}, "version": 2})
     ]
 
 
-def test_confirm_result_returns_string_and_does_not_forward(monkeypatch) -> None:
-    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_confirm")
+def test_drafter_output_applies_to_current_turn_only(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_applies")
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
-    original_messages = [{"role": "user", "content": "please use docker"}]
-    data = {"model": "demo", "messages": deepcopy(original_messages)}
-
-    monkeypatch.setattr(
-        module, "_preprocess_last_user_message", lambda message, state: "use docker"
-    )
     monkeypatch.setattr(
         module,
-        "compile_transcript",
-        lambda transcript: {
-            "kind": "confirm",
-            "prompt_to_user": 'Did you mean to use "docker" instead?',
-        },
+        "_preprocess_last_user_message",
+        lambda message, state: "prohibit docker",
     )
+    data = {
+        "model": "demo",
+        "context_compiler_mode": "stateless",
+        "messages": [
+            {"role": "user", "content": "prohibit peanuts"},
+            {"role": "user", "content": "please use docker"},
+        ],
+    }
 
     result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
 
-    assert result == 'Did you mean to use "docker" instead?'
-    assert data["messages"] == original_messages
+    assert result is data
+    assert "docker" in str(data["messages"][0]["content"])
+    assert "peanuts" not in str(data["messages"][0]["content"])
 
 
-def test_fallback_to_raw_input_path_preserves_host_behavior(monkeypatch) -> None:
-    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_raw")
+def test_pending_clarification_bypasses_drafting_and_later_confirmation_resolves(
+    monkeypatch,
+) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_pending")
+    module.CHECKPOINT_STORE.clear()
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
-    compile_calls: list[list[dict[str, str]]] = []
+    drafted_inputs: list[str] = []
 
+    def fake_preprocess(message: str, state: dict[str, object] | None) -> str | None:
+        drafted_inputs.append(message)
+        if message == "use kubectl instead of docker":
+            return None
+        return "use docker"
+
+    monkeypatch.setattr(module, "_preprocess_last_user_message", fake_preprocess)
+    first = {
+        "model": "demo",
+        "context_compiler_mode": "persistent",
+        "context_compiler_session_key": "chat-drafter-pending",
+        "messages": [{"role": "user", "content": "use kubectl instead of docker"}],
+    }
+    second = {
+        "model": "demo",
+        "context_compiler_mode": "persistent",
+        "context_compiler_session_key": "chat-drafter-pending",
+        "messages": [
+            {"role": "user", "content": "use kubectl instead of docker"},
+            {"role": "assistant", "content": "question asked"},
+            {"role": "user", "content": "yes"},
+        ],
+    }
+
+    first_result = asyncio.run(
+        hook.async_pre_call_hook(None, None, first, "completion")
+    )
+    second_result = asyncio.run(
+        hook.async_pre_call_hook(None, None, second, "completion")
+    )
+
+    assert isinstance(first_result, str)
+    assert second_result is second
+    assert drafted_inputs == ["use kubectl instead of docker"]
+    checkpoint = module.CHECKPOINT_STORE.load("chat-drafter-pending")
+    assert checkpoint is not None
+    assert checkpoint.get("pending") is None
+
+
+def test_missing_session_key_fails_clearly_in_persistent_mode(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_missing_session")
+    hook = module.ContextCompilerPreCallHookWithPreprocessor()
+    data = {
+        "model": "demo",
+        "context_compiler_mode": "persistent",
+        "messages": [{"role": "user", "content": "please use docker"}],
+    }
+
+    result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
+
+    assert isinstance(result, str)
+    assert "requires a stable session key" in result
+
+
+def test_default_mode_is_stateless_and_requires_no_session_key(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_default_stateless")
+    hook = module.ContextCompilerPreCallHookWithPreprocessor()
     monkeypatch.setattr(
         module, "_preprocess_last_user_message", lambda message, state: None
     )
-    monkeypatch.setattr(
-        module,
-        "compile_transcript",
-        lambda transcript: (
-            compile_calls.append(transcript) or {"kind": "state", "state": _state()}
-        ),
-    )
-
     data = {
         "model": "demo",
-        "messages": [
-            {"role": "user", "content": "first user turn"},
-            {"role": "assistant", "content": "assistant reply"},
-            {"role": "user", "content": "please use docker"},
-        ],
+        "messages": [{"role": "user", "content": "please use docker"}],
     }
 
     result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
 
     assert result is data
-    assert compile_calls == [
-        [{"role": "user", "content": "first user turn"}],
-        [
-            {"role": "user", "content": "first user turn"},
-            {"role": "user", "content": "please use docker"},
+
+
+def test_stateless_mode_has_no_cross_call_continuity(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_stateless")
+    hook = module.ContextCompilerPreCallHookWithPreprocessor()
+    monkeypatch.setattr(
+        module, "_preprocess_last_user_message", lambda message, state: None
+    )
+    first = {
+        "model": "demo",
+        "context_compiler_mode": "stateless",
+        "messages": [{"role": "user", "content": "prohibit peanuts"}],
+    }
+    second = {
+        "model": "demo",
+        "context_compiler_mode": "stateless",
+        "messages": [{"role": "user", "content": "what snack should I bring?"}],
+    }
+
+    asyncio.run(hook.async_pre_call_hook(None, None, first, "completion"))
+    second_result = asyncio.run(
+        hook.async_pre_call_hook(None, None, second, "completion")
+    )
+
+    assert second_result is second
+    assert "peanuts" not in str(second["messages"][0]["content"])
+
+
+def test_pending_clarification_bypasses_drafting_and_later_rejection_resolves(
+    monkeypatch,
+) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_pending_no")
+    module.CHECKPOINT_STORE.clear()
+    hook = module.ContextCompilerPreCallHookWithPreprocessor()
+    drafted_inputs: list[str] = []
+
+    def fake_preprocess(message: str, state: dict[str, object] | None) -> str | None:
+        drafted_inputs.append(message)
+        return None
+
+    monkeypatch.setattr(module, "_preprocess_last_user_message", fake_preprocess)
+    first = {
+        "model": "demo",
+        "context_compiler_mode": "persistent",
+        "context_compiler_session_key": "chat-drafter-pending-no",
+        "messages": [{"role": "user", "content": "use kubectl instead of docker"}],
+    }
+    second = {
+        "model": "demo",
+        "context_compiler_mode": "persistent",
+        "context_compiler_session_key": "chat-drafter-pending-no",
+        "messages": [
+            {"role": "user", "content": "use kubectl instead of docker"},
+            {"role": "assistant", "content": "question asked"},
+            {"role": "user", "content": "no"},
         ],
+    }
+
+    first_result = asyncio.run(
+        hook.async_pre_call_hook(None, None, first, "completion")
+    )
+    second_result = asyncio.run(
+        hook.async_pre_call_hook(None, None, second, "completion")
+    )
+
+    assert isinstance(first_result, str)
+    assert second_result is second
+    assert drafted_inputs == ["use kubectl instead of docker"]
+    checkpoint = module.CHECKPOINT_STORE.load("chat-drafter-pending-no")
+    assert checkpoint is not None
+    assert checkpoint.get("pending") is None
+    assert "docker" not in str(second["messages"][0]["content"])
+
+
+def test_normal_update_explicitly_saves_checkpoint(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_save_after_update")
+    module.CHECKPOINT_STORE.clear()
+    hook = module.ContextCompilerPreCallHookWithPreprocessor()
+    monkeypatch.setattr(
+        module,
+        "_preprocess_last_user_message",
+        lambda message, state: "prohibit peanuts",
+    )
+    data = {
+        "model": "demo",
+        "context_compiler_mode": "persistent",
+        "context_compiler_session_key": "chat-drafter-save-update",
+        "messages": [{"role": "user", "content": "please prohibit peanuts"}],
+    }
+
+    result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
+
+    assert result is data
+    checkpoint = module.CHECKPOINT_STORE.load("chat-drafter-save-update")
+    assert checkpoint is not None
+    assert checkpoint["authoritative_state"]["policies"] == {"peanuts": "prohibit"}
+    assert checkpoint.get("pending") is None
+
+
+def test_restore_happens_before_drafting(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_restore_first")
+    module.CHECKPOINT_STORE.clear()
+    hook = module.ContextCompilerPreCallHookWithPreprocessor()
+    module.CHECKPOINT_STORE.save(
+        "chat-restore-first",
+        {
+            "checkpoint_version": 1,
+            "authoritative_state": {
+                "premise": None,
+                "policies": {"peanuts": "prohibit"},
+                "version": 2,
+            },
+            "pending": None,
+        },
+    )
+    seen_states: list[dict[str, object]] = []
+
+    def fake_preprocess(message: str, state: dict[str, object] | None) -> str | None:
+        assert state is not None
+        seen_states.append(dict(state))
+        return None
+
+    monkeypatch.setattr(module, "_preprocess_last_user_message", fake_preprocess)
+    data = {
+        "model": "demo",
+        "context_compiler_mode": "persistent",
+        "context_compiler_session_key": "chat-restore-first",
+        "messages": [{"role": "user", "content": "please use docker"}],
+    }
+
+    asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
+
+    assert seen_states == [
+        {"premise": None, "policies": {"peanuts": "prohibit"}, "version": 2}
     ]
 
 
-def test_forwarded_messages_receive_exactly_one_contract_system_message_when_continuing(
-    monkeypatch,
-) -> None:
-    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_contract")
+def test_corrupt_checkpoint_fails_clearly(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_corrupt")
+    module.CHECKPOINT_STORE.clear()
+    module.CHECKPOINT_STORE.save("broken", {"checkpoint_version": 99})
+    hook = module.ContextCompilerPreCallHookWithPreprocessor()
+    data = {
+        "model": "demo",
+        "context_compiler_mode": "persistent",
+        "context_compiler_session_key": "broken",
+        "messages": [{"role": "user", "content": "please use docker"}],
+    }
+
+    result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
+
+    assert isinstance(result, str)
+    assert "checkpoint load failed" in result
+
+
+def test_forwarded_messages_keep_original_user_prompt_text(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_forwarded_text")
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
     original_messages = [
         {"role": "system", "content": "original system"},
-        {"role": "assistant", "content": "earlier reply"},
-        {"role": "user", "content": "hello there"},
+        {"role": "user", "content": "please use docker"},
     ]
-    data = {"model": "demo", "messages": deepcopy(original_messages)}
-
     monkeypatch.setattr(
-        module, "_preprocess_last_user_message", lambda message, state: None
+        module, "_preprocess_last_user_message", lambda message, state: "use docker"
     )
-    monkeypatch.setattr(
-        module,
-        "compile_transcript",
-        lambda transcript: {
-            "kind": "state",
-            "state": _state(policies={"docker": "use"}),
-        },
-    )
+    data = {
+        "model": "demo",
+        "context_compiler_mode": "stateless",
+        "messages": deepcopy(original_messages),
+    }
 
     result = asyncio.run(hook.async_pre_call_hook(None, None, data, "chat_completion"))
 
     assert result is data
-    system_messages = [
-        message for message in data["messages"] if message.get("role") == "system"
-    ]
-    contract_messages = [
-        message
-        for message in system_messages
-        if "Host policy contract:" in str(message.get("content"))
-    ]
-    assert len(contract_messages) == 1
     assert data["messages"][1:] == original_messages
+
+
+def test_no_removed_replay_api_remains(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_no_replay")
+
+    assert not hasattr(module, "compile_transcript")
+    assert "_state_before_last_message" not in MODULE_PATH.read_text(encoding="utf-8")

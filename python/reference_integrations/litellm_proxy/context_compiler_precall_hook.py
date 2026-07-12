@@ -1,8 +1,11 @@
 """Minimal LiteLLM Proxy pre-call hook example.
 
 Architecture:
-- Replay user transcript through Context Compiler before any model call.
-- If confirmation is required, block upstream model call.
+- Resolve explicit persistent or stateless mode for the current request.
+- In persistent mode, restore compiler checkpoint by session key.
+- Process only the latest user turn exactly once.
+- Save checkpoint after each decision, including clarify.
+- If clarification is required, block upstream model call.
 - Otherwise inject compiled state guidance into a system message.
 """
 
@@ -21,11 +24,21 @@ except ModuleNotFoundError:
 
 from context_compiler import (
     POLICY_PROHIBIT,
+    create_engine,
+    get_clarify_prompt,
     State,
-    Transcript,
-    compile_transcript,
     get_policy_items,
     get_premise_value,
+    is_clarify,
+)
+from python.reference_integrations.litellm_proxy._checkpoint_support import (
+    MODE_PERSISTENT,
+    CheckpointStore,
+    InMemoryCheckpointStore,
+    checkpoint_from_jsonable,
+    checkpoint_to_jsonable,
+    extract_latest_user_text,
+    resolve_session_context,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,6 +49,7 @@ _SUPPORTED_CALL_TYPES = {
     "chat_completion",
     "achat_completion",
 }
+CHECKPOINT_STORE: CheckpointStore = InMemoryCheckpointStore()
 
 
 def _render_compiled_state_contract(compiled_state: State) -> str:
@@ -65,35 +79,6 @@ def _extract_request_messages(data: dict[str, object]) -> list[dict[str, object]
     return [msg for msg in raw_messages if isinstance(msg, dict)]
 
 
-def _extract_text_content(content: object) -> str | None:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        text_parts: list[str] = []
-        for item in content:
-            if not isinstance(item, dict):
-                continue
-            if item.get("type") != "text":
-                continue
-            text = item.get("text")
-            if isinstance(text, str):
-                text_parts.append(text)
-        if text_parts:
-            return " ".join(text_parts)
-    return None
-
-
-def _extract_user_transcript(messages: list[dict[str, object]]) -> Transcript:
-    transcript: Transcript = []
-    for message in messages:
-        role = message.get("role")
-        content = message.get("content")
-        text_content = _extract_text_content(content)
-        if role == "user" and text_content is not None:
-            transcript.append({"role": "user", "content": text_content})
-    return transcript
-
-
 class ContextCompilerPreCallHook(CustomLogger):
     async def async_pre_call_hook(
         self,
@@ -109,18 +94,58 @@ class ContextCompilerPreCallHook(CustomLogger):
 
         request_messages = _extract_request_messages(data)
         logger.debug("litellm_proxy: message_count=%d", len(request_messages))
-        user_transcript = _extract_user_transcript(request_messages)
-        logger.debug("litellm_proxy: transcript_len=%d", len(user_transcript))
-        replay_result = compile_transcript(user_transcript)
-        logger.debug("litellm_proxy: replay_kind=%s", replay_result["kind"])
+        session = resolve_session_context(data)
+        logger.debug(
+            "litellm_proxy: mode=%s session_key_source=%s",
+            session.mode,
+            session.source,
+        )
+        if session.mode == MODE_PERSISTENT and session.session_key is None:
+            return (
+                "Context Compiler persistent mode requires a stable session key. "
+                "Set context_compiler_session_key or "
+                "metadata.context_compiler_session_key."
+            )
 
-        if replay_result["kind"] == "confirm":
-            # Returning a string from this pre-call hook blocks the upstream
-            # LiteLLM model call under LiteLLM callback semantics.
-            logger.debug("litellm_proxy: blocking_on_confirm=true")
-            return replay_result["prompt_to_user"] or "Confirmation required."
+        latest_user_text = extract_latest_user_text(request_messages)
+        logger.debug(
+            "litellm_proxy: latest_user_text_present=%s", latest_user_text is not None
+        )
 
-        compiled_state = replay_result["state"]
+        engine = create_engine()
+        if session.mode == MODE_PERSISTENT and session.session_key is not None:
+            checkpoint = CHECKPOINT_STORE.load(session.session_key)
+            if checkpoint is not None:
+                try:
+                    engine.import_checkpoint_json(checkpoint_from_jsonable(checkpoint))
+                except Exception as exc:
+                    return (
+                        "Context Compiler checkpoint load failed for session "
+                        f"{session.session_key!r}: {exc}"
+                    )
+
+        if latest_user_text is not None:
+            decision = engine.step(latest_user_text)
+        else:
+            decision = {
+                "kind": "passthrough",
+                "state": engine.state,
+                "prompt_to_user": None,
+            }
+
+        if session.mode == MODE_PERSISTENT and session.session_key is not None:
+            CHECKPOINT_STORE.save(
+                session.session_key,
+                checkpoint_to_jsonable(engine.export_checkpoint_json()),
+            )
+
+        logger.debug("litellm_proxy: decision_kind=%s", decision["kind"])
+
+        if is_clarify(decision):
+            logger.debug("litellm_proxy: blocking_on_clarify=true")
+            return get_clarify_prompt(decision) or "Confirmation required."
+
+        compiled_state = engine.state
         # For long-running conversations, you can optionally compact transcripts by removing user inputs that were compiled into state. See Demo 6.  # noqa: E501
         system_message: dict[str, object] = {
             "role": "system",
