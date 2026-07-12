@@ -31,6 +31,7 @@ from context_compiler import (
     get_premise_value,
     is_clarify,
 )
+from context_compiler.engine import DecisionKind
 from python.reference_integrations.litellm_proxy._checkpoint_support import (
     MODE_PERSISTENT,
     CheckpointStore,
@@ -128,7 +129,7 @@ class ContextCompilerPreCallHook(CustomLogger):
             decision = engine.step(latest_user_text)
         else:
             decision = {
-                "kind": "passthrough",
+                "kind": DecisionKind.PASSTHROUGH,
                 "state": engine.state,
                 "prompt_to_user": None,
             }

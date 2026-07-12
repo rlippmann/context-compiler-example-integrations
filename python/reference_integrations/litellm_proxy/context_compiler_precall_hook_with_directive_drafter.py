@@ -37,6 +37,7 @@ from context_compiler import (
     get_premise_value,
     is_clarify,
 )
+from context_compiler.engine import DecisionKind
 from context_compiler_directive_drafter import (
     PREPROCESS_OUTCOME_DIRECTIVE,
     parse_preprocessor_output,
@@ -256,7 +257,7 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
             decision = engine.step(engine_input)
         else:
             decision = {
-                "kind": "passthrough",
+                "kind": DecisionKind.PASSTHROUGH,
                 "state": engine.state,
                 "prompt_to_user": None,
             }
