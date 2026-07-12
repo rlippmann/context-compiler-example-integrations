@@ -44,7 +44,7 @@ from context_compiler_directive_drafter import (
     preprocess_heuristic,
     render_prompt,
 )
-from python.reference_integrations.litellm_proxy._checkpoint_support import (
+from context_compiler_example_integrations.reference_integrations.litellm_proxy._checkpoint_support import (
     MODE_PERSISTENT,
     CheckpointStore,
     InMemoryCheckpointStore,
