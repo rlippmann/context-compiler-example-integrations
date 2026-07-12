@@ -225,15 +225,25 @@ def test_litellm_proxy_runtime_forwards_allowed_request_with_contract(
     litellm_proxy_runtime_basic: _ProxyRuntime,
     litellm_runtime_stub: _ThreadedStubServer,
 ) -> None:
+    session_key = "runtime-basic-forward"
+
+    seed_response = _post_chat_completion(
+        port=litellm_proxy_runtime_basic.port,
+        messages=[{"role": "user", "content": "prohibit peanuts"}],
+        session_key=session_key,
+    )
+    assert seed_response.status_code == 200
+
+    litellm_runtime_stub.captured_requests.clear()
+
     original_messages = [
-        {"role": "user", "content": "prohibit peanuts"},
         {"role": "user", "content": "what snack should I bring?"},
     ]
 
     response = _post_chat_completion(
         port=litellm_proxy_runtime_basic.port,
         messages=original_messages,
-        session_key="runtime-basic-forward",
+        session_key=session_key,
     )
 
     assert response.status_code == 200
@@ -276,15 +286,25 @@ def test_litellm_proxy_runtime_with_directive_drafter_forwards_allowed_request_w
     litellm_proxy_runtime_with_directive_drafter: _ProxyRuntime,
     litellm_runtime_stub: _ThreadedStubServer,
 ) -> None:
+    session_key = "runtime-drafter-forward"
+
+    seed_response = _post_chat_completion(
+        port=litellm_proxy_runtime_with_directive_drafter.port,
+        messages=[{"role": "user", "content": "prohibit peanuts"}],
+        session_key=session_key,
+    )
+    assert seed_response.status_code == 200
+
+    litellm_runtime_stub.captured_requests.clear()
+
     original_messages = [
-        {"role": "user", "content": "prohibit peanuts"},
         {"role": "user", "content": "please use docker"},
     ]
 
     response = _post_chat_completion(
         port=litellm_proxy_runtime_with_directive_drafter.port,
         messages=original_messages,
-        session_key="runtime-drafter-forward",
+        session_key=session_key,
     )
 
     assert response.status_code == 200
@@ -305,8 +325,7 @@ def test_litellm_proxy_runtime_with_directive_drafter_forwards_allowed_request_w
     ]
     assert len(contract_messages) == 1
     assert "peanuts" in str(contract_messages[0]["content"])
-    # Drafting changes compiler replay input only; the forwarded request payload
-    # must preserve the user's original prompt text after the injected contract.
+
     assert forwarded_messages[1:] == original_messages
 
 
@@ -323,6 +342,7 @@ def _post_chat_completion(
             json={
                 "model": PROXY_MODEL_NAME,
                 "messages": messages,
+                "context_compiler_mode": "persistent",
                 "context_compiler_session_key": session_key,
             },
         )
