@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.7",
-    "@rlippmann/context-compiler": "^0.8.0",
+    "@rlippmann/context-compiler": "^0.8.2",
     "ai": "^7.0.15",
     "zod": "^3.25.76"
   },
