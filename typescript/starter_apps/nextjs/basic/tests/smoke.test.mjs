@@ -47,7 +47,7 @@ test("repeated sessionId persists checkpoint behavior across turns", async () =>
   assert.match(second.json.requestPayload.systemPrompt, /USE: podman/);
 });
 
-test("history replay works when no saved checkpoint exists", async () => {
+test("historical messages stay downstream-only and do not mutate compiler state", async () => {
   const result = await postJson({
     sessionId: "nextjs-basic-history",
     history: [{ role: "user", content: "prohibit peanuts" }],
@@ -55,9 +55,26 @@ test("history replay works when no saved checkpoint exists", async () => {
   });
 
   assert.equal(result.status, 200);
-  assert.equal(result.json.kind, "clarify");
-  assert.match(result.json.promptToUser, /prohibited/i);
-  assert.ok(!("requestPayload" in result.json));
+  assert.equal(result.json.kind, "continue");
+  assert.match(result.json.requestPayload.systemPrompt, /USE: peanuts/);
+  assert.doesNotMatch(result.json.requestPayload.systemPrompt, /PROHIBIT: peanuts/);
+  assert.deepEqual(result.json.requestPayload.history, [{ role: "user", content: "prohibit peanuts" }]);
+});
+
+test("pending clarification survives checkpoint restore and resolves on later current turn", async () => {
+  const sessionId = "nextjs-basic-checkpoint-clarify";
+  const first = await postJson({ sessionId, input: "use podman instead of docker" });
+  assert.equal(first.json.kind, "clarify");
+
+  const second = await postJson({
+    sessionId,
+    history: [{ role: "user", content: "prohibit peanuts" }],
+    input: "yes"
+  });
+  assert.equal(second.status, 200);
+  assert.equal(second.json.kind, "continue");
+  assert.match(second.json.requestPayload.systemPrompt, /USE: podman/);
+  assert.doesNotMatch(second.json.requestPayload.systemPrompt, /PROHIBIT: peanuts/);
 });
 
 test("saved premise appears in returned system prompt", async () => {

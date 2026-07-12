@@ -123,22 +123,6 @@ export async function handleChatBody(body: ChatBody): Promise<ChatResult> {
 
     if (savedCheckpoint) {
       engine.importCheckpointJson(savedCheckpoint);
-    } else if (history?.length) {
-      const replayMessages = history.filter(
-        (message): message is { role: "user"; content: string } =>
-          message.role === "user" && typeof message.content === "string"
-      );
-      const replay = engine.applyTranscript(replayMessages);
-
-      if (replay.kind === "confirm") {
-        saveCheckpoint(sessionId, engine.exportCheckpointJson());
-        return {
-          status: 200,
-          payload: { kind: DECISION_CLARIFY, promptToUser: replay.prompt_to_user } satisfies ChatResponse
-        };
-      }
-
-      saveCheckpoint(sessionId, engine.exportCheckpointJson());
     }
 
     const engineInput = resolveEngineInput(engine, input);
@@ -154,7 +138,6 @@ export async function handleChatBody(body: ChatBody): Promise<ChatResult> {
 
     saveCheckpoint(sessionId, engine.exportCheckpointJson());
 
-    const usedReplay = !savedCheckpoint && !!history?.length;
     return {
       status: 200,
       payload: {
@@ -167,7 +150,7 @@ export async function handleChatBody(body: ChatBody): Promise<ChatResult> {
           stateToSystemPrompt(engine.state),
           "",
           "RECENT MESSAGES:",
-          JSON.stringify(usedReplay ? [] : minimalRecentContext(history), null, 2),
+          JSON.stringify(minimalRecentContext(history), null, 2),
           "",
           `RAW USER INPUT: ${input}`
         ].join("\n")
