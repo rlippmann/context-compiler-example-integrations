@@ -52,7 +52,7 @@ pip install "context-compiler-example-integrations[litellm]"
 export OPENAI_API_KEY=...
 ```
 
-These examples require `context-compiler>=0.8.0`.
+These examples require `context-compiler>=0.8.3`.
 
 For `with_directive_drafter.py`:
 

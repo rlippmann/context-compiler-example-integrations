@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@rlippmann/context-compiler": "^0.8.0",
+    "@rlippmann/context-compiler": "^0.8.2",
     "@rlippmann/context-compiler-directive-drafter": "^0.1.0",
     "next": "^15.3.0",
     "react": "^19.0.0",
