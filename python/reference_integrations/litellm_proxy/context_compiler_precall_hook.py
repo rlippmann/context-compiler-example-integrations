@@ -32,7 +32,7 @@ from context_compiler import (
     is_clarify,
 )
 from context_compiler.engine import DecisionKind
-from python.reference_integrations.litellm_proxy._checkpoint_support import (
+from context_compiler_example_integrations.reference_integrations.litellm_proxy._checkpoint_support import (
     MODE_PERSISTENT,
     CheckpointStore,
     InMemoryCheckpointStore,
