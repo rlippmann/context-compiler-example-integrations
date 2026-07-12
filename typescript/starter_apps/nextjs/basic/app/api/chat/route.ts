@@ -77,23 +77,6 @@ export async function POST(req: Request): Promise<Response> {
 
   if (savedCheckpoint) {
     engine.importCheckpointJson(savedCheckpoint);
-  } else if (history?.length) {
-    const replayMessages = history.filter(
-      (message): message is { role: "user"; content: string } =>
-        message.role === "user" && typeof message.content === "string"
-    );
-    const replay = engine.applyTranscript(replayMessages);
-
-    if (replay.kind === "confirm") {
-      saveSessionState(sessionId, engine.exportCheckpointJson());
-      const payload: ChatResponse = {
-        kind: DECISION_CLARIFY,
-        promptToUser: replay.prompt_to_user
-      };
-      return Response.json(payload);
-    }
-
-    saveSessionState(sessionId, engine.exportCheckpointJson());
   }
 
   const decision = engine.step(input);
@@ -109,12 +92,11 @@ export async function POST(req: Request): Promise<Response> {
 
   saveSessionState(sessionId, engine.exportCheckpointJson());
 
-  const usedReplay = !savedCheckpoint && !!history?.length;
   const payload: ChatResponse = {
     kind: "continue",
     requestPayload: {
       systemPrompt: stateToSystemPrompt(engine.state),
-      history: usedReplay ? [] : minimalRecentContext(history),
+      history: minimalRecentContext(history),
       userInput: input
     }
   };

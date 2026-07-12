@@ -32,7 +32,7 @@ test("repeated sessionId persists checkpoint behavior across turns", async () =>
   assert.match(second.payload.systemPrompt, /USE: podman/);
 });
 
-test("history replay works when no saved checkpoint exists", async () => {
+test("historical messages stay downstream-only and do not mutate compiler state", async () => {
   const result = await handleChatBody({
     sessionId: "node-basic-history",
     history: [{ role: "user", content: "prohibit peanuts" }],
@@ -40,6 +40,22 @@ test("history replay works when no saved checkpoint exists", async () => {
   });
 
   assert.equal(result.status, 200);
-  assert.equal(result.payload.kind, "clarify");
-  assert.match(result.payload.promptToUser, /prohibited/i);
+  assert.equal(result.payload.kind, "continue");
+  assert.match(result.payload.systemPrompt, /USE: peanuts/);
+  assert.doesNotMatch(result.payload.systemPrompt, /PROHIBIT: peanuts/);
+});
+
+test("pending clarification survives checkpoint restore and resolves on later current turn", async () => {
+  const sessionId = "node-basic-checkpoint-clarify";
+  const first = await handleChatBody({ sessionId, input: "use podman instead of docker" });
+  assert.equal(first.payload.kind, "clarify");
+
+  const second = await handleChatBody({
+    sessionId,
+    history: [{ role: "user", content: "prohibit peanuts" }],
+    input: "yes"
+  });
+  assert.equal(second.payload.kind, "continue");
+  assert.match(second.payload.systemPrompt, /USE: podman/);
+  assert.doesNotMatch(second.payload.systemPrompt, /PROHIBIT: peanuts/);
 });
