@@ -1,9 +1,12 @@
 """LiteLLM Proxy pre-call hook with optional directive drafter on latest user message.
 
 Architecture:
-- Replay user transcript through Context Compiler before any model call.
-- Preprocess only the latest user message for compiler replay input.
-- If confirmation is required, block upstream model call.
+- Resolve explicit persistent or stateless mode for the current request.
+- In persistent mode, restore compiler checkpoint by session key.
+- Draft only the latest user message after restore.
+- Call ``engine.step(...)`` exactly once for the current turn.
+- Save checkpoint after each decision, including clarify.
+- If clarification is required, block upstream model call.
 - Otherwise inject compiled state guidance into a system message.
 """
 
@@ -28,16 +31,26 @@ except ModuleNotFoundError:
 from context_compiler import (
     POLICY_PROHIBIT,
     State,
-    Transcript,
-    compile_transcript,
+    create_engine,
+    get_clarify_prompt,
     get_policy_items,
     get_premise_value,
+    is_clarify,
 )
 from context_compiler_directive_drafter import (
     PREPROCESS_OUTCOME_DIRECTIVE,
     parse_preprocessor_output,
     preprocess_heuristic,
     render_prompt,
+)
+from python.reference_integrations.litellm_proxy._checkpoint_support import (
+    MODE_PERSISTENT,
+    CheckpointStore,
+    InMemoryCheckpointStore,
+    checkpoint_from_jsonable,
+    checkpoint_to_jsonable,
+    extract_latest_user_text,
+    resolve_session_context,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,6 +63,7 @@ _SUPPORTED_CALL_TYPES = {
 }
 
 _PROMPTS_DIR = files("context_compiler_directive_drafter").joinpath("prompts")
+CHECKPOINT_STORE: CheckpointStore = InMemoryCheckpointStore()
 
 
 def _render_compiled_state_contract(compiled_state: State) -> str:
@@ -77,35 +91,6 @@ def _extract_request_messages(data: dict[str, object]) -> list[dict[str, object]
     if not isinstance(raw_messages, list):
         return []
     return [msg for msg in raw_messages if isinstance(msg, dict)]
-
-
-def _extract_text_content(content: object) -> str | None:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        text_parts: list[str] = []
-        for item in content:
-            if not isinstance(item, dict):
-                continue
-            if item.get("type") != "text":
-                continue
-            text = item.get("text")
-            if isinstance(text, str):
-                text_parts.append(text)
-        if text_parts:
-            return " ".join(text_parts)
-    return None
-
-
-def _extract_user_transcript(messages: list[dict[str, object]]) -> Transcript:
-    transcript: Transcript = []
-    for message in messages:
-        role = message.get("role")
-        content = message.get("content")
-        text_content = _extract_text_content(content)
-        if role == "user" and text_content is not None:
-            transcript.append({"role": "user", "content": text_content})
-    return transcript
 
 
 def _extract_response_content(response: object) -> str | None:
@@ -189,16 +174,6 @@ def _llm_fallback_preprocess(message: str, state: State) -> str | None:
     return parsed
 
 
-def _state_before_last_message(user_transcript: Transcript) -> State | None:
-    if not user_transcript:
-        return None
-    prefix = user_transcript[:-1]
-    replay = compile_transcript(prefix)
-    if replay["kind"] != "state":
-        return None
-    return replay["state"]
-
-
 def _preprocess_last_user_message(message: str, state: State | None) -> str | None:
     try:
         heuristic_result = preprocess_heuristic(message)
@@ -237,46 +212,75 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
 
         request_messages = _extract_request_messages(data)
         logger.debug("litellm_proxy: message_count=%d", len(request_messages))
-
-        user_transcript = _extract_user_transcript(request_messages)
-        logger.debug("litellm_proxy: transcript_len=%d", len(user_transcript))
-
-        transcript_for_replay = user_transcript
-        replaced_last_user_message = False
-        preprocessd: str | None = None
-
-        if user_transcript:
-            last_user_content = cast(str, user_transcript[-1]["content"])
-            prior_state = _state_before_last_message(user_transcript)
-            preprocessd = _preprocess_last_user_message(last_user_content, prior_state)
-            logger.debug("litellm_proxy: preprocessd=%r", preprocessd)
-            if preprocessd:
-                transcript_for_replay = [*user_transcript]
-                transcript_for_replay[-1] = {"role": "user", "content": preprocessd}
-                replaced_last_user_message = True
-
+        session = resolve_session_context(data)
         logger.debug(
-            "litellm_proxy: replaced_last_user_message=%s", replaced_last_user_message
+            "litellm_proxy: mode=%s session_key_source=%s",
+            session.mode,
+            session.source,
         )
+        if session.mode == MODE_PERSISTENT and session.session_key is None:
+            return (
+                "Context Compiler persistent mode requires a stable session key. "
+                "Set context_compiler_session_key or "
+                "metadata.context_compiler_session_key."
+            )
 
-        replay_result = compile_transcript(transcript_for_replay)
-        logger.debug("litellm_proxy: replay_kind=%s", replay_result["kind"])
+        engine = create_engine()
+        if session.mode == MODE_PERSISTENT and session.session_key is not None:
+            checkpoint = CHECKPOINT_STORE.load(session.session_key)
+            if checkpoint is not None:
+                try:
+                    engine.import_checkpoint_json(checkpoint_from_jsonable(checkpoint))
+                except Exception as exc:
+                    return (
+                        "Context Compiler checkpoint load failed for session "
+                        f"{session.session_key!r}: {exc}"
+                    )
 
-        if replay_result["kind"] == "confirm":
-            # Returning a string from this pre-call hook blocks the upstream
-            # LiteLLM model call under LiteLLM callback semantics.
-            logger.debug("litellm_proxy: blocking_on_confirm=true")
-            return replay_result["prompt_to_user"] or "Confirmation required."
+        latest_user_text = extract_latest_user_text(request_messages)
+        logger.debug(
+            "litellm_proxy: latest_user_text_present=%s", latest_user_text is not None
+        )
+        engine_input = latest_user_text
+        drafted_input: str | None = None
 
-        compiled_state = replay_result["state"]
+        if latest_user_text is not None and not engine.has_pending_clarification():
+            drafted_input = _preprocess_last_user_message(
+                latest_user_text, engine.state
+            )
+            logger.debug("litellm_proxy: drafted_input=%r", drafted_input)
+            if drafted_input is not None:
+                engine_input = drafted_input
+
+        if engine_input is not None:
+            decision = engine.step(engine_input)
+        else:
+            decision = {
+                "kind": "passthrough",
+                "state": engine.state,
+                "prompt_to_user": None,
+            }
+
+        if session.mode == MODE_PERSISTENT and session.session_key is not None:
+            CHECKPOINT_STORE.save(
+                session.session_key,
+                checkpoint_to_jsonable(engine.export_checkpoint_json()),
+            )
+
+        logger.debug("litellm_proxy: decision_kind=%s", decision["kind"])
+
+        if is_clarify(decision):
+            logger.debug("litellm_proxy: blocking_on_clarify=true")
+            return get_clarify_prompt(decision) or "Confirmation required."
+
+        compiled_state = engine.state
         system_message: dict[str, object] = {
             "role": "system",
             "content": "You are a helpful assistant.\n"
             + _render_compiled_state_contract(compiled_state),
         }
         logger.debug("litellm_proxy: inject_system_message=true")
-        # Preserve original request messages; only compiler replay input uses
-        # the preprocessed latest user message when available.
+        # Preserve original request messages; drafting changes only compiler input.
         data["messages"] = [system_message, *request_messages]
         return data
 
