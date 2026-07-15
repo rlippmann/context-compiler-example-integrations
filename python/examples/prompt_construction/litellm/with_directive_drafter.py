@@ -272,7 +272,7 @@ def _llm_fallback_preprocess(message: str, state: State) -> str | None:
     except Exception:
         return None
 
-    parsed = parse_preprocessor_output(raw_output, source_input=message)
+    parsed = parse_preprocessor_output(raw_output)
     if parsed is None:
         return None
     return parsed

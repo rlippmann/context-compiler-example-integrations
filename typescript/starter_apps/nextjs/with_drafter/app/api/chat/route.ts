@@ -80,7 +80,7 @@ function resolveEngineInput(engine: ReturnType<typeof createEngine>, userInput: 
     return userInput;
   }
 
-  const validated = validatePreprocessorOutput(heuristic.directive, { sourceInput: userInput });
+  const validated = validatePreprocessorOutput(heuristic.directive);
   if (validated.classification === PREPROCESS_OUTCOME_DIRECTIVE && validated.output !== null) {
     return validated.output;
   }

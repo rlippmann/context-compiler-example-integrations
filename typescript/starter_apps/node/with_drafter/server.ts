@@ -90,7 +90,7 @@ function resolveEngineInput(engine: ReturnType<typeof createEngine>, userInput: 
     return userInput;
   }
 
-  const parsedDirective = parsePreprocessorOutput(heuristic.directive, { sourceInput: userInput });
+  const parsedDirective = parsePreprocessorOutput(heuristic.directive);
   return parsedDirective ?? userInput;
 }
 

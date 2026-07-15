@@ -140,3 +140,15 @@ test("saved premise appears in returned system prompt", async () => {
     /PREMISE:\ndraft is a board update summarizing quarterly results/
   );
 });
+
+test("compound directives stay local and ask for separate inputs", async () => {
+  const result = await postJson({
+    sessionId: "nextjs-drafter-compound",
+    input: "use docker and prohibit peanuts"
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(result.json.kind, "clarify");
+  assert.match(result.json.promptToUser, /multiple directives/i);
+  assert.match(result.json.promptToUser, /submit each directive separately/i);
+});

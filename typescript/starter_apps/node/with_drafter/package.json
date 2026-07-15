@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@rlippmann/context-compiler": "^0.8.2",
-    "@rlippmann/context-compiler-directive-drafter": "^0.1.0"
+    "@rlippmann/context-compiler-directive-drafter": "^0.1.2"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
