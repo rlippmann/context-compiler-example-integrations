@@ -20,6 +20,8 @@ with LiteLLM:
   - if it cannot produce a validated directive, behavior stays equivalent to the compiler-only flow
   - pending clarification bypasses directive drafting and sends the raw reply back to `engine.step(...)`
 
+Model fallback output is structurally validated before handoff. This does not prove that the model interpreted the user correctly. The automated fallback path is experimental pending a separate source-aware acceptance policy and reviewed drafting workflow.
+
 ## Premise and policy
 
 In these prompt-construction examples:
@@ -59,6 +61,8 @@ For `with_directive_drafter.py`:
 ```shell
 pip install "context-compiler-example-integrations[all]"
 ```
+
+That variant requires `context-compiler-directive-drafter>=0.1.2`.
 
 ## Quickstart (copy/paste)
 
@@ -163,6 +167,9 @@ In the related schema-selection example:
 - Near-miss passthrough (`with_directive_drafter.py`):
   - `set premise to concise replies` is not rewritten by the directive drafter and is passed through unchanged.
   - Engine returns clarify (`Did you mean 'set premise concise replies'?`).
+- Compound directives (`with_directive_drafter.py`):
+  - `use docker and prohibit peanuts` returns a local clarify asking for separate directives.
+  - No authoritative state is mutated and no downstream model call is made for that turn.
 - Lifecycle enforcement (both):
   - `change premise to formal tone` with no premise -> clarify (`set premise ...` first).
 - Conflict behavior (both):

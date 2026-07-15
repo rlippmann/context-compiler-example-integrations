@@ -40,6 +40,8 @@ Optional directive-drafter behavior:
 - Forwarded upstream request messages are not rewritten except for the injected
   compiler system message.
 
+Model fallback output is structurally validated before handoff. This does not prove that the model interpreted the user correctly. The automated fallback path is experimental pending a separate source-aware acceptance policy and reviewed drafting workflow.
+
 ## Session mode and session keys
 
 The reference hooks support two explicit modes:
@@ -102,6 +104,8 @@ For `context_compiler_precall_hook_with_directive_drafter.py`:
 ```shell
 pip install "context-compiler-example-integrations[all]"
 ```
+
+That variant requires `context-compiler-directive-drafter>=0.1.2`.
 
 For the opt-in runtime smoke test, install the proxy runtime extras:
 
@@ -201,7 +205,7 @@ export PREPROCESSOR_PROMPT_PROFILE=default
 `PREPROCESSOR_MODEL` is optional and defaults to `MODEL`.
 
 For heuristic-first usage, keep `PREPROCESSOR_PROMPT_PROFILE=default`.
-Use `llama` only for LLM-only preprocessing with Llama-family models.
+Use `llama` only for LLM-only fallback drafting with Llama-family models.
 
 ## Notes
 
@@ -212,6 +216,9 @@ Use `llama` only for LLM-only preprocessing with Llama-family models.
   not silently reset state.
 - In the directive-drafter hook, drafter state context now comes from restored
   checkpoint state rather than transcript-prefix reconstruction.
+- Compound directive-shaped input such as `use docker and prohibit peanuts`
+  should produce a local clarify response telling the user to submit each
+  directive separately, without mutating saved state or forwarding upstream.
 
 ## Troubleshooting
 

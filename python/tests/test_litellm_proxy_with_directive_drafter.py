@@ -344,6 +344,38 @@ def test_forwarded_messages_keep_original_user_prompt_text(monkeypatch) -> None:
     assert data["messages"][1:] == original_messages
 
 
+def test_compound_directives_block_upstream_and_do_not_mutate_state(
+    monkeypatch,
+) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_compound")
+    module.CHECKPOINT_STORE.clear()
+    hook = module.ContextCompilerPreCallHookWithPreprocessor()
+    monkeypatch.setattr(
+        module,
+        "_preprocess_last_user_message",
+        lambda _message, _state: "use docker and prohibit peanuts",
+    )
+    data = {
+        "model": "demo",
+        "context_compiler_mode": "persistent",
+        "context_compiler_session_key": "chat-compound",
+        "messages": [
+            {"role": "user", "content": "please use docker and prohibit peanuts"}
+        ],
+    }
+
+    result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
+
+    assert result == (
+        "Multiple directives are not supported in one input.\n"
+        "Submit each directive separately."
+    )
+    checkpoint = module.CHECKPOINT_STORE.load("chat-compound")
+    assert checkpoint is not None
+    assert checkpoint["authoritative_state"]["policies"] == {}
+    assert checkpoint.get("pending") is None
+
+
 def test_no_removed_replay_api_remains(monkeypatch) -> None:
     module = _load_module(monkeypatch, "litellm_proxy_with_drafter_no_replay")
 

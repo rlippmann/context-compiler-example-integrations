@@ -47,12 +47,12 @@ Issues = "https://github.com/rlippmann/context-compiler-example-integrations/iss
 [project.optional-dependencies]
 all = [
   "chromadb",
-  "context-compiler-directive-drafter",
+  "context-compiler-directive-drafter>=0.1.2",
   "fastapi",
   "litellm",
 ]
 drafter = [
-  "context-compiler-directive-drafter",
+  "context-compiler-directive-drafter>=0.1.2",
 ]
 fastapi = [
   "fastapi",
@@ -67,7 +67,7 @@ retrieval = [
 [dependency-groups]
 dev = [
   "chromadb",
-  "context-compiler-directive-drafter",
+  "context-compiler-directive-drafter>=0.1.2",
   "fastapi",
   "httpx2>=2.5.0",
   "httpx>=0.28.1",

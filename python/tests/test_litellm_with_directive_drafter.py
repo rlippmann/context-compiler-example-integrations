@@ -266,7 +266,9 @@ def test_preprocessor_model_override_wins(monkeypatch) -> None:
     assert seen["model"] == "openai/preprocessor-model"
 
 
-def test_fallback_rejects_premise_near_miss_rewrites(monkeypatch) -> None:
+def test_fallback_accepts_structurally_valid_output_without_source_awareness(
+    monkeypatch,
+) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "dummy")
     monkeypatch.setenv("MODEL", "openai/main-model")
     monkeypatch.delenv("PREPROCESSOR_MODEL", raising=False)
@@ -281,7 +283,10 @@ def test_fallback_rejects_premise_near_miss_rewrites(monkeypatch) -> None:
     )
     monkeypatch.setattr(module, "render_prompt", lambda *_: "prompt")
 
-    assert module._llm_fallback_preprocess("set premise to concise replies", {}) is None
+    assert (
+        module._llm_fallback_preprocess("set premise to concise replies", {})
+        == "set premise concise replies"
+    )
 
 
 def test_directive_shaped_malformed_inputs_skip_fallback(monkeypatch) -> None:
@@ -312,6 +317,33 @@ def test_directive_shaped_malformed_inputs_skip_fallback(monkeypatch) -> None:
         == "Replacement requires both new and old items.\nUse 'use <new item> instead of <old item>' with non-empty values."
     )
     assert fallback_calls == 0
+    assert downstream_calls == 0
+
+
+def test_compound_directives_stay_local_and_do_not_call_downstream(monkeypatch) -> None:
+    downstream_calls = 0
+
+    def downstream(_messages: list[dict[str, str]]) -> str:
+        nonlocal downstream_calls
+        downstream_calls += 1
+        raise AssertionError("downstream model should not be called")
+
+    monkeypatch.setattr(module, "_call_litellm", downstream)
+    monkeypatch.setattr(
+        module,
+        "_preprocess_user_input",
+        lambda _message, _state: "use docker and prohibit peanuts",
+    )
+
+    result = module.handle_turn(
+        "please use docker and prohibit peanuts",
+        create_engine(),
+    )
+
+    assert result == (
+        "Multiple directives are not supported in one input.\n"
+        "Submit each directive separately."
+    )
     assert downstream_calls == 0
 
 

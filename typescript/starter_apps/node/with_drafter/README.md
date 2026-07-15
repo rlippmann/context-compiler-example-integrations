@@ -8,6 +8,8 @@ material. `@rlippmann/context-compiler-directive-drafter` can help recognize
 directive-shaped input, but the compiler remains the only authority over saved
 state.
 
+This starter uses `@rlippmann/context-compiler-directive-drafter@^0.1.2`.
+
 ## Files
 
 - [server.ts](server.ts) - minimal chat endpoint with checkpoint persistence and drafter handoff

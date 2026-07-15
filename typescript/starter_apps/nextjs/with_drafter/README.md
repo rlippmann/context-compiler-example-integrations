@@ -8,6 +8,8 @@ material. The enforcement point is still request construction: the route
 restores saved state, validates drafted directive input, and builds the request
 payload the host would send onward.
 
+This starter uses `@rlippmann/context-compiler-directive-drafter@^0.1.2`.
+
 ## Files
 
 - [app/api/chat/route.ts](app/api/chat/route.ts) - route handler with safe drafter handoff

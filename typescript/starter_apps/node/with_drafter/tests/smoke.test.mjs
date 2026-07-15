@@ -105,3 +105,15 @@ test("unknown or unsafe drafter output falls back to raw input", async () => {
   assert.equal(result.payload.kind, "clarify");
   assert.match(result.payload.promptToUser, /set premise concise replies/i);
 });
+
+test("compound directives stay local and ask for separate inputs", async () => {
+  const result = await handleChatBody({
+    sessionId: "node-drafter-compound",
+    input: "use docker and prohibit peanuts"
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(result.payload.kind, "clarify");
+  assert.match(result.payload.promptToUser, /multiple directives/i);
+  assert.match(result.payload.promptToUser, /submit each directive separately/i);
+});

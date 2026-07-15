@@ -3,7 +3,7 @@ title: Context Compiler Open WebUI Pipe (Directive Drafter)
 author: rlippmann
 author_url: https://github.com/rlippmann/context-compiler-example-integrations
 version: 0.9.4
-requirements: context-compiler>=0.8.3, context-compiler-directive-drafter>=0.1.0
+requirements: context-compiler>=0.8.3, context-compiler-directive-drafter>=0.1.2
 
 Open WebUI integration with Context Compiler directive drafter.
 
@@ -97,7 +97,7 @@ def _is_directive_shaped_input(message: str) -> bool:
 
 
 def _prompt_file_path(profile: str) -> Traversable:
-    # Runtime prompt selection for fallback precompilation:
+    # Runtime prompt selection for fallback drafting:
     # - default: most instruction-following models
     # - llama: models that need tighter prompt guidance
     if profile == "llama":
@@ -450,12 +450,12 @@ class Pipe:
         PREPROCESSOR_MODEL_ID: str | None = Field(
             default=None,
             description=(
-                "Optional model id for fallback precompilation (defaults to BASE_MODEL_ID)."
+                "Optional model id for fallback drafting (defaults to BASE_MODEL_ID)."
             ),
         )
         PREPROCESSOR_PROMPT_PROFILE: Literal["default", "llama"] = Field(
             default="default",
-            description="Prompt profile for LLM fallback precompilation.",
+            description="Prompt profile for LLM fallback drafting.",
         )
         ALLOW_MISSING_BASE_MODEL_FOR_DEBUG: bool = Field(
             default=False,
@@ -730,7 +730,7 @@ class Pipe:
             return None, normalized_error
 
         raw_output = _extract_completion_content(response)
-        parsed = parse_preprocessor_output(raw_output, source_input=message)
+        parsed = parse_preprocessor_output(raw_output)
         if parsed is None:
             return None, None
         return parsed, None

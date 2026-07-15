@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@rlippmann/context-compiler": "^0.8.2",
-    "@rlippmann/context-compiler-directive-drafter": "^0.1.0",
+    "@rlippmann/context-compiler-directive-drafter": "^0.1.2",
     "next": "^15.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

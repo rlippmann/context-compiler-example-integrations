@@ -1,8 +1,8 @@
 # Open WebUI Pipe Integration
 
 Saved compiler state changes which turns the pipe handles locally and what it
-forwards downstream. These examples show that Open WebUI pipe behavior with and
-without directive-drafter preprocessing.
+forwards downstream. These examples show Open WebUI pipe behavior with and
+without Directive Drafter preprocessing.
 
 ## Core behavior
 
@@ -35,8 +35,8 @@ shapes the downstream request.
 
 ## Files
 
-- `open_webui_pipe.py`: basic integration, no directive-drafter layer (recommended/default).
-- `open_webui_pipe_with_directive_drafter.py`: optional/experimental directive-drafter layer (rule-based check first, then optional model fallback) before `engine.step(...)`.
+- `open_webui_pipe.py`: basic integration, no Directive Drafter layer (recommended/default).
+- `open_webui_pipe_with_directive_drafter.py`: optional/experimental Directive Drafter layer (heuristic check first, then optional model fallback) before `engine.step(...)`.
 
 ## Setup
 
@@ -64,11 +64,13 @@ These examples require `context-compiler>=0.8.3`.
 If using `open_webui_pipe_with_directive_drafter.py`:
 
 - Install directive-drafter support if needed:
-  `pip install "context-compiler>=0.8.3" "context-compiler-directive-drafter>=0.1.0"`
+  `pip install "context-compiler>=0.8.3" "context-compiler-directive-drafter>=0.1.2"`
 - Set `PREPROCESSOR_PROMPT_PROFILE=default` for heuristic-first behavior
-- Optionally set `PREPROCESSOR_MODEL_ID` to use a separate fallback model
+- Optionally set `PREPROCESSOR_MODEL_ID` to use a separate fallback drafting model
 - If `PREPROCESSOR_MODEL_ID` is unset, fallback uses `BASE_MODEL_ID`
-- Use `llama` only for LLM-only preprocessing with Llama-family models
+- Use `llama` only for LLM-only fallback drafting with Llama-family models
+
+Model fallback output is structurally validated before handoff. This does not prove that the model interpreted the user correctly. The automated fallback path is experimental pending a separate source-aware acceptance policy and reviewed drafting workflow.
 
 ### Docker/manual install fallback
 
@@ -80,7 +82,7 @@ If frontmatter dependency installs are disabled, offline, or unavailable:
 1. Install the package manually:
 
 - Minimal pipe: `pip install "context-compiler>=0.8.3"`
-- Directive-drafter pipe: `pip install "context-compiler>=0.8.3" "context-compiler-directive-drafter>=0.1.0"`
+- Directive Drafter pipe: `pip install "context-compiler>=0.8.3" "context-compiler-directive-drafter>=0.1.2"`
 
 1. Import and enable the function in Open WebUI, then configure valves.
 
@@ -125,16 +127,17 @@ Advanced check:
 
 ### Directive-drafter pipe
 
-Use this pipe when you want the same runtime behavior plus directive-drafter preprocessing.
+Use this pipe when you want the same runtime behavior plus Directive Drafter preprocessing.
 
 Suggested verification:
 
 - Send `use docker` and confirm you get `State updated: Use docker.` with trace showing a local turn
 - Send `set premise to concise replies` and confirm Open WebUI clarifies locally with `Use 'set premise <value>'.`
 - Send `please use docker` and confirm either:
-  - the directive drafter converts it into a local state update, or
+  - the Directive Drafter converts it into a local state update, or
   - trace shows the turn followed the normal compiler path without a silent state change
 - Send `use kubectl instead of docker`, then reply `yes`, and confirm the saved clarification flow resumes locally
+- Send `use docker and prohibit peanuts` and confirm the pipe responds locally that multiple directives are not supported and must be submitted separately
 - Send a normal prompt such as `what should I run?` and confirm trace shows a forwarded turn with compiler state included
 
 Advanced check:
@@ -222,7 +225,7 @@ These examples support both sync (`0.8.x`) and async (`0.9.x`) user lookup.
 - `PREPROCESSOR_MODEL_ID must not match the selected pipe model id`: choose a real backend model id, not the pipe model id itself.
 - `PREPROCESSOR_MODEL_ID is invalid or not configured in Open WebUI`: the fallback route hit a missing model; fix the configured fallback model or unset it to reuse `BASE_MODEL_ID`.
 - `ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true`: directive-only updates still run locally, but passthrough returns a deterministic debug message instead of calling a downstream model.
-- imports fail after function upload: install `context-compiler>=0.8.3` in the Open WebUI runtime, and add `context-compiler-directive-drafter>=0.1.0` only for the directive-drafter pipe, because the copied function runs from a temp/cached location.
+- imports fail after function upload: install `context-compiler>=0.8.3` in the Open WebUI runtime, and add `context-compiler-directive-drafter>=0.1.2` only for the Directive Drafter pipe, because the copied function runs from a temp/cached location.
 
 ## Fallback notes
 

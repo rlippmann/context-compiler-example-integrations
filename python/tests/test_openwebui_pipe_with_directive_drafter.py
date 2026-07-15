@@ -265,6 +265,49 @@ def test_local_update_and_clarify_responses_skip_downstream_model(monkeypatch) -
     assert forwarded == []
 
 
+def test_compound_directives_stay_local_and_do_not_call_downstream(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_compound", monkeypatch)
+    forwarded: list[dict[str, object]] = []
+
+    async def forward(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
+        forwarded.append(payload)
+        raise AssertionError("downstream model should not be called")
+
+    module.generate_chat_completion = forward
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+
+    async def compound_draft(*args, **kwargs):
+        return "use docker and prohibit peanuts", None
+
+    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", compound_draft)
+    result = asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "please use docker and prohibit peanuts",
+                    }
+                ],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-compound",
+        )
+    )
+
+    assert result == (
+        "Multiple directives are not supported in one input.\n"
+        "Submit each directive separately."
+    )
+    assert forwarded == []
+
+
 def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exists(
     monkeypatch,
 ) -> None:
