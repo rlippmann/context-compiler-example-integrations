@@ -38,13 +38,13 @@ runtime.
 
 ## Generic examples
 
-- [Checkpoint continuation](examples/checkpoint_continuation/README.md): persisted confirmation and resume flows change host behavior across turns or requests
-- [Execution authorization](examples/execution_authorization/README.md): protected host actions execute only when authoritative state allows them
-- [Gateway middleware](examples/gateway_middleware/README.md): the host allows, blocks, or routes requests before downstream work runs
-- [Prompt construction](examples/prompt_construction/README.md): the host builds different request or prompt payloads from authoritative state
-- [Retrieval filtering](examples/retrieval_filtering/README.md): the host changes which documents are eligible or relevant before returning results
-- [Schema selection](examples/schema_selection/README.md): the host picks different workflow or response schemas from authoritative state
-- [Tool gating](examples/tool_gating/README.md): the host changes which tools are visible or executable at runtime
+- [Checkpoint continuation](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/checkpoint_continuation/README.md): persisted confirmation and resume flows change host behavior across turns or requests
+- [Execution authorization](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/execution_authorization/README.md): protected host actions execute only when authoritative state allows them
+- [Gateway middleware](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/gateway_middleware/README.md): the host allows, blocks, or routes requests before downstream work runs
+- [Prompt construction](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/prompt_construction/README.md): the host builds different request or prompt payloads from authoritative state
+- [Retrieval filtering](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/retrieval_filtering/README.md): the host changes which documents are eligible or relevant before returning results
+- [Schema selection](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/schema_selection/README.md): the host picks different workflow or response schemas from authoritative state
+- [Tool gating](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/tool_gating/README.md): the host changes which tools are visible or executable at runtime
 
 ## Reference integrations
 
@@ -57,8 +57,8 @@ behavior on a specific host or framework surface.
 Start with the generic example first, then use the Python reference
 integrations to inspect a runtime-specific path:
 
-- [python/reference_integrations/litellm_proxy/README.md](reference_integrations/litellm_proxy/README.md)
-- [python/reference_integrations/openwebui_pipe/README.md](reference_integrations/openwebui_pipe/README.md)
+- [LiteLLM Proxy reference integration](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/reference_integrations/litellm_proxy/README.md)
+- [Open WebUI pipe reference integration](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/reference_integrations/openwebui_pipe/README.md)
 
 ## Run an example
 
