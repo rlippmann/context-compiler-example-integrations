@@ -14,21 +14,21 @@ Each example demonstrates a single enforcement point where premise and policy in
 
 ## Generic examples
 
-- [Checkpoint continuation](examples/checkpoint_continuation/README.md): persisted confirmation and resume flows change host behavior across turns or requests
-- [Execution authorization](examples/execution_authorization/README.md): protected host actions execute only when authoritative state allows them
-- [Gateway middleware](examples/gateway_middleware/README.md): the host allows, blocks, or routes requests before downstream work runs
-- [Prompt construction](examples/prompt_construction/README.md): the host builds different request or prompt payloads from authoritative state
-- [Retrieval filtering](examples/retrieval_filtering/README.md): the host changes which documents are eligible or relevant before returning results
-- [Schema selection](examples/schema_selection/README.md): the host picks different workflow or response schemas from authoritative state
-- [Tool gating](examples/tool_gating/README.md): the host changes which tools are visible or executable at runtime
+- [Checkpoint continuation](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/checkpoint_continuation/README.md): persisted confirmation and resume flows change host behavior across turns or requests
+- [Execution authorization](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/execution_authorization/README.md): protected host actions execute only when authoritative state allows them
+- [Gateway middleware](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/gateway_middleware/README.md): the host allows, blocks, or routes requests before downstream work runs
+- [Prompt construction](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/prompt_construction/README.md): the host builds different request or prompt payloads from authoritative state
+- [Retrieval filtering](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/retrieval_filtering/README.md): the host changes which documents are eligible or relevant before returning results
+- [Schema selection](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/schema_selection/README.md): the host picks different workflow or response schemas from authoritative state
+- [Tool gating](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/examples/tool_gating/README.md): the host changes which tools are visible or executable at runtime
 
 ## Starter apps
 
 Starter apps are available when a small runnable host makes the enforcement
 point easier to see:
 
-- [starter_apps/node](starter_apps/node/README.md) - execution authorization starter variants for a small Node HTTP server
-- [starter_apps/nextjs](starter_apps/nextjs/README.md) - request construction and context assembly starter variants for a minimal Next.js App Router app
+- [Node starter apps](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/starter_apps/node/README.md) - execution authorization starter variants for a small Node HTTP server
+- [Next.js starter apps](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/typescript/starter_apps/nextjs/README.md) - request construction and context assembly starter variants for a minimal Next.js App Router app
 
 Open a starter app when you want a minimal host runtime around the enforcement
 point instead of a generic example alone.
