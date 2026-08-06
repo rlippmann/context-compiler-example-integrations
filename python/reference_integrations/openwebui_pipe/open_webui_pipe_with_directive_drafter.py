@@ -23,7 +23,7 @@ import re
 from collections.abc import AsyncIterator
 from importlib.resources import as_file, files
 from importlib.resources.abc import Traversable
-from typing import Any, Literal, cast
+from typing import Any, Literal, TypedDict, cast
 
 from fastapi import Request  # type: ignore[import-not-found]
 from open_webui.models.users import Users  # type: ignore[import-not-found]
@@ -47,21 +47,13 @@ except ModuleNotFoundError:
 
 
 from context_compiler import (
-    DECISION_CLARIFY,
-    DECISION_PASSTHROUGH,
+    DecisionKind,
     DECISION_UPDATE,
     POLICY_PROHIBIT,
     POLICY_USE,
-    State,
     create_engine,
-    get_clarify_prompt,
-    get_decision_state,
-    get_policy_items,
-    get_premise_value,
-    is_clarify,
-    is_passthrough,
     is_update,
-    state_diff,
+    PolicyValue,
 )
 from context_compiler.engine import Engine
 from context_compiler_directive_drafter import (
@@ -75,12 +67,12 @@ logger = logging.getLogger(__name__)
 
 _CC_MARKER = "[[cc_state]]"
 _ENGINES_BY_CHAT_KEY: dict[str, Engine] = {}
-# Example-only in-memory checkpoint store.
-# This keeps continuation state only for the current process lifetime.
-# Real deployments should persist checkpoints externally (DB/Redis/etc.),
-# or restart continuity for pending flows will be lost.
-_CHECKPOINTS_BY_CHAT_KEY: dict[str, str] = {}
 _PROMPTS_DIR = files("context_compiler_directive_drafter").joinpath("prompts")
+
+
+class _EngineSnapshot(TypedDict):
+    premise: str | None
+    policies: dict[str, PolicyValue]
 
 
 def _is_directive_shaped_input(message: str) -> bool:
@@ -131,22 +123,26 @@ def _extract_latest_user_text(messages: list[dict[str, Any]]) -> str | None:
     return None
 
 
-def _has_pending_clarification(engine: Engine) -> bool:
-    return engine.has_pending_clarification()
+def _snapshot_engine_state(engine: Engine) -> _EngineSnapshot:
+    return {"premise": engine.premise, "policies": dict(engine.policies)}
 
 
-def _render_compiler_state_block(state: State) -> str:
+def _render_compiler_state_block(state: _EngineSnapshot) -> str:
     lines: list[str] = [_CC_MARKER]
 
-    premise = get_premise_value(state)
+    premise = state["premise"]
     if premise is not None:
         lines.append(f"Premise: {premise}")
 
-    use_items = sorted(get_policy_items(state, POLICY_USE))
+    use_items = sorted(
+        key for key, value in state["policies"].items() if value == POLICY_USE
+    )
     if use_items:
         lines.append("Use: " + ", ".join(use_items))
 
-    prohibit_items = sorted(get_policy_items(state, POLICY_PROHIBIT))
+    prohibit_items = sorted(
+        key for key, value in state["policies"].items() if value == POLICY_PROHIBIT
+    )
     if prohibit_items:
         lines.append("Prohibit: " + ", ".join(prohibit_items))
 
@@ -154,22 +150,20 @@ def _render_compiler_state_block(state: State) -> str:
 
 
 def _render_show_state_summary(engine: Engine) -> str:
-    premise = get_premise_value(engine.state)
-    use_items = sorted(get_policy_items(engine.state, POLICY_USE))
-    prohibit_items = sorted(get_policy_items(engine.state, POLICY_PROHIBIT))
-    pending = engine.has_pending_clarification()
+    snapshot = _snapshot_engine_state(engine)
+    premise = snapshot["premise"]
+    use_items = sorted(
+        key for key, value in snapshot["policies"].items() if value == POLICY_USE
+    )
+    prohibit_items = sorted(
+        key for key, value in snapshot["policies"].items() if value == POLICY_PROHIBIT
+    )
 
     use_text = ", ".join(use_items) if use_items else "none"
     prohibit_text = ", ".join(prohibit_items) if prohibit_items else "none"
     premise_text = premise if premise is not None else "none"
-    pending_text = "yes" if pending else "no"
 
-    return (
-        f"Premise: {premise_text}\n"
-        f"Use: {use_text}\n"
-        f"Prohibit: {prohibit_text}\n"
-        f"Pending clarification: {pending_text}"
-    )
+    return f"Premise: {premise_text}\nUse: {use_text}\nProhibit: {prohibit_text}"
 
 
 def _replace_compiler_system_message(
@@ -205,28 +199,40 @@ def _replace_compiler_system_message(
     ]
 
 
-def _normalize_state(value: object) -> State:
-    if isinstance(value, dict):
-        return cast(State, value)
-    return {"premise": None, "policies": {}, "version": 2}
+def _normalize_state(value: object) -> _EngineSnapshot:
+    if not isinstance(value, dict):
+        return {"premise": None, "policies": {}}
+    premise = value.get("premise")
+    raw_policies = value.get("policies")
+    policies = raw_policies if isinstance(raw_policies, dict) else {}
+    normalized_policies = {
+        key: value
+        for key, value in policies.items()
+        if isinstance(key, str) and isinstance(value, str)
+    }
+    return {
+        "premise": premise if isinstance(premise, str) else None,
+        "policies": cast(dict[str, PolicyValue], normalized_policies),
+    }
 
 
-def _has_non_empty_authoritative_state(state: State) -> bool:
-    if get_premise_value(state) is not None:
+def _has_non_empty_authoritative_state(state: _EngineSnapshot) -> bool:
+    if state["premise"] is not None:
         return True
-    return bool(
-        get_policy_items(state, POLICY_USE) or get_policy_items(state, POLICY_PROHIBIT)
-    )
+    return bool(state["policies"])
 
 
 def _render_state_summary_line(state: object) -> str:
-    if not isinstance(state, dict):
-        return "unavailable"
-    typed_state = cast(State, state)
-
-    premise = get_premise_value(typed_state)
-    use_items = sorted(get_policy_items(typed_state, POLICY_USE))
-    prohibit_items = sorted(get_policy_items(typed_state, POLICY_PROHIBIT))
+    typed_state = _normalize_state(state)
+    premise = typed_state["premise"]
+    use_items = sorted(
+        key for key, value in typed_state["policies"].items() if value == POLICY_USE
+    )
+    prohibit_items = sorted(
+        key
+        for key, value in typed_state["policies"].items()
+        if value == POLICY_PROHIBIT
+    )
     return (
         f"premise={premise if premise is not None else '(none)'}; "
         f"use={', '.join(use_items) if use_items else '(none)'}; "
@@ -243,15 +249,11 @@ def _build_compact_trace_text(
     state_injected: str,
 ) -> str:
     kind = decision.get("kind", "unknown") if isinstance(decision, dict) else "unknown"
-    changed = "unknown"
-    if isinstance(state_before, dict) and isinstance(state_after, dict):
-        changed = (
-            "yes"
-            if state_diff(cast(State, state_before), cast(State, state_after))[
-                "changed"
-            ]
-            else "no"
-        )
+    changed = (
+        "yes"
+        if _normalize_state(state_before) != _normalize_state(state_after)
+        else "no"
+    )
     return "\n".join(
         [
             "Context Compiler trace",
@@ -289,7 +291,7 @@ def _strip_trace_blocks_from_messages(
 def _build_forward_messages(
     raw_messages: object,
     *,
-    state: State | None = None,
+    state: _EngineSnapshot | None = None,
 ) -> list[dict[str, Any]]:
     """Build forwarded messages with trace stripping and optional state injection."""
     messages = (
@@ -691,7 +693,7 @@ class Pipe:
     async def _llm_fallback_preprocess(
         self,
         message: str,
-        state: State,
+        state: _EngineSnapshot,
         *,
         request: Request,
         user_payload: dict[str, Any],
@@ -738,7 +740,7 @@ class Pipe:
     async def _preprocess_user_input(
         self,
         message: str,
-        state: State,
+        state: _EngineSnapshot,
         *,
         request: Request,
         user_payload: dict[str, Any],
@@ -782,7 +784,7 @@ class Pipe:
         request: Request,
         *,
         base_model_id: str | None,
-        state: State | None = None,
+        state: _EngineSnapshot | None = None,
     ) -> Any:
         if base_model_id is None:
             if self._allow_missing_base_model_for_debug():
@@ -817,7 +819,7 @@ class Pipe:
         body: dict[str, Any],
         user_payload: dict[str, Any],
         request: Request,
-        state: State,
+        state: _EngineSnapshot,
         *,
         base_model_id: str | None,
     ) -> Any:
@@ -919,29 +921,25 @@ class Pipe:
         engine = _ENGINES_BY_CHAT_KEY.get(chat_key)
         if engine is None:
             engine = create_engine()
-            checkpoint = _CHECKPOINTS_BY_CHAT_KEY.get(chat_key)
-            if checkpoint is not None:
-                engine.import_checkpoint_json(checkpoint)
             _ENGINES_BY_CHAT_KEY[chat_key] = engine
 
         if latest_user_text.strip().lower() == "show state":
             return _render_show_state_summary(engine)
 
-        state_before = engine.state
+        state_before = _snapshot_engine_state(engine)
 
         preprocessd: str | None = None
         preprocess_error: str | None = None
-        if not _has_pending_clarification(engine):
-            preprocessd, preprocess_error = await self._preprocess_user_input(
-                latest_user_text,
-                engine.state,
-                request=__request__,
-                user_payload=__user__,
-                prompt_profile=self.valves.PREPROCESSOR_PROMPT_PROFILE,
-                model_id=effective_preprocessor_model,
-            )
-            if preprocess_error is not None:
-                return preprocess_error
+        preprocessd, preprocess_error = await self._preprocess_user_input(
+            latest_user_text,
+            _snapshot_engine_state(engine),
+            request=__request__,
+            user_payload=__user__,
+            prompt_profile=self.valves.PREPROCESSOR_PROMPT_PROFILE,
+            model_id=effective_preprocessor_model,
+        )
+        if preprocess_error is not None:
+            return preprocess_error
 
         logger.debug("preprocessor: preprocessd=%r", preprocessd)
         # Preserve core behavior: if preprocess yields no directive, use raw user
@@ -950,22 +948,19 @@ class Pipe:
 
         logger.debug("preprocessor: engine_input=%r", compile_input)
         decision = engine.step(compile_input)
-        if is_clarify(decision):
-            kind = DECISION_CLARIFY
+        if decision["kind"] == DecisionKind.ERROR:
+            kind = DecisionKind.ERROR.value
         elif is_update(decision):
             kind = DECISION_UPDATE
         else:
-            kind = DECISION_PASSTHROUGH
+            kind = DecisionKind.NO_DIRECTIVE.value
         logger.debug("preprocessor: decision=%s", kind)
         near_miss_prompt = _near_miss_directive_clarify(latest_user_text)
-        state_after = get_decision_state(decision)
-        if state_after is None:
-            state_after = engine.state
+        state_after = _snapshot_engine_state(engine)
 
-        if is_clarify(decision):
-            _CHECKPOINTS_BY_CHAT_KEY[chat_key] = engine.export_checkpoint_json()
+        if decision["kind"] == DecisionKind.ERROR:
             return self._with_trace(
-                near_miss_prompt or get_clarify_prompt(decision) or "",
+                near_miss_prompt or decision["message"] or "",
                 original_input=latest_user_text,
                 compiler_input=compile_input,
                 decision=decision,
@@ -974,18 +969,24 @@ class Pipe:
                 preprocessor_output=preprocessd,
                 llm_called=False,
             )
-        if near_miss_prompt is not None and is_passthrough(decision):
+        if (
+            near_miss_prompt is not None
+            and decision["kind"] == DecisionKind.NO_DIRECTIVE
+        ):
             return self._with_trace(
                 near_miss_prompt,
                 original_input=latest_user_text,
                 compiler_input=compile_input,
-                decision={"kind": DECISION_CLARIFY, "prompt_to_user": near_miss_prompt},
+                decision={
+                    "kind": DecisionKind.ERROR.value,
+                    "message": near_miss_prompt,
+                },
                 state_before=state_before,
                 state_after=state_after,
                 preprocessor_output=preprocessd,
                 llm_called=False,
             )
-        if is_passthrough(decision):
+        if decision["kind"] == DecisionKind.NO_DIRECTIVE:
             compiled_state = _normalize_state(state_after)
             state_injected = (
                 "yes" if _has_non_empty_authoritative_state(compiled_state) else "no"
@@ -1009,7 +1010,6 @@ class Pipe:
                 state_injected=state_injected,
             )
         if is_update(decision):
-            _CHECKPOINTS_BY_CHAT_KEY[chat_key] = engine.export_checkpoint_json()
             return self._with_trace(
                 _summarize_update_from_input(compile_input),
                 original_input=latest_user_text,
