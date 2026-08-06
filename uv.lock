@@ -658,11 +658,11 @@ wheels = [
 
 [[package]]
 name = "context-compiler"
-version = "0.8.3"
+version = "0.9.0.dev5"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cd/4c/595c0b96844579f169c8024312122b7998776331f48ae04787d8be339487/context_compiler-0.8.3.tar.gz", hash = "sha256:684f9b617c24833cb281c8a5b3458a45112a236e84da9659b889aa98a061187d", size = 51254, upload-time = "2026-07-11T06:28:31.404Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/f5/e314fa1cd22babdb70b14403c4f93d750784c28aab64dc5770a7b3e00113/context_compiler-0.9.0.dev5.tar.gz", hash = "sha256:7af06ece386477d45aa343eb79b8ca57687b868d22767e48ab83d2631b1ce054", size = 52229, upload-time = "2026-08-06T05:46:51.961Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ea/16/1878057b23913bb2d397fe40e3cc834abc539b2aeac9e79914aca28c3c9b/context_compiler-0.8.3-py3-none-any.whl", hash = "sha256:bbe43870f628b4f8ef172ac58bcf347591491fa50a1a9cf8f50f06f734b506c1", size = 23514, upload-time = "2026-07-11T06:28:30.032Z" },
+    { url = "https://files.pythonhosted.org/packages/88/a6/b580881b3f68998de759154f4ac8ca5de0c24850a4a56501465a8026ec09/context_compiler-0.9.0.dev5-py3-none-any.whl", hash = "sha256:e2d1598365b559868a3f103c3080a643de7eda99df199b709309f76b242a54b4", size = 23971, upload-time = "2026-08-06T05:46:50.497Z" },
 ]
 
 [[package]]
@@ -726,7 +726,7 @@ proxy-runtime = [
 requires-dist = [
     { name = "chromadb", marker = "extra == 'all'" },
     { name = "chromadb", marker = "extra == 'retrieval'" },
-    { name = "context-compiler", specifier = ">=0.8.3" },
+    { name = "context-compiler", specifier = "==0.9.0.dev5" },
     { name = "context-compiler-directive-drafter", marker = "extra == 'all'", specifier = ">=0.1.2" },
     { name = "context-compiler-directive-drafter", marker = "extra == 'drafter'", specifier = ">=0.1.2" },
     { name = "fastapi", marker = "extra == 'all'" },
