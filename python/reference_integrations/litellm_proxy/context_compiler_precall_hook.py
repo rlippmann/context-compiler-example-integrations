@@ -149,7 +149,7 @@ class ContextCompilerPreCallHook(CustomLogger):
         if latest_user_text is not None:
             decision = engine.step(latest_user_text)
         else:
-            decision = {"kind": DecisionKind.NO_DIRECTIVE.value, "message": None}
+            decision = {"kind": DecisionKind.NO_DIRECTIVE, "message": None}
 
         if session.mode == MODE_PERSISTENT and session.session_key is not None:
             CHECKPOINT_STORE.save(

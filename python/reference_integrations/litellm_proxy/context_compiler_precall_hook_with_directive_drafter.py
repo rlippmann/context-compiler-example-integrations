@@ -279,7 +279,7 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
         if engine_input is not None:
             decision = engine.step(engine_input)
         else:
-            decision = {"kind": DecisionKind.NO_DIRECTIVE.value, "message": None}
+            decision = {"kind": DecisionKind.NO_DIRECTIVE, "message": None}
 
         if session.mode == MODE_PERSISTENT and session.session_key is not None:
             CHECKPOINT_STORE.save(
