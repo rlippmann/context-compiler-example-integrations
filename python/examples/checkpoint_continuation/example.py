@@ -24,7 +24,7 @@ class BookingChangeRuntimeResult(TypedDict):
 
 
 @dataclass
-class CheckpointStore:
+class StateStore:
     """Host-owned persistence for serialized authoritative compiler state."""
 
     saved_state_json: str | None = None
@@ -140,22 +140,22 @@ def run_demo() -> dict[str, BookingChangeRuntimeResult | str]:
         "active_itinerary": "boston_trip",
     }
     first_engine = create_engine()
-    checkpoint_store = CheckpointStore()
+    state_store = StateStore()
 
     persisted_result = persist_itinerary_selection(
         first_engine,
         requested_itinerary="chicago_trip",
     )
-    checkpoint_store.save(persisted_result["persisted_state_json"])
+    state_store.save(persisted_result["persisted_state_json"])
 
-    restored_engine = restore_engine_from_persisted_state(checkpoint_store.load())
+    restored_engine = restore_engine_from_persisted_state(state_store.load())
     restored_host = BookingHost(booking=initial_booking.copy())
     applied_result = apply_restored_itinerary(restored_engine, restored_host)
 
     return {
         "persisted_result": persisted_result,
         "applied_result": applied_result,
-        "saved_state_json": checkpoint_store.load(),
+        "saved_state_json": state_store.load(),
     }
 
 
