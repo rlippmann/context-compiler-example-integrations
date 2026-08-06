@@ -1,20 +1,19 @@
-# Checkpoint continuation with FastAPI
+# State Persistence with FastAPI
 
-A saved checkpoint lets later HTTP requests resume or reject a pending
-itinerary change instead of starting over. This example shows checkpoint
-continuation across stateless HTTP request boundaries.
+Saved authoritative compiler state lets later HTTP requests recover the same
+policy decisions instead of starting over. This example shows state
+persistence across stateless HTTP request boundaries.
 
-## Enforcement point
+## Enforcement Point
 
-Checkpoint continuation
+Authoritative state persistence
 
 ## Domain
 
 The domain is a small travel-booking change flow.
 
-The first request initiates a change from `boston_trip` to `chicago_trip`.
-
-That change requires confirmation before the host applies it.
+The first request selects `chicago_trip` in compiler state. A later request
+restores that saved state and lets the host apply the booking change.
 
 ## Runtime
 
@@ -22,56 +21,37 @@ This is a small FastAPI example.
 
 FastAPI is secondary to the enforcement point.
 
-It exists to show that the host can persist a checkpoint between separate HTTP
-requests and restore it later into a fresh engine.
+It exists to show that the host can persist authoritative state between
+separate HTTP requests and restore it later into a fresh engine.
 
-## Ownership boundary
+## Ownership Boundary
 
 Context Compiler owns:
 
 - authoritative policy state
-- pending continuation state
-- checkpoint export and import
+- state export through `export_json()`
+- state restore through `import_json()`
 
 The host owns:
 
-- checkpoint storage
+- persisted state storage
 - request routing
 - booking mutation
 
 In this example, the host creates a fresh engine per request.
 
-The second request resumes the flow only because the host restores the saved
-checkpoint, not because the process remembered a conversation.
-
-## Why checkpoint continuation differs from state restore
-
-Checkpoint continuation includes pending confirmation state.
-
-Authoritative-state-only restore does not.
-
-That difference matters here:
-
-- restoring the full checkpoint lets a later `yes` resume the pending trip
-  change
-- restoring authoritative state alone does not resume that pending confirmation
-
-## Why this is not prompt reinjection
-
-This example does not re-send hidden instructions to a model.
-
-The observable behavior change is host-side: the booking only changes after a
-later request restores the checkpoint and confirmation succeeds.
+The second request applies the saved itinerary only because the host restores
+the persisted authoritative state, not because the process remembered a
+conversation.
 
 ## Endpoints
 
 - `POST /change-trip`
-  - creates a pending confirmation
-  - persists a checkpoint in the host store
-- `POST /confirm`
-  - restores the saved checkpoint into a fresh engine
-  - accepts `yes`, `no`, or unrelated text
-  - applies the booking change only after successful confirmation
+  - updates authoritative state with `use chicago_trip`
+  - persists the resulting state JSON in the host store
+- `POST /apply-trip`
+  - restores the saved state JSON into a fresh engine
+  - applies the booking change from restored policy state
 - `GET /booking`
   - returns the host-owned booking state
 

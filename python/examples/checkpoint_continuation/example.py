@@ -1,11 +1,11 @@
-"""Minimal checkpoint-continuation example for a travel booking change."""
+"""Minimal persistence example for a travel booking change."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Literal, TypedDict, cast
+from typing import Literal, TypedDict
 
-from context_compiler import DecisionKind, POLICY_USE, PolicyValue, create_engine
-from context_compiler.engine import Checkpoint, Engine, State as EngineState
+from context_compiler import POLICY_USE, DecisionKind, PolicyValue, create_engine
+from context_compiler.engine import Engine
 
 
 class BookingRecord(TypedDict):
@@ -16,25 +16,26 @@ class BookingRecord(TypedDict):
 class BookingChangeRuntimeResult(TypedDict):
     compiler_input: str
     decision_kind: Literal["clarify", "update", "passthrough"]
-    prompt_to_user: str | None
-    checkpoint_pending: bool
-    active_itinerary: str
+    message_to_user: str | None
+    persisted_state_json: str
+    selected_itinerary: str | None
     host_applied_change: bool
+    active_itinerary: str
 
 
 @dataclass
 class CheckpointStore:
-    """Host-owned persistence for serialized engine checkpoints."""
+    """Host-owned persistence for serialized authoritative compiler state."""
 
-    saved_checkpoint: Checkpoint | None = None
+    saved_state_json: str | None = None
 
-    def save(self, checkpoint: Checkpoint) -> None:
-        self.saved_checkpoint = checkpoint
+    def save(self, state_json: str) -> None:
+        self.saved_state_json = state_json
 
-    def load(self) -> Checkpoint:
-        if self.saved_checkpoint is None:
-            raise ValueError("no checkpoint saved")
-        return self.saved_checkpoint
+    def load(self) -> str:
+        if self.saved_state_json is None:
+            raise ValueError("no saved state")
+        return self.saved_state_json
 
 
 @dataclass
@@ -79,93 +80,82 @@ def _decision_kind_name(
     raise ValueError(f"unexpected decision kind: {kind}")
 
 
-def initiate_itinerary_change(
+def persist_itinerary_selection(
     engine: Engine,
     *,
-    current_itinerary: str,
     requested_itinerary: str,
 ) -> BookingChangeRuntimeResult:
-    """Ask Context Compiler to hold a travel change behind confirmation."""
+    """Persist authoritative state after selecting an itinerary."""
 
-    compiler_input = f"use {requested_itinerary} instead of {current_itinerary}"
+    compiler_input = f"use {requested_itinerary}"
     decision = engine.step(compiler_input)
+    persisted_state_json = engine.export_json()
+    selected_itinerary = select_itinerary_from_policies(engine.policies)
 
     return {
         "compiler_input": compiler_input,
         "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision["message"],
-        "checkpoint_pending": engine.has_pending_clarification(),
-        "active_itinerary": select_itinerary_from_policies(engine.policies)
-        or current_itinerary,
+        "message_to_user": decision["message"],
+        "persisted_state_json": persisted_state_json,
+        "selected_itinerary": selected_itinerary,
         "host_applied_change": False,
+        "active_itinerary": requested_itinerary
+        if selected_itinerary is not None
+        else "boston_trip",
     }
 
 
-def restore_engine_from_checkpoint(checkpoint: Checkpoint) -> Engine:
-    """Restore both authoritative state and pending continuation state."""
+def restore_engine_from_persisted_state(state_json: str) -> Engine:
+    """Restore authoritative compiler state into a fresh engine."""
 
     engine = create_engine()
-    engine.import_checkpoint(checkpoint)
+    engine.import_json(state_json)
     return engine
 
 
-def restore_engine_from_authoritative_state_only(
-    checkpoint: Checkpoint,
-) -> Engine:
-    """Restore only authoritative state, without pending continuation state."""
-
-    authoritative_state = cast(EngineState, checkpoint["authoritative_state"])
-    return create_engine(state=authoritative_state)
-
-
-def continue_itinerary_change(
-    engine: Engine,
-    host: BookingHost,
-    user_input: str,
+def apply_restored_itinerary(
+    engine: Engine, host: BookingHost
 ) -> BookingChangeRuntimeResult:
-    """Resume a pending change and apply host behavior only after confirmation."""
+    """Apply host behavior from restored authoritative compiler state."""
 
-    decision = engine.step(user_input)
-    host_applied_change = False
-    if _decision_kind_name(decision) == "update":
-        host_applied_change = host.apply_selected_itinerary(engine.policies)
+    host_applied_change = host.apply_selected_itinerary(engine.policies)
+    selected_itinerary = select_itinerary_from_policies(engine.policies)
 
     return {
-        "compiler_input": user_input,
-        "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision["message"],
-        "checkpoint_pending": engine.has_pending_clarification(),
-        "active_itinerary": host.booking["active_itinerary"],
+        "compiler_input": "",
+        "decision_kind": "update" if host_applied_change else "passthrough",
+        "message_to_user": None,
+        "persisted_state_json": engine.export_json(),
+        "selected_itinerary": selected_itinerary,
         "host_applied_change": host_applied_change,
+        "active_itinerary": host.booking["active_itinerary"],
     }
 
 
-def run_demo() -> dict[str, BookingChangeRuntimeResult | Checkpoint]:
-    """Run a deterministic checkpoint-continuation demonstration."""
+def run_demo() -> dict[str, BookingChangeRuntimeResult | str]:
+    """Run a deterministic persistence demonstration."""
 
     initial_booking: BookingRecord = {
         "booking_id": "booking-100",
         "active_itinerary": "boston_trip",
     }
-    first_host = BookingHost(booking=initial_booking.copy())
     first_engine = create_engine()
     checkpoint_store = CheckpointStore()
 
-    pending_result = initiate_itinerary_change(
+    persisted_result = persist_itinerary_selection(
         first_engine,
-        current_itinerary=first_host.booking["active_itinerary"],
         requested_itinerary="chicago_trip",
     )
-    checkpoint_store.save(first_engine.export_checkpoint())
+    checkpoint_store.save(persisted_result["persisted_state_json"])
 
-    resumed_engine = restore_engine_from_checkpoint(checkpoint_store.load())
-    resumed_host = BookingHost(booking=first_host.booking.copy())
-    confirmed_result = continue_itinerary_change(resumed_engine, resumed_host, "yes")
+    restored_engine = restore_engine_from_persisted_state(checkpoint_store.load())
+    restored_host = BookingHost(booking=initial_booking.copy())
+    applied_result = apply_restored_itinerary(restored_engine, restored_host)
 
     return {
-        "pending_result": pending_result,
-        "confirmed_result": confirmed_result,
-        "saved_checkpoint": checkpoint_store.load(),
+        "persisted_result": persisted_result,
+        "applied_result": applied_result,
+        "saved_state_json": checkpoint_store.load(),
     }
 
 
