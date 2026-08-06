@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
-from context_compiler import State, create_engine, get_decision_state, is_clarify
+from context_compiler import DecisionKind, State, create_engine
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing_extensions import TypedDict
@@ -62,11 +62,13 @@ def _decision_kind_name(
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
-    kind_name = getattr(kind, "value", None)
-    if kind_name not in {"clarify", "update", "passthrough"}:
-        raise ValueError(f"unexpected decision kind: {kind_name}")
-
-    return kind_name
+    if kind == DecisionKind.ERROR:
+        return "clarify"
+    if kind == DecisionKind.UPDATE:
+        return "update"
+    if kind == DecisionKind.NO_DIRECTIVE:
+        return "passthrough"
+    raise ValueError(f"unexpected decision kind: {kind}")
 
 
 def _state_for_request(authoritative_state: dict[str, object] | None) -> State | None:
@@ -248,8 +250,8 @@ def create_app(
         if request.compiler_input:
             decision = engine.step(request.compiler_input)
             decision_kind = _decision_kind_name(decision)
-            prompt_to_user = decision.get("prompt_to_user")
-            if is_clarify(decision):
+            prompt_to_user = decision["message"]
+            if decision["kind"] == DecisionKind.ERROR:
                 raise HTTPException(
                     status_code=409,
                     detail=_blocked_response(
@@ -265,10 +267,10 @@ def create_app(
                     ),
                 )
 
-            decision_state = get_decision_state(decision)
-            authoritative_state = (
-                decision_state if decision_state is not None else engine.state
-            )
+            authoritative_state = {
+                "premise": engine.premise,
+                "policies": dict(engine.policies),
+            }
 
         if not expense_execution_is_authorized(authoritative_state):
             raise HTTPException(

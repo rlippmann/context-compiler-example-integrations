@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Literal, TypedDict, cast
 
-from context_compiler import POLICY_USE, PolicyValue, create_engine
+from context_compiler import DecisionKind, POLICY_USE, PolicyValue, create_engine
 from context_compiler.engine import Checkpoint, Engine, State as EngineState
 
 
@@ -70,10 +70,13 @@ def _decision_kind_name(
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
-    kind_name = getattr(kind, "value", None)
-    if kind_name not in {"clarify", "update", "passthrough"}:
-        raise ValueError(f"unexpected decision kind: {kind_name}")
-    return cast(Literal["clarify", "update", "passthrough"], kind_name)
+    if kind == DecisionKind.ERROR:
+        return "clarify"
+    if kind == DecisionKind.UPDATE:
+        return "update"
+    if kind == DecisionKind.NO_DIRECTIVE:
+        return "passthrough"
+    raise ValueError(f"unexpected decision kind: {kind}")
 
 
 def initiate_itinerary_change(
@@ -90,7 +93,7 @@ def initiate_itinerary_change(
     return {
         "compiler_input": compiler_input,
         "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision.get("prompt_to_user"),
+        "prompt_to_user": decision["message"],
         "checkpoint_pending": engine.has_pending_clarification(),
         "active_itinerary": select_itinerary_from_policies(engine.policies)
         or current_itinerary,
@@ -130,7 +133,7 @@ def continue_itinerary_change(
     return {
         "compiler_input": user_input,
         "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision.get("prompt_to_user"),
+        "prompt_to_user": decision["message"],
         "checkpoint_pending": engine.has_pending_clarification(),
         "active_itinerary": host.booking["active_itinerary"],
         "host_applied_change": host_applied_change,

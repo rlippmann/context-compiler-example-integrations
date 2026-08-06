@@ -9,7 +9,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Literal, TypedDict, cast
 
-from context_compiler import State, create_engine, get_decision_state, is_clarify
+from context_compiler import DecisionKind, State, create_engine
 
 from context_compiler_example_integrations.examples._shared.litellm_request import (
     build_litellm_provider_kwargs,
@@ -103,11 +103,13 @@ def _decision_kind_name(
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
-    kind_name = getattr(kind, "value", None)
-    if kind_name not in {"clarify", "update", "passthrough"}:
-        raise ValueError(f"unexpected decision kind: {kind_name}")
-
-    return kind_name
+    if kind == DecisionKind.ERROR:
+        return "clarify"
+    if kind == DecisionKind.UPDATE:
+        return "update"
+    if kind == DecisionKind.NO_DIRECTIVE:
+        return "passthrough"
+    raise ValueError(f"unexpected decision kind: {kind}")
 
 
 def _exposed_tool_names(
@@ -279,8 +281,8 @@ def run_live_model_turn(
     if compiler_input:
         decision = engine.step(compiler_input)
         decision_kind = _decision_kind_name(decision)
-        prompt_to_user = decision.get("prompt_to_user")
-        if is_clarify(decision):
+        prompt_to_user = decision["message"]
+        if decision["kind"] == DecisionKind.ERROR:
             exposed_tool_names, hidden_tool_names = _exposed_tool_names(
                 host, engine.state
             )
@@ -302,8 +304,7 @@ def run_live_model_turn(
                 "side_effect_count": side_effect_store.count(),
             }
 
-        decision_state = get_decision_state(decision)
-        effective_state = decision_state if decision_state is not None else engine.state
+        effective_state = engine.state
 
     exposed_tool_names, hidden_tool_names = _exposed_tool_names(host, effective_state)
     protected_tool_exposed = "calendar_admin_create_event" in exposed_tool_names

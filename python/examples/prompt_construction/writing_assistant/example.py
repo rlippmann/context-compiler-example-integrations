@@ -5,14 +5,13 @@ before any model call would occur. No LLM call happens in this example.
 """
 
 from collections.abc import Mapping
-from typing import Literal, TypedDict, cast
+from typing import Literal, TypedDict
 
 from context_compiler import (
+    DecisionKind,
     POLICY_USE,
     PolicyValue,
     create_engine,
-    get_decision_state,
-    is_clarify,
 )
 from context_compiler.engine import Engine
 
@@ -63,10 +62,13 @@ def _decision_kind_name(
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
-    kind_name = getattr(kind, "value", None)
-    if kind_name not in {"clarify", "update", "passthrough"}:
-        raise ValueError(f"unexpected decision kind: {kind_name}")
-    return cast(Literal["clarify", "update", "passthrough"], kind_name)
+    if kind == DecisionKind.ERROR:
+        return "clarify"
+    if kind == DecisionKind.UPDATE:
+        return "update"
+    if kind == DecisionKind.NO_DIRECTIVE:
+        return "passthrough"
+    raise ValueError(f"unexpected decision kind: {kind}")
 
 
 def style_labels_from_policies(policies: Mapping[str, PolicyValue]) -> list[str]:
@@ -127,10 +129,10 @@ def prepare_prompt_turn(
 
     decision = engine.step(compiler_input)
 
-    if is_clarify(decision):
+    if decision["kind"] == DecisionKind.ERROR:
         return {
             "decision_kind": "clarify",
-            "prompt_to_user": decision.get("prompt_to_user"),
+            "prompt_to_user": decision["message"],
             "model_call_ready": False,
             "llm_call_performed": False,
             "messages": [],
@@ -139,21 +141,14 @@ def prepare_prompt_turn(
             "blocked_reason": "clarification required before prompt construction",
         }
 
-    authoritative_state = get_decision_state(decision)
-    if authoritative_state is None:
-        authoritative_state = {
-            "premise": engine.premise,
-            "policies": dict(engine.policies),
-        }
-
     messages, premise, style_labels = build_prompt_messages(
-        premise=authoritative_state["premise"],
-        policies=authoritative_state["policies"],
+        premise=engine.premise,
+        policies=engine.policies,
         user_text=user_text,
     )
     return {
         "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision.get("prompt_to_user"),
+        "prompt_to_user": decision["message"],
         "model_call_ready": True,
         "llm_call_performed": False,
         "messages": messages,
