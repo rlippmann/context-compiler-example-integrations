@@ -1,10 +1,10 @@
 """Small FastAPI checkpoint-continuation example for travel booking."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Literal
 
-from context_compiler import POLICY_USE, State, create_engine, get_policy_items
+from context_compiler import POLICY_USE, PolicyValue, create_engine
 from context_compiler.engine import Checkpoint, Engine
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -85,8 +85,10 @@ class BookingHost:
     booking_store: BookingStore
     applied_changes: list[str] = field(default_factory=list)
 
-    def apply_selected_itinerary(self, booking_id: str, state: State) -> bool:
-        selected_itinerary = select_itinerary_from_state(state)
+    def apply_selected_itinerary(
+        self, booking_id: str, policies: Mapping[str, PolicyValue]
+    ) -> bool:
+        selected_itinerary = select_itinerary_from_policies(policies)
         if selected_itinerary is None:
             return False
 
@@ -96,11 +98,11 @@ class BookingHost:
         return True
 
 
-def select_itinerary_from_state(state: State) -> str | None:
-    use_items = list(get_policy_items(state, POLICY_USE))
-    if not use_items:
-        return None
-    return use_items[0]
+def select_itinerary_from_policies(policies: Mapping[str, PolicyValue]) -> str | None:
+    for item, kind in policies.items():
+        if kind == POLICY_USE:
+            return item
+    return None
 
 
 def restore_engine_from_checkpoint(checkpoint: Checkpoint) -> Engine:
@@ -170,7 +172,7 @@ def create_app(
         host_applied_change = False
         if decision["kind"].value == "update":
             host_applied_change = booking_host.apply_selected_itinerary(
-                request.booking_id, engine.state
+                request.booking_id, engine.policies
             )
 
         return {

@@ -13,13 +13,11 @@ from importlib import import_module
 from typing import Any, TypedDict, cast
 
 from context_compiler import (
-    POLICY_PROHIBIT,
     POLICY_USE,
-    State,
+    PolicyValue,
     create_engine,
     get_clarify_prompt,
     get_decision_state,
-    get_policy_items,
     is_clarify,
 )
 from context_compiler.engine import Engine
@@ -89,15 +87,12 @@ class _LiteLLMCallKwargs(TypedDict, total=False):
 
 
 def select_litellm_response_format(
-    state: State,
+    policies: Mapping[str, PolicyValue],
 ) -> tuple[str | None, dict[str, Any] | None]:
     """Return (policy_item, response_format) or (None, None) when no safe match exists."""
 
-    use_items = set(get_policy_items(state, POLICY_USE))
-    prohibit_items = set(get_policy_items(state, POLICY_PROHIBIT))
-
     for item, response_format in _RESPONSE_FORMAT_BY_ITEM.items():
-        if item in use_items and item not in prohibit_items:
+        if policies.get(item) == POLICY_USE:
             return item, response_format
 
     return None, None
@@ -116,8 +111,10 @@ def plan_turn(user_input: str, engine: Engine) -> TurnPlan:
         }
 
     decision_state = get_decision_state(decision)
-    compiled_state = decision_state if decision_state is not None else engine.state
-    selected_item, response_format = select_litellm_response_format(compiled_state)
+    policies = (
+        decision_state["policies"] if decision_state is not None else engine.policies
+    )
+    selected_item, response_format = select_litellm_response_format(policies)
 
     return {
         "decision_kind": str(decision["kind"]),

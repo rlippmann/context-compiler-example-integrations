@@ -1,15 +1,15 @@
 """MCP-surface tool gating using authoritative Context Compiler state."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Literal, NotRequired, TypedDict, cast
 
 from context_compiler import (
     POLICY_PROHIBIT,
     POLICY_USE,
-    State,
+    PolicyValue,
     create_engine,
     get_decision_state,
-    get_policy_items,
     is_clarify,
 )
 from context_compiler.engine import Engine
@@ -92,11 +92,11 @@ class CalendarAdminMcpHost:
         ]
     )
 
-    def exposed_mcp_tools(self, state: State) -> ExposedMcpTools:
+    def exposed_mcp_tools(self, policies: Mapping[str, PolicyValue]) -> ExposedMcpTools:
         tools = self._always_available_tools.copy()
         hidden_tool_names = [tool["name"] for tool in self._calendar_admin_tools]
 
-        if calendar_admin_mcp_tools_are_allowed(state):
+        if calendar_admin_mcp_tools_are_allowed(policies):
             tools.extend(self._calendar_admin_tools)
             hidden_tool_names = []
 
@@ -114,27 +114,24 @@ class CalendarAdminMcpHost:
         return f"created event '{event_title}' on calendar '{calendar_id}'"
 
 
-def calendar_admin_mcp_tools_are_allowed(state: State) -> bool:
+def calendar_admin_mcp_tools_are_allowed(policies: Mapping[str, PolicyValue]) -> bool:
     """Allow admin MCP tools only from authoritative compiler state."""
 
-    use_items = set(get_policy_items(state, POLICY_USE))
-    prohibit_items = set(get_policy_items(state, POLICY_PROHIBIT))
-
-    if "calendar_admin" in prohibit_items:
+    if policies.get("calendar_admin") == POLICY_PROHIBIT:
         return False
 
-    return "calendar_admin" in use_items
+    return policies.get("calendar_admin") == POLICY_USE
 
 
 def execute_mcp_tool_if_allowed(
     tool_call: McpToolCall,
     *,
-    state: State,
+    policies: Mapping[str, PolicyValue],
     host: CalendarAdminMcpHost,
 ) -> McpToolExecutionResult:
     """Expose and execute MCP tools only when authoritative state allows them."""
 
-    exposed_tools = host.exposed_mcp_tools(state)
+    exposed_tools = host.exposed_mcp_tools(policies)
     visible_tool_names = [tool["name"] for tool in exposed_tools["tools"]]
     tool_visible = tool_call["tool_name"] in visible_tool_names
 
@@ -182,21 +179,24 @@ def handle_mcp_tool_turn(
                 "executed": False,
                 "blocked_reason": "clarification required before exposing calendar admin MCP tools",
                 "tool_result": None,
-                "exposed_tools": host.exposed_mcp_tools(engine.state),
+                "exposed_tools": host.exposed_mcp_tools(engine.policies),
                 "execution_log": host.execution_log.copy(),
             },
         }
 
     authoritative_state = get_decision_state(decision)
     if authoritative_state is None:
-        authoritative_state = engine.state
+        authoritative_state = {
+            "premise": engine.premise,
+            "policies": dict(engine.policies),
+        }
 
     return {
         "decision_kind": _decision_kind_name(decision),
         "prompt_to_user": decision.get("prompt_to_user"),
         "execution_result": execute_mcp_tool_if_allowed(
             tool_call,
-            state=authoritative_state,
+            policies=authoritative_state["policies"],
             host=host,
         ),
     }
@@ -216,17 +216,20 @@ def describe_exposed_mcp_tools(
         return {
             "decision_kind": "clarify",
             "prompt_to_user": decision.get("prompt_to_user"),
-            "exposed_tools": host.exposed_mcp_tools(engine.state),
+            "exposed_tools": host.exposed_mcp_tools(engine.policies),
         }
 
     authoritative_state = get_decision_state(decision)
     if authoritative_state is None:
-        authoritative_state = engine.state
+        authoritative_state = {
+            "premise": engine.premise,
+            "policies": dict(engine.policies),
+        }
 
     return {
         "decision_kind": _decision_kind_name(decision),
         "prompt_to_user": decision.get("prompt_to_user"),
-        "exposed_tools": host.exposed_mcp_tools(authoritative_state),
+        "exposed_tools": host.exposed_mcp_tools(authoritative_state["policies"]),
     }
 
 
@@ -245,6 +248,6 @@ def run_demo() -> McpToolExecutionResult:
                 "event_title": "Quarterly access review",
             },
         },
-        state=engine.state,
+        policies=engine.policies,
         host=host,
     )
