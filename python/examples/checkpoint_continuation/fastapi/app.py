@@ -1,11 +1,11 @@
-"""Small FastAPI checkpoint-continuation example for travel booking."""
+"""Small FastAPI persistence example for travel booking."""
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Literal
 
-from context_compiler import DecisionKind, POLICY_USE, PolicyValue, create_engine
-from context_compiler.engine import Checkpoint, Engine
+from context_compiler import POLICY_USE, DecisionKind, PolicyValue, create_engine
+from context_compiler.engine import Engine
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing_extensions import TypedDict
@@ -22,17 +22,16 @@ class BookingResponse(TypedDict):
 
 
 class ChangeTripResponse(TypedDict):
-    decision_kind: Literal["clarify"]
-    prompt_to_user: str | None
-    checkpoint_pending: bool
+    decision_kind: Literal["clarify", "update", "passthrough"]
+    message_to_user: str | None
+    persisted_state_json: str
+    selected_itinerary: str | None
     booking: BookingResponse
 
 
-class ConfirmResponse(TypedDict):
-    decision_kind: Literal["clarify", "update", "passthrough"]
-    prompt_to_user: str | None
-    checkpoint_pending: bool
+class ApplyTripResponse(TypedDict):
     host_applied_change: bool
+    selected_itinerary: str | None
     booking: BookingResponse
 
 
@@ -40,28 +39,23 @@ class ChangeTripRequest(BaseModel):
     booking_id: str
 
 
-class ConfirmRequest(BaseModel):
-    booking_id: str
-    user_input: str
-
-
 @dataclass
 class CheckpointStore:
-    """Host-owned checkpoint persistence for stateless HTTP requests."""
+    """Host-owned authoritative state persistence for stateless HTTP requests."""
 
-    checkpoints_by_booking_id: dict[str, Checkpoint] = field(default_factory=dict)
+    states_by_booking_id: dict[str, str] = field(default_factory=dict)
 
-    def save(self, booking_id: str, checkpoint: Checkpoint) -> None:
-        self.checkpoints_by_booking_id[booking_id] = checkpoint
+    def save(self, booking_id: str, state_json: str) -> None:
+        self.states_by_booking_id[booking_id] = state_json
 
-    def load(self, booking_id: str) -> Checkpoint:
-        checkpoint = self.checkpoints_by_booking_id.get(booking_id)
-        if checkpoint is None:
+    def load(self, booking_id: str) -> str:
+        state_json = self.states_by_booking_id.get(booking_id)
+        if state_json is None:
             raise KeyError(booking_id)
-        return checkpoint
+        return state_json
 
     def has(self, booking_id: str) -> bool:
-        return booking_id in self.checkpoints_by_booking_id
+        return booking_id in self.states_by_booking_id
 
 
 @dataclass
@@ -105,20 +99,13 @@ def select_itinerary_from_policies(policies: Mapping[str, PolicyValue]) -> str |
     return None
 
 
-def restore_engine_from_checkpoint(checkpoint: Checkpoint) -> Engine:
+def restore_engine_from_persisted_state(state_json: str) -> Engine:
     engine = create_engine()
-    engine.import_checkpoint(checkpoint)
+    engine.import_json(state_json)
     return engine
 
 
-def restore_engine_from_authoritative_state_only(checkpoint: Checkpoint) -> Engine:
-    authoritative_state = checkpoint["authoritative_state"]
-    return create_engine(state=authoritative_state)
-
-
 def _fresh_engine() -> Engine:
-    """Create a fresh engine per request to demonstrate stateless boundaries."""
-
     return create_engine()
 
 
@@ -143,51 +130,49 @@ def create_app(
         booking = booking_store.get_or_create(request.booking_id)
         engine = engine_factory()
 
-        compiler_input = f"use chicago_trip instead of {booking['active_itinerary']}"
+        compiler_input = "use chicago_trip"
         decision = engine.step(compiler_input)
-        checkpoint_store.save(request.booking_id, engine.export_checkpoint())
+        state_json = engine.export_json()
+        checkpoint_store.save(request.booking_id, state_json)
+
+        selected_itinerary = select_itinerary_from_policies(engine.policies)
+        decision_kind: Literal["clarify", "update", "passthrough"]
+        if decision["kind"] == DecisionKind.ERROR:
+            decision_kind = "clarify"
+        elif decision["kind"] == DecisionKind.UPDATE:
+            decision_kind = "update"
+        else:
+            decision_kind = "passthrough"
 
         return {
-            "decision_kind": "clarify"
-            if decision["kind"] == DecisionKind.ERROR
-            else "update",
-            "prompt_to_user": decision["message"],
-            "checkpoint_pending": engine.has_pending_clarification(),
+            "decision_kind": decision_kind,
+            "message_to_user": decision["message"],
+            "persisted_state_json": state_json,
+            "selected_itinerary": selected_itinerary,
             "booking": {
                 "booking_id": booking["booking_id"],
                 "active_itinerary": booking["active_itinerary"],
             },
         }
 
-    @app.post("/confirm")
-    def confirm(request: ConfirmRequest) -> ConfirmResponse:
+    @app.post("/apply-trip")
+    def apply_trip(request: ChangeTripRequest) -> ApplyTripResponse:
         booking = booking_store.get_or_create(request.booking_id)
         try:
-            checkpoint = checkpoint_store.load(request.booking_id)
+            state_json = checkpoint_store.load(request.booking_id)
         except KeyError as exc:
-            raise HTTPException(status_code=404, detail="checkpoint not found") from exc
+            raise HTTPException(
+                status_code=404, detail="saved state not found"
+            ) from exc
 
-        engine = restore_engine_from_checkpoint(checkpoint)
-        decision = engine.step(request.user_input)
-        checkpoint_store.save(request.booking_id, engine.export_checkpoint())
-
-        host_applied_change = False
-        if decision["kind"].value == "update":
-            host_applied_change = booking_host.apply_selected_itinerary(
-                request.booking_id, engine.policies
-            )
+        engine = restore_engine_from_persisted_state(state_json)
+        host_applied_change = booking_host.apply_selected_itinerary(
+            request.booking_id, engine.policies
+        )
 
         return {
-            "decision_kind": (
-                "clarify"
-                if decision["kind"] == DecisionKind.ERROR
-                else "update"
-                if decision["kind"] == DecisionKind.UPDATE
-                else "passthrough"
-            ),
-            "prompt_to_user": decision["message"],
-            "checkpoint_pending": engine.has_pending_clarification(),
             "host_applied_change": host_applied_change,
+            "selected_itinerary": select_itinerary_from_policies(engine.policies),
             "booking": {
                 "booking_id": booking["booking_id"],
                 "active_itinerary": booking["active_itinerary"],

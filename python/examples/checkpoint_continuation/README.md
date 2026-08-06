@@ -1,15 +1,17 @@
-# Checkpoint continuation
+# State Persistence
 
-Restoring a saved checkpoint changes whether a fresh host process can resume
-and apply a pending itinerary change. This example shows checkpoint
-continuation in a generic Python travel-booking flow.
+Persisting authoritative compiler state lets a fresh host process recover the
+same premise and policy decisions without recreating them from model output or
+conversation history. This example shows state persistence in a generic Python
+travel-booking flow.
 
 ## Domain
 
 The domain is a small travel-booking change flow.
 
-The user requests a change from the current itinerary to a new itinerary.
-That change requires confirmation before the host applies it.
+The user selects a new itinerary, the compiler records that selection in
+authoritative state, and the host later applies the booking change from a
+restored engine.
 
 ## Runtime
 
@@ -24,43 +26,29 @@ It does not use directive drafter.
 Context Compiler owns:
 
 - authoritative policy state
-- the pending confirmation continuation state
-- the checkpoint that captures both
-
-In this example, the pending checkpoint state is what makes the resumed
-confirmation meaningful.
-
-Restoring authoritative state alone is not enough to resume the pending change.
+- serialization of that state through `export_json()`
+- restoration of that state through `import_json()`
 
 ## What the host owns
 
 The host owns:
 
 - the booking record
-- checkpoint persistence
-- request/process boundaries
+- persisted state storage
+- process boundaries
 - the runtime behavior that actually applies the itinerary change
 
-The host reads authoritative Context Compiler state after confirmation and
-decides whether to apply the booking change.
-
-## Why this is not prompt reinjection
-
-This example does not re-send hidden instructions to a model.
-
-The observable behavior change is host-side: the booking record changes only
-after a restored engine resumes the pending confirmation and authoritative
-state changes.
+The host reads restored authoritative Context Compiler state and decides whether
+to apply the booking change.
 
 ## Example behavior
 
 1. The host starts with a booking on `boston_trip`.
-2. The user initiates a switch to `chicago_trip`.
-3. Context Compiler enters a pending confirmation state.
-4. The host exports and persists the checkpoint.
-5. A fresh host process restores that checkpoint into a new engine.
-6. If the user confirms, the host applies the itinerary change.
-7. If the user rejects or sends unrelated text, the booking remains unchanged.
+2. The user selects `chicago_trip`.
+3. Context Compiler updates authoritative state.
+4. The host persists that state JSON.
+5. A fresh host process restores the saved state into a new engine.
+6. The host applies the booking change from the restored authoritative state.
 
 ## Run
 

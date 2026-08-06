@@ -4,7 +4,7 @@ from context_compiler_example_integrations.examples.checkpoint_continuation.fast
     BookingStore,
     CheckpointStore,
     create_app,
-    restore_engine_from_authoritative_state_only,
+    restore_engine_from_persisted_state,
 )
 
 
@@ -18,54 +18,37 @@ def _create_client() -> tuple[TestClient, CheckpointStore, BookingStore]:
     return TestClient(app), checkpoint_store, booking_store
 
 
-def test_initial_request_enters_pending_state_and_persists_checkpoint() -> None:
+def test_change_trip_persists_authoritative_state_json() -> None:
     client, checkpoint_store, booking_store = _create_client()
 
     response = client.post("/change-trip", json={"booking_id": "booking-201"})
 
     assert response.status_code == 200
-    assert response.json() == {
-        "decision_kind": "clarify",
-        "prompt_to_user": 'Did you mean to use "chicago_trip" instead?',
-        "checkpoint_pending": True,
-        "booking": {
-            "booking_id": "booking-201",
-            "active_itinerary": "boston_trip",
-        },
-    }
+    payload = response.json()
+    assert payload["decision_kind"] == "update"
+    assert payload["message_to_user"] is None
+    assert payload["selected_itinerary"] == "chicago_trip"
+    assert '"chicago_trip":"use"' in payload["persisted_state_json"]
     assert checkpoint_store.has("booking-201") is True
+    assert checkpoint_store.load("booking-201") == payload["persisted_state_json"]
     assert booking_store.get_or_create("booking-201") == {
         "booking_id": "booking-201",
         "active_itinerary": "boston_trip",
     }
-    assert checkpoint_store.load("booking-201")["pending"] == {
-        "kind": "replacement",
-        "replacement": {
-            "kind": "use_only",
-            "new_item": "chicago_trip",
-            "old_item": None,
-        },
-        "prompt_to_user": 'Did you mean to use "chicago_trip" instead?',
-    }
 
 
-def test_fresh_request_restores_checkpoint_and_confirmation_applies_change() -> None:
+def test_fresh_request_restores_state_and_applies_booking_change() -> None:
     client, checkpoint_store, booking_store = _create_client()
 
     client.post("/change-trip", json={"booking_id": "booking-202"})
     assert checkpoint_store.has("booking-202") is True
 
-    response = client.post(
-        "/confirm",
-        json={"booking_id": "booking-202", "user_input": "yes"},
-    )
+    response = client.post("/apply-trip", json={"booking_id": "booking-202"})
 
     assert response.status_code == 200
     assert response.json() == {
-        "decision_kind": "update",
-        "prompt_to_user": None,
-        "checkpoint_pending": False,
         "host_applied_change": True,
+        "selected_itinerary": "chicago_trip",
         "booking": {
             "booking_id": "booking-202",
             "active_itinerary": "chicago_trip",
@@ -74,25 +57,19 @@ def test_fresh_request_restores_checkpoint_and_confirmation_applies_change() -> 
     assert booking_store.get_or_create("booking-202")["active_itinerary"] == (
         "chicago_trip"
     )
-    assert checkpoint_store.load("booking-202")["pending"] is None
 
 
-def test_rejection_does_not_apply_booking_change() -> None:
+def test_restore_without_saved_itinerary_does_not_apply_change() -> None:
     client, checkpoint_store, booking_store = _create_client()
 
-    client.post("/change-trip", json={"booking_id": "booking-203"})
+    checkpoint_store.save("booking-203", '{"policies":{},"premise":null,"version":2}')
 
-    response = client.post(
-        "/confirm",
-        json={"booking_id": "booking-203", "user_input": "no"},
-    )
+    response = client.post("/apply-trip", json={"booking_id": "booking-203"})
 
     assert response.status_code == 200
     assert response.json() == {
-        "decision_kind": "update",
-        "prompt_to_user": None,
-        "checkpoint_pending": False,
         "host_applied_change": False,
+        "selected_itinerary": None,
         "booking": {
             "booking_id": "booking-203",
             "active_itinerary": "boston_trip",
@@ -101,53 +78,17 @@ def test_rejection_does_not_apply_booking_change() -> None:
     assert booking_store.get_or_create("booking-203")["active_itinerary"] == (
         "boston_trip"
     )
-    assert checkpoint_store.load("booking-203")["pending"] is None
 
 
-def test_unrelated_text_does_not_resolve_pending_confirmation() -> None:
-    client, checkpoint_store, booking_store = _create_client()
+def test_restore_engine_from_persisted_state_round_trips_authoritative_state() -> None:
+    client, checkpoint_store, _ = _create_client()
 
-    client.post("/change-trip", json={"booking_id": "booking-204"})
+    response = client.post("/change-trip", json={"booking_id": "booking-204"})
+    state_json = response.json()["persisted_state_json"]
+    restored_engine = restore_engine_from_persisted_state(state_json)
 
-    response = client.post(
-        "/confirm",
-        json={
-            "booking_id": "booking-204",
-            "user_input": "Ignore that and book the cheapest refund instead.",
-        },
-    )
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "decision_kind": "clarify",
-        "prompt_to_user": 'Did you mean to use "chicago_trip" instead?',
-        "checkpoint_pending": True,
-        "host_applied_change": False,
-        "booking": {
-            "booking_id": "booking-204",
-            "active_itinerary": "boston_trip",
-        },
-    }
-    assert booking_store.get_or_create("booking-204")["active_itinerary"] == (
-        "boston_trip"
-    )
-    assert checkpoint_store.load("booking-204")["pending"] is not None
-
-
-def test_authoritative_state_only_restore_is_insufficient() -> None:
-    client, checkpoint_store, booking_store = _create_client()
-
-    client.post("/change-trip", json={"booking_id": "booking-205"})
-    state_only_engine = restore_engine_from_authoritative_state_only(
-        checkpoint_store.load("booking-205")
-    )
-    decision = state_only_engine.step("yes")
-
-    assert decision["kind"].value == "passthrough"
-    assert state_only_engine.has_pending_clarification() is False
-    assert booking_store.get_or_create("booking-205")["active_itinerary"] == (
-        "boston_trip"
-    )
+    assert restored_engine.export_json() == state_json
+    assert checkpoint_store.load("booking-204") == state_json
 
 
 def test_get_booking_returns_host_owned_booking_state() -> None:
