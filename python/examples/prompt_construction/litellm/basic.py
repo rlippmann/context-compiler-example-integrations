@@ -23,11 +23,8 @@ from context_compiler import (
     DECISION_UPDATE,
     POLICY_PROHIBIT,
     POLICY_USE,
-    State,
-    get_policy_items,
-    get_premise_value,
+    PolicyValue,
     is_update,
-    state_diff,
 )
 from context_compiler.engine import Engine
 
@@ -55,6 +52,11 @@ logger = logging.getLogger(__name__)
 _CHECKPOINTS_BY_SESSION_KEY: dict[str, str] = {}
 _RESTORED_ENGINE_BY_SESSION_KEY: dict[str, int] = {}
 SHOW_CONTEXT_COMPILER_TRACE = False
+
+
+class _EngineSnapshot(TypedDict):
+    premise: str | None
+    policies: dict[str, PolicyValue]
 
 
 class _LiteLLMCallKwargs(TypedDict, total=False):
@@ -88,14 +90,26 @@ def _extract_response_content(response: object) -> str | None:
     return None
 
 
+def _snapshot_engine_state(engine: Engine) -> _EngineSnapshot:
+    return {"premise": engine.premise, "policies": dict(engine.policies)}
+
+
 def _render_state_lines(state: object) -> list[str]:
     if not isinstance(state, dict):
         return ["- unavailable"]
-    typed_state = cast(State, state)
-
-    premise = get_premise_value(typed_state)
-    use_items = sorted(get_policy_items(typed_state, POLICY_USE))
-    prohibit_items = sorted(get_policy_items(typed_state, POLICY_PROHIBIT))
+    raw_policies = state.get("policies")
+    policies = raw_policies if isinstance(raw_policies, dict) else {}
+    premise = state.get("premise")
+    use_items = sorted(
+        key
+        for key, value in policies.items()
+        if value == POLICY_USE and isinstance(key, str)
+    )
+    prohibit_items = sorted(
+        key
+        for key, value in policies.items()
+        if value == POLICY_PROHIBIT and isinstance(key, str)
+    )
 
     lines = [f"- premise: {premise if premise is not None else '(none)'}"]
     lines.append(f"- use: {', '.join(use_items) if use_items else '(none)'}")
@@ -123,8 +137,9 @@ def _build_trace_text(
         f"- llm_called: {'yes' if llm_called else 'no'}",
     ]
     if isinstance(state_before, dict) and isinstance(state_after, dict):
-        diff = state_diff(cast(State, state_before), cast(State, state_after))
-        lines.append(f"- state_changed: {'yes' if diff['changed'] else 'no'}")
+        lines.append(
+            f"- state_changed: {'yes' if state_before != state_after else 'no'}"
+        )
     lines.append("state_before:")
     lines.extend(_render_state_lines(state_before))
     lines.append("state_after:")
@@ -132,10 +147,16 @@ def _build_trace_text(
     return "\n".join(lines)
 
 
-def _render_compiled_state_contract(compiled_state: State) -> str:
-    premise = get_premise_value(compiled_state)
-    use_items = sorted(get_policy_items(compiled_state, POLICY_USE))
-    prohibit_items = sorted(get_policy_items(compiled_state, POLICY_PROHIBIT))
+def _render_compiled_state_contract(compiled_state: _EngineSnapshot) -> str:
+    premise = compiled_state["premise"]
+    use_items = sorted(
+        key for key, value in compiled_state["policies"].items() if value == POLICY_USE
+    )
+    prohibit_items = sorted(
+        key
+        for key, value in compiled_state["policies"].items()
+        if value == POLICY_PROHIBIT
+    )
 
     lines: list[str] = ["The following constraints are authoritative."]
     if premise:
@@ -149,7 +170,9 @@ def _render_compiled_state_contract(compiled_state: State) -> str:
     return "Host policy contract:\n" + "\n".join(f"- {line}" for line in lines)
 
 
-def _build_messages(user_input: str, compiled_state: State) -> list[dict[str, str]]:
+def _build_messages(
+    user_input: str, compiled_state: _EngineSnapshot
+) -> list[dict[str, str]]:
     return [
         {
             "role": "system",
@@ -308,7 +331,7 @@ def handle_turn(
     user_input: str, engine: Engine, *, session_key: str | None = None
 ) -> str:
     _restore_session_checkpoint_if_needed(engine, session_key)
-    state_before = engine.state
+    state_before = _snapshot_engine_state(engine)
     has_pending_before = engine.has_pending_clarification()
     checkpoint_before = engine.export_checkpoint() if has_pending_before else None
     logger.debug("litellm_basic: engine_input=%s", f"user_input len={len(user_input)}")
@@ -331,7 +354,7 @@ def handle_turn(
             compiler_input=user_input,
             decision=decision,
             state_before=state_before,
-            state_after=engine.state,
+            state_after=_snapshot_engine_state(engine),
             llm_called=False,
         )
     if near_miss_prompt is not None and decision["kind"] == DecisionKind.NO_DIRECTIVE:
@@ -341,7 +364,7 @@ def handle_turn(
             compiler_input=user_input,
             decision={"kind": DecisionKind.ERROR, "message": near_miss_prompt},
             state_before=state_before,
-            state_after=engine.state,
+            state_after=_snapshot_engine_state(engine),
             llm_called=False,
         )
     _persist_session_checkpoint_if_needed(engine, kind, session_key)
@@ -357,7 +380,7 @@ def handle_turn(
             compiler_input=user_input,
             decision=decision,
             state_before=state_before,
-            state_after=engine.state,
+            state_after=_snapshot_engine_state(engine),
             llm_called=False,
         )
     if is_update(decision):
@@ -368,11 +391,11 @@ def handle_turn(
             compiler_input=user_input,
             decision=decision,
             state_before=state_before,
-            state_after=engine.state,
+            state_after=_snapshot_engine_state(engine),
             llm_called=False,
         )
 
-    messages = _build_messages(user_input, engine.state)
+    messages = _build_messages(user_input, _snapshot_engine_state(engine))
     response_text = _call_litellm(messages)
     return _append_trace(
         response_text,
@@ -380,6 +403,6 @@ def handle_turn(
         compiler_input=user_input,
         decision=decision,
         state_before=state_before,
-        state_after=engine.state,
+        state_after=_snapshot_engine_state(engine),
         llm_called=True,
     )

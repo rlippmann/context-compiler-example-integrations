@@ -9,7 +9,13 @@ from importlib import import_module
 from pathlib import Path
 from typing import Literal, TypedDict, cast
 
-from context_compiler import DecisionKind, State, create_engine
+from context_compiler import (
+    DecisionKind,
+    POLICY_PROHIBIT,
+    POLICY_USE,
+    PolicyValue,
+    create_engine,
+)
 
 from context_compiler_example_integrations.examples._shared.litellm_request import (
     build_litellm_provider_kwargs,
@@ -92,8 +98,20 @@ def _get_litellm_completion() -> Callable[..., object]:
     return cast(Callable[..., object], litellm_module.completion)
 
 
-def _state_for_request(authoritative_state: State | None) -> State | None:
-    return authoritative_state
+def _load_authoritative_state(
+    authoritative_state: Mapping[str, object] | None,
+) -> tuple[str | None, dict[str, PolicyValue]]:
+    if authoritative_state is None:
+        return None, {}
+
+    premise = authoritative_state.get("premise")
+    raw_policies = authoritative_state.get("policies")
+    policies: dict[str, PolicyValue] = {}
+    if isinstance(raw_policies, Mapping):
+        for key, value in raw_policies.items():
+            if isinstance(key, str) and value in {POLICY_USE, POLICY_PROHIBIT}:
+                policies[key] = cast(PolicyValue, value)
+    return premise if isinstance(premise, str) else None, policies
 
 
 def _decision_kind_name(
@@ -113,9 +131,9 @@ def _decision_kind_name(
 
 
 def _exposed_tool_names(
-    host: CalendarAdminMcpHost, state: State
+    host: CalendarAdminMcpHost, policies: Mapping[str, PolicyValue]
 ) -> tuple[list[str], list[str]]:
-    exposed_tools = host.exposed_mcp_tools(state)
+    exposed_tools = host.exposed_mcp_tools(policies)
     return (
         [tool["name"] for tool in exposed_tools["tools"]],
         exposed_tools["hidden_tool_names"],
@@ -123,9 +141,9 @@ def _exposed_tool_names(
 
 
 def _build_openai_tools(
-    host: CalendarAdminMcpHost, state: State
+    host: CalendarAdminMcpHost, policies: Mapping[str, PolicyValue]
 ) -> list[dict[str, object]]:
-    exposed_tools = host.exposed_mcp_tools(state)["tools"]
+    exposed_tools = host.exposed_mcp_tools(policies)["tools"]
     tools: list[dict[str, object]] = []
     for tool in exposed_tools:
         if tool["name"] == "calendar_view_events":
@@ -259,7 +277,7 @@ def _call_live_model(
 def run_live_model_turn(
     *,
     user_intent: str,
-    authoritative_state: State | None = None,
+    authoritative_state: Mapping[str, object] | None = None,
     compiler_input: str = "",
     artifact_path: Path | None = None,
     model_tool_selector: Callable[..., _SelectedToolCall] | None = None,
@@ -273,10 +291,23 @@ def run_live_model_turn(
 
     side_effect_store = CalendarAdminSideEffectStore(artifact_path=artifact_path)
     host = CalendarAdminMcpHost()
-    engine = create_engine(state=_state_for_request(authoritative_state))
+    engine = create_engine()
+    premise, policies = _load_authoritative_state(authoritative_state)
+    if authoritative_state is not None:
+        engine.import_json(
+            json.dumps(
+                {
+                    "premise": premise,
+                    "policies": policies,
+                    "version": 2,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
     decision_kind: Literal["clarify", "update", "passthrough"] | None = None
     prompt_to_user: str | None = None
-    effective_state = engine.state
+    effective_policies = dict(engine.policies)
 
     if compiler_input:
         decision = engine.step(compiler_input)
@@ -284,7 +315,7 @@ def run_live_model_turn(
         prompt_to_user = decision["message"]
         if decision["kind"] == DecisionKind.ERROR:
             exposed_tool_names, hidden_tool_names = _exposed_tool_names(
-                host, engine.state
+                host, engine.policies
             )
             return {
                 "decision_kind": decision_kind,
@@ -304,11 +335,13 @@ def run_live_model_turn(
                 "side_effect_count": side_effect_store.count(),
             }
 
-        effective_state = engine.state
+        effective_policies = dict(engine.policies)
 
-    exposed_tool_names, hidden_tool_names = _exposed_tool_names(host, effective_state)
+    exposed_tool_names, hidden_tool_names = _exposed_tool_names(
+        host, effective_policies
+    )
     protected_tool_exposed = "calendar_admin_create_event" in exposed_tool_names
-    tools = _build_openai_tools(host, effective_state)
+    tools = _build_openai_tools(host, effective_policies)
     selector = model_tool_selector or _call_live_model
     selected_tool_call = selector(user_intent=user_intent, tools=tools)
 
