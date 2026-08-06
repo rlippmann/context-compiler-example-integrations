@@ -6,9 +6,15 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
-from context_compiler import DecisionKind, State, create_engine
+from context_compiler import (
+    DecisionKind,
+    POLICY_PROHIBIT,
+    POLICY_USE,
+    PolicyValue,
+    create_engine,
+)
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing_extensions import TypedDict
@@ -71,10 +77,18 @@ def _decision_kind_name(
     raise ValueError(f"unexpected decision kind: {kind}")
 
 
-def _state_for_request(authoritative_state: dict[str, object] | None) -> State | None:
+def _policies_for_request(
+    authoritative_state: dict[str, object] | None,
+) -> dict[str, PolicyValue]:
     if authoritative_state is None:
-        return None
-    return cast(State, authoritative_state)
+        return {}
+    raw_policies = authoritative_state.get("policies")
+    policies: dict[str, PolicyValue] = {}
+    if isinstance(raw_policies, dict):
+        for key, value in raw_policies.items():
+            if isinstance(key, str) and value in {POLICY_USE, POLICY_PROHIBIT}:
+                policies[key] = value
+    return policies
 
 
 def _expense_summary(request: ExpenseRequest) -> str:
@@ -242,10 +256,22 @@ def create_app(
                 ),
             )
 
-        engine = create_engine(state=_state_for_request(request.authoritative_state))
+        engine = create_engine()
+        if request.authoritative_state is not None:
+            engine.import_json(
+                json.dumps(
+                    {
+                        "premise": request.authoritative_state.get("premise"),
+                        "policies": _policies_for_request(request.authoritative_state),
+                        "version": 2,
+                    },
+                    separators=(",", ":"),
+                    sort_keys=True,
+                )
+            )
         decision_kind: Literal["clarify", "update", "passthrough"] | None = None
         prompt_to_user: str | None = None
-        authoritative_state = engine.state
+        authoritative_policies = dict(engine.policies)
 
         if request.compiler_input:
             decision = engine.step(request.compiler_input)
@@ -267,12 +293,9 @@ def create_app(
                     ),
                 )
 
-            authoritative_state = {
-                "premise": engine.premise,
-                "policies": dict(engine.policies),
-            }
+            authoritative_policies = dict(engine.policies)
 
-        if not expense_execution_is_authorized(authoritative_state):
+        if not expense_execution_is_authorized(authoritative_policies):
             raise HTTPException(
                 status_code=403,
                 detail=_blocked_response(
