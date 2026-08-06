@@ -1,4 +1,4 @@
-from context_compiler import State, create_engine
+from context_compiler import create_engine
 
 from context_compiler_example_integrations.examples.prompt_construction.writing_assistant.example import (
     BOARD_UPDATE_CONTEXT,
@@ -12,16 +12,14 @@ from context_compiler_example_integrations.examples.prompt_construction.writing_
     build_prompt_messages,
     prepare_prompt_turn,
     run_demo,
-    style_labels_from_state,
+    style_labels_from_policies,
 )
 
 
-def concise_prohibited_state() -> State:
-    return {
-        "version": 2,
-        "premise": None,
-        "policies": {CONCISE_STYLE: "prohibit"},
-    }
+def concise_prohibited_engine():
+    engine = create_engine()
+    engine.step(f"prohibit {CONCISE_STYLE}")
+    return engine
 
 
 def test_default_prompt_with_absent_state() -> None:
@@ -109,7 +107,7 @@ def test_changed_premise_swaps_context() -> None:
 
 
 def test_prohibited_style_is_not_applied() -> None:
-    engine = create_engine(state=concise_prohibited_state())
+    engine = concise_prohibited_engine()
 
     result = prepare_prompt_turn(
         engine,
@@ -188,7 +186,8 @@ def test_build_prompt_messages_can_include_premise_and_policy() -> None:
     engine.step(f"use {CONCISE_STYLE}")
 
     messages, premise, labels = build_prompt_messages(
-        state=engine.state,
+        premise=engine.premise,
+        policies=engine.policies,
         user_text="Revise this announcement.",
     )
 
@@ -199,7 +198,7 @@ def test_build_prompt_messages_can_include_premise_and_policy() -> None:
 
 
 def test_style_labels_ignore_prohibited_items() -> None:
-    assert style_labels_from_state(concise_prohibited_state()) == []
+    assert style_labels_from_policies(concise_prohibited_engine().policies) == []
 
 
 def test_audience_guidance_from_premise_handles_known_values() -> None:

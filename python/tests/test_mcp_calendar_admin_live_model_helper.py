@@ -50,7 +50,10 @@ def test_authorized_state_exposes_protected_tool_and_executes_selected_tool(
             "Create an admin calendar event named Quarterly access review on "
             "calendar ops-admin."
         ),
-        authoritative_state=engine.state,
+        authoritative_state={
+            "premise": engine.premise,
+            "policies": dict(engine.policies),
+        },
         artifact_path=artifact_path,
         model_tool_selector=lambda **_: _SelectedToolCall(
             name="calendar_admin_create_event",
@@ -86,7 +89,10 @@ def test_authorized_state_reports_clear_diagnostic_when_model_skips_protected_to
             "Create an admin calendar event named Quarterly access review on "
             "calendar ops-admin."
         ),
-        authoritative_state=engine.state,
+        authoritative_state={
+            "premise": engine.premise,
+            "policies": dict(engine.policies),
+        },
         artifact_path=artifact_path,
         model_tool_selector=lambda **_: _SelectedToolCall(
             name="calendar_view_events",
@@ -116,7 +122,10 @@ def test_contradiction_blocks_before_model_tool_execution(tmp_path: Path) -> Non
             "Create an admin calendar event named Quarterly access review on "
             "calendar ops-admin."
         ),
-        authoritative_state=engine.state,
+        authoritative_state={
+            "premise": engine.premise,
+            "policies": dict(engine.policies),
+        },
         compiler_input="prohibit calendar_admin",
         artifact_path=artifact_path,
         model_tool_selector=_unexpected_selector,
