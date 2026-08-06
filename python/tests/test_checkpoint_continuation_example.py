@@ -2,7 +2,7 @@ from context_compiler import create_engine
 
 from context_compiler_example_integrations.examples.checkpoint_continuation.example import (
     BookingHost,
-    StateStore,
+    EnginePersistenceStore,
     apply_restored_itinerary,
     persist_itinerary_selection,
     restore_engine_from_persisted_state,
@@ -25,7 +25,7 @@ def test_persisted_state_json_captures_authoritative_policy_state() -> None:
 
 
 def test_restore_into_fresh_engine_and_apply_selected_itinerary() -> None:
-    state_store = StateStore()
+    engine_persistence_store = EnginePersistenceStore()
     first_engine = create_engine()
     first_host = BookingHost(
         booking={"booking_id": "booking-101", "active_itinerary": "boston_trip"}
@@ -35,9 +35,11 @@ def test_restore_into_fresh_engine_and_apply_selected_itinerary() -> None:
         first_engine,
         requested_itinerary="chicago_trip",
     )
-    state_store.save(persisted["persisted_state_json"])
+    engine_persistence_store.save(persisted["persisted_state_json"])
 
-    restored_engine = restore_engine_from_persisted_state(state_store.load())
+    restored_engine = restore_engine_from_persisted_state(
+        engine_persistence_store.load()
+    )
     restored_host = BookingHost(booking=first_host.booking.copy())
     result = apply_restored_itinerary(restored_engine, restored_host)
 
