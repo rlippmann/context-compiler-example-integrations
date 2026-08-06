@@ -31,12 +31,10 @@ from context_compiler.engine import Engine
 try:
     from .confirmation_helper import (
         is_confirmation_text,
-        summarize_confirmation_update_from_checkpoint,
     )
 except ImportError:
     from confirmation_helper import (
         is_confirmation_text,
-        summarize_confirmation_update_from_checkpoint,
     )
 
 from context_compiler_example_integrations.examples._shared.provider_mode import (
@@ -45,12 +43,6 @@ from context_compiler_example_integrations.examples._shared.provider_mode import
 )
 
 logger = logging.getLogger(__name__)
-# Example-only in-memory checkpoint store.
-# This keeps continuation state only for the current process lifetime.
-# Real deployments should persist checkpoints externally (DB/Redis/etc.),
-# or restart continuity for pending flows will be lost.
-_CHECKPOINTS_BY_SESSION_KEY: dict[str, str] = {}
-_RESTORED_ENGINE_BY_SESSION_KEY: dict[str, int] = {}
 SHOW_CONTEXT_COMPILER_TRACE = False
 
 
@@ -211,31 +203,6 @@ def _call_litellm(messages: list[dict[str, str]]) -> str:
     return content
 
 
-def _restore_session_checkpoint_if_needed(
-    engine: Engine, session_key: str | None
-) -> None:
-    if session_key is None:
-        return
-    engine_id = id(engine)
-    if _RESTORED_ENGINE_BY_SESSION_KEY.get(session_key) == engine_id:
-        return
-
-    checkpoint = _CHECKPOINTS_BY_SESSION_KEY.get(session_key)
-    if checkpoint is not None:
-        engine.import_checkpoint_json(checkpoint)
-    _RESTORED_ENGINE_BY_SESSION_KEY[session_key] = engine_id
-
-
-def _persist_session_checkpoint_if_needed(
-    engine: Engine, kind: str, session_key: str | None
-) -> None:
-    if session_key is None:
-        return
-    if kind not in {DECISION_UPDATE, DecisionKind.ERROR.value}:
-        return
-    _CHECKPOINTS_BY_SESSION_KEY[session_key] = engine.export_checkpoint_json()
-
-
 def _render_item_label(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip().lower()
 
@@ -253,13 +220,6 @@ def _near_miss_directive_clarify(value: str) -> str | None:
     ):
         return "Invalid premise syntax.\nUse 'change premise to <value>'."
     return None
-
-
-def _summarize_confirmation_update(user_input: str, checkpoint: object) -> str:
-    summarize_fn: Callable[[str, object], str] = (
-        summarize_confirmation_update_from_checkpoint
-    )
-    return summarize_fn(user_input, checkpoint)
 
 
 def _summarize_update_from_input(user_input: str) -> str:
@@ -330,10 +290,8 @@ def _append_trace(
 def handle_turn(
     user_input: str, engine: Engine, *, session_key: str | None = None
 ) -> str:
-    _restore_session_checkpoint_if_needed(engine, session_key)
     state_before = _snapshot_engine_state(engine)
-    has_pending_before = engine.has_pending_clarification()
-    checkpoint_before = engine.export_checkpoint() if has_pending_before else None
+    del session_key
     logger.debug("litellm_basic: engine_input=%s", f"user_input len={len(user_input)}")
     decision = engine.step(user_input)
     if decision["kind"] == DecisionKind.ERROR:
@@ -346,7 +304,6 @@ def handle_turn(
     near_miss_prompt = _near_miss_directive_clarify(user_input)
 
     if decision["kind"] == DecisionKind.ERROR:
-        _persist_session_checkpoint_if_needed(engine, kind, session_key)
         response_text = near_miss_prompt or decision["message"] or ""
         return _append_trace(
             response_text,
@@ -367,24 +324,11 @@ def handle_turn(
             state_after=_snapshot_engine_state(engine),
             llm_called=False,
         )
-    _persist_session_checkpoint_if_needed(engine, kind, session_key)
-    if (
-        is_update(decision)
-        and is_confirmation_text(user_input)
-        and checkpoint_before is not None
-    ):
-        response_text = _summarize_confirmation_update(user_input, checkpoint_before)
-        return _append_trace(
-            response_text,
-            original_input=user_input,
-            compiler_input=user_input,
-            decision=decision,
-            state_before=state_before,
-            state_after=_snapshot_engine_state(engine),
-            llm_called=False,
-        )
     if is_update(decision):
-        response_text = _summarize_update_from_input(user_input)
+        if is_confirmation_text(user_input):
+            response_text = "State updated."
+        else:
+            response_text = _summarize_update_from_input(user_input)
         return _append_trace(
             response_text,
             original_input=user_input,
