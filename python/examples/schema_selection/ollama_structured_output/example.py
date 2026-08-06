@@ -14,13 +14,11 @@ from collections.abc import Mapping
 from typing import Any, TypedDict, cast
 
 from context_compiler import (
-    POLICY_PROHIBIT,
     POLICY_USE,
-    State,
+    PolicyValue,
     create_engine,
     get_clarify_prompt,
     get_decision_state,
-    get_policy_items,
     is_clarify,
 )
 from context_compiler.engine import Engine
@@ -64,18 +62,15 @@ class TurnPlan(TypedDict):
 
 
 def select_ollama_format_schema(
-    state: State,
+    policies: Mapping[str, PolicyValue],
 ) -> tuple[str | None, dict[str, Any] | None]:
     """Return (policy_item, schema) or (None, None) when no safe match exists.
 
     Unknown/insufficient policy state intentionally selects no schema.
     """
 
-    use_items = set(get_policy_items(state, POLICY_USE))
-    prohibit_items = set(get_policy_items(state, POLICY_PROHIBIT))
-
     for item, schema in _SCHEMA_BY_ITEM.items():
-        if item in use_items and item not in prohibit_items:
+        if policies.get(item) == POLICY_USE:
             return item, schema
 
     return None, None
@@ -94,8 +89,10 @@ def plan_turn(user_input: str, engine: Engine) -> TurnPlan:
         }
 
     decision_state = get_decision_state(decision)
-    compiled_state = decision_state if decision_state is not None else engine.state
-    selected_item, format_schema = select_ollama_format_schema(compiled_state)
+    policies = (
+        decision_state["policies"] if decision_state is not None else engine.policies
+    )
+    selected_item, format_schema = select_ollama_format_schema(policies)
 
     return {
         "decision_kind": str(decision["kind"]),

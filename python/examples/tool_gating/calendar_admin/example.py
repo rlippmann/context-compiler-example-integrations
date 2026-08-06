@@ -1,15 +1,15 @@
 """Host-side tool gating using authoritative Context Compiler state."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal, TypedDict, cast
 
 from context_compiler import (
     POLICY_PROHIBIT,
     POLICY_USE,
-    State,
+    PolicyValue,
     create_engine,
     get_decision_state,
-    get_policy_items,
     is_clarify,
 )
 from context_compiler.engine import Engine
@@ -67,11 +67,13 @@ class CalendarAdminHost:
         self._always_available_tools = ["calendar_view_events"]
         self._calendar_admin_tools = ["calendar_admin_create_event"]
 
-    def visible_tools(self, state: State) -> ToolRegistrySnapshot:
+    def visible_tools(
+        self, policies: Mapping[str, PolicyValue]
+    ) -> ToolRegistrySnapshot:
         available_tools = self._always_available_tools.copy()
         hidden_tools = self._calendar_admin_tools.copy()
 
-        if calendar_admin_tools_are_allowed(state):
+        if calendar_admin_tools_are_allowed(policies):
             available_tools.extend(self._calendar_admin_tools)
             hidden_tools = []
 
@@ -90,27 +92,24 @@ class CalendarAdminHost:
         )
 
 
-def calendar_admin_tools_are_allowed(state: State) -> bool:
+def calendar_admin_tools_are_allowed(policies: Mapping[str, PolicyValue]) -> bool:
     """Allow calendar admin tools only from authoritative compiler state."""
 
-    use_items = set(get_policy_items(state, POLICY_USE))
-    prohibit_items = set(get_policy_items(state, POLICY_PROHIBIT))
-
-    if "calendar_admin" in prohibit_items:
+    if policies.get("calendar_admin") == POLICY_PROHIBIT:
         return False
 
-    return "calendar_admin" in use_items
+    return policies.get("calendar_admin") == POLICY_USE
 
 
 def execute_calendar_admin_tool_if_allowed(
     tool_call: CalendarToolCall,
     *,
-    state: State,
+    policies: Mapping[str, PolicyValue],
     host: CalendarAdminHost,
 ) -> CalendarToolExecutionResult:
     """Hide or execute the admin tool based only on authoritative state."""
 
-    registry_snapshot = host.visible_tools(state)
+    registry_snapshot = host.visible_tools(policies)
     tool_visible = tool_call["tool_name"] in registry_snapshot["available_tools"]
 
     if not tool_visible:
@@ -157,21 +156,24 @@ def handle_calendar_admin_turn(
                 "executed": False,
                 "blocked_reason": "clarification required before exposing calendar admin tools",
                 "tool_result": None,
-                "registry_snapshot": host.visible_tools(engine.state),
+                "registry_snapshot": host.visible_tools(engine.policies),
                 "execution_log": host.execution_log.copy(),
             },
         }
 
     authoritative_state = get_decision_state(decision)
     if authoritative_state is None:
-        authoritative_state = engine.state
+        authoritative_state = {
+            "premise": engine.premise,
+            "policies": dict(engine.policies),
+        }
 
     return {
         "decision_kind": _decision_kind_name(decision),
         "prompt_to_user": decision.get("prompt_to_user"),
         "execution_result": execute_calendar_admin_tool_if_allowed(
             tool_call,
-            state=authoritative_state,
+            policies=authoritative_state["policies"],
             host=host,
         ),
     }
@@ -190,6 +192,6 @@ def run_demo() -> CalendarToolExecutionResult:
             "calendar_id": "ops-admin",
             "event_title": "Quarterly access review",
         },
-        state=engine.state,
+        policies=engine.policies,
         host=host,
     )

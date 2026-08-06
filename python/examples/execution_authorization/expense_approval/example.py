@@ -1,15 +1,15 @@
 """Minimal host-side execution authorization for expense approval."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Literal, TypedDict, cast
 
 from context_compiler import (
     POLICY_PROHIBIT,
     POLICY_USE,
-    State,
+    PolicyValue,
     create_engine,
     get_decision_state,
-    get_policy_items,
     is_clarify,
 )
 from context_compiler.engine import Engine
@@ -73,27 +73,24 @@ class ExpenseHost:
         }
 
 
-def expense_execution_is_authorized(state: State) -> bool:
+def expense_execution_is_authorized(policies: Mapping[str, PolicyValue]) -> bool:
     """Authorize execution only from explicit authoritative compiler state."""
 
-    use_items = set(get_policy_items(state, POLICY_USE))
-    prohibit_items = set(get_policy_items(state, POLICY_PROHIBIT))
-
-    if "expense_approval" in prohibit_items:
+    if policies.get("expense_approval") == POLICY_PROHIBIT:
         return False
 
-    return "expense_approval" in use_items
+    return policies.get("expense_approval") == POLICY_USE
 
 
 def execute_expense_if_authorized(
     request: ExpenseRequest,
     *,
-    state: State,
+    policies: Mapping[str, PolicyValue],
     host: ExpenseHost,
 ) -> ExpenseExecutionResult:
     """Run the host-side action only when authoritative state allows it."""
 
-    if not expense_execution_is_authorized(state):
+    if not expense_execution_is_authorized(policies):
         return {
             "authorization_state": "blocked",
             "executed": False,
@@ -138,14 +135,17 @@ def handle_expense_turn(
 
     authoritative_state = get_decision_state(decision)
     if authoritative_state is None:
-        authoritative_state = engine.state
+        authoritative_state = {
+            "premise": engine.premise,
+            "policies": dict(engine.policies),
+        }
 
     return {
         "decision_kind": _decision_kind_name(decision),
         "prompt_to_user": decision.get("prompt_to_user"),
         "execution_result": execute_expense_if_authorized(
             request,
-            state=authoritative_state,
+            policies=authoritative_state["policies"],
             host=host,
         ),
     }
@@ -165,4 +165,8 @@ def run_demo() -> ExpenseExecutionResult:
     }
     host = ExpenseHost()
 
-    return execute_expense_if_authorized(request, state=engine.state, host=host)
+    return execute_expense_if_authorized(
+        request,
+        policies=engine.policies,
+        host=host,
+    )

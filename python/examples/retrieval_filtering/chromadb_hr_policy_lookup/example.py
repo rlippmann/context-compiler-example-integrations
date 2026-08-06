@@ -1,5 +1,6 @@
 """ChromaDB retrieval filtering for HR policy lookup."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, Sequence, TypedDict, cast
 from uuid import uuid4
@@ -9,10 +10,9 @@ from chromadb.api.models.Collection import Collection
 from context_compiler import (
     POLICY_PROHIBIT,
     POLICY_USE,
-    State,
+    PolicyValue,
     create_engine,
     get_decision_state,
-    get_policy_items,
     is_clarify,
 )
 from context_compiler.engine import Engine
@@ -91,22 +91,19 @@ def _decision_kind_name(
     return cast(Literal["clarify", "update", "passthrough"], kind_name)
 
 
-def allowed_audiences_from_state(state: State) -> set[str]:
+def allowed_audiences_from_policies(policies: Mapping[str, PolicyValue]) -> set[str]:
     """Read allowed retrieval audiences from authoritative compiler state."""
 
-    use_items = set(get_policy_items(state, POLICY_USE))
-    prohibit_items = set(get_policy_items(state, POLICY_PROHIBIT))
-
-    if MANAGER_ACCESS in prohibit_items:
+    if policies.get(MANAGER_ACCESS) == POLICY_PROHIBIT:
         return set()
 
-    if MANAGER_ACCESS in use_items:
+    if policies.get(MANAGER_ACCESS) == POLICY_USE:
         return {"employee", "manager"}
 
-    if EMPLOYEE_ACCESS in prohibit_items:
+    if policies.get(EMPLOYEE_ACCESS) == POLICY_PROHIBIT:
         return set()
 
-    if EMPLOYEE_ACCESS in use_items:
+    if policies.get(EMPLOYEE_ACCESS) == POLICY_USE:
         return {"employee"}
 
     return set()
@@ -236,14 +233,14 @@ class ChromaHRPolicyRetriever:
 def retrieve_hr_documents(
     query: str,
     *,
-    state: State,
+    policies: Mapping[str, PolicyValue],
     retriever: ChromaHRPolicyRetriever,
 ) -> RetrievalResult:
     """Apply eligibility constraints before Chroma returns any documents."""
 
     return retriever.search(
         query,
-        allowed_audiences=allowed_audiences_from_state(state),
+        allowed_audiences=allowed_audiences_from_policies(policies),
     )
 
 
@@ -272,14 +269,17 @@ def handle_retrieval_turn(
 
     authoritative_state = get_decision_state(decision)
     if authoritative_state is None:
-        authoritative_state = engine.state
+        authoritative_state = {
+            "premise": engine.premise,
+            "policies": dict(engine.policies),
+        }
 
     return {
         "decision_kind": _decision_kind_name(decision),
         "prompt_to_user": decision.get("prompt_to_user"),
         "retrieval_result": retrieve_hr_documents(
             query,
-            state=authoritative_state,
+            policies=authoritative_state["policies"],
             retriever=retriever,
         ),
     }
@@ -300,17 +300,17 @@ def run_demo() -> dict[str, RetrievalResult]:
     return {
         "absent_state": retrieve_hr_documents(
             query,
-            state=absent_engine.state,
+            policies=absent_engine.policies,
             retriever=retriever,
         ),
         "employee_access": retrieve_hr_documents(
             query,
-            state=employee_engine.state,
+            policies=employee_engine.policies,
             retriever=retriever,
         ),
         "manager_access": retrieve_hr_documents(
             query,
-            state=manager_engine.state,
+            policies=manager_engine.policies,
             retriever=retriever,
         ),
     }

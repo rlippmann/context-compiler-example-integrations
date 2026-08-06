@@ -1,14 +1,13 @@
 """Minimal host-side schema selection for refund intake."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal, TypedDict
 
 from context_compiler import (
     POLICY_USE,
-    State,
+    PolicyValue,
     create_engine,
-    get_policy_items,
-    get_premise_value,
 )
 
 DAMAGED_ORDER_PREMISE = (
@@ -116,16 +115,15 @@ def select_schema_from_order_intake_context(
     return _SCHEMA_BY_ORDER_INTAKE_CONTEXT[context]
 
 
-def select_schema_from_state(state: State) -> str | None:
+def select_schema_from_semantics(
+    *, premise: str | None, policies: Mapping[str, PolicyValue]
+) -> str | None:
     """Select a host-side workflow from authoritative state."""
 
-    use_items = set(get_policy_items(state, POLICY_USE))
-    premise = get_premise_value(state)
-
-    if "refund_intake" in use_items:
+    if policies.get("refund_intake") == POLICY_USE:
         return "refund_intake"
 
-    if "technical_support" in use_items:
+    if policies.get("technical_support") == POLICY_USE:
         return "technical_support"
 
     intake_context = classify_premise_as_order_intake_context(premise)
@@ -164,7 +162,10 @@ def run_demo() -> IntakeRunResult:
     refund_handler = IntakeHandler("refund_intake")
     technical_support_handler = IntakeHandler("technical_support")
 
-    selected_schema = select_schema_from_state(engine.state)
+    selected_schema = select_schema_from_semantics(
+        premise=engine.premise,
+        policies=engine.policies,
+    )
     result = run_intake(
         request,
         selected_schema=selected_schema,

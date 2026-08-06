@@ -4,16 +4,14 @@ The host assembles prompt messages from authoritative Context Compiler state
 before any model call would occur. No LLM call happens in this example.
 """
 
+from collections.abc import Mapping
 from typing import Literal, TypedDict, cast
 
 from context_compiler import (
-    POLICY_PROHIBIT,
     POLICY_USE,
-    State,
+    PolicyValue,
     create_engine,
     get_decision_state,
-    get_policy_items,
-    get_premise_value,
     is_clarify,
 )
 from context_compiler.engine import Engine
@@ -71,14 +69,12 @@ def _decision_kind_name(
     return cast(Literal["clarify", "update", "passthrough"], kind_name)
 
 
-def style_labels_from_state(state: State) -> list[str]:
+def style_labels_from_policies(policies: Mapping[str, PolicyValue]) -> list[str]:
     """Return only the style labels authorized by compiler state."""
 
-    use_items = set(get_policy_items(state, POLICY_USE))
-    prohibit_items = set(get_policy_items(state, POLICY_PROHIBIT))
     labels: list[str] = []
 
-    if CONCISE_STYLE in use_items and CONCISE_STYLE not in prohibit_items:
+    if policies.get(CONCISE_STYLE) == POLICY_USE:
         labels.append(CONCISE_STYLE)
 
     return labels
@@ -96,14 +92,14 @@ def audience_guidance_from_premise(premise: str | None) -> str | None:
 
 def build_prompt_messages(
     *,
-    state: State,
+    premise: str | None,
+    policies: Mapping[str, PolicyValue],
     user_text: str,
 ) -> tuple[list[PromptMessage], str | None, list[str]]:
     """Build host-owned prompt messages from authoritative compiler state."""
 
-    premise = get_premise_value(state)
     audience_guidance = audience_guidance_from_premise(premise)
-    style_labels = style_labels_from_state(state)
+    style_labels = style_labels_from_policies(policies)
     system_lines = [DEFAULT_SYSTEM_PROMPT]
 
     if audience_guidance is not None:
@@ -145,10 +141,14 @@ def prepare_prompt_turn(
 
     authoritative_state = get_decision_state(decision)
     if authoritative_state is None:
-        authoritative_state = engine.state
+        authoritative_state = {
+            "premise": engine.premise,
+            "policies": dict(engine.policies),
+        }
 
     messages, premise, style_labels = build_prompt_messages(
-        state=authoritative_state,
+        premise=authoritative_state["premise"],
+        policies=authoritative_state["policies"],
         user_text=user_text,
     )
     return {

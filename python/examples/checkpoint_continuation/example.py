@@ -1,9 +1,10 @@
 """Minimal checkpoint-continuation example for a travel booking change."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Literal, TypedDict, cast
 
-from context_compiler import POLICY_USE, State, create_engine, get_policy_items
+from context_compiler import POLICY_USE, PolicyValue, create_engine
 from context_compiler.engine import Checkpoint, Engine, State as EngineState
 
 
@@ -43,8 +44,8 @@ class BookingHost:
     booking: BookingRecord
     applied_changes: list[str] = field(default_factory=list)
 
-    def apply_selected_itinerary(self, state: State) -> bool:
-        selected_itinerary = select_itinerary_from_state(state)
+    def apply_selected_itinerary(self, policies: Mapping[str, PolicyValue]) -> bool:
+        selected_itinerary = select_itinerary_from_policies(policies)
         if selected_itinerary is None:
             return False
 
@@ -53,13 +54,13 @@ class BookingHost:
         return True
 
 
-def select_itinerary_from_state(state: State) -> str | None:
+def select_itinerary_from_policies(policies: Mapping[str, PolicyValue]) -> str | None:
     """Select the host-visible itinerary from authoritative state."""
 
-    use_items = list(get_policy_items(state, POLICY_USE))
-    if not use_items:
-        return None
-    return use_items[0]
+    for item, kind in policies.items():
+        if kind == POLICY_USE:
+            return item
+    return None
 
 
 def _decision_kind_name(
@@ -91,7 +92,7 @@ def initiate_itinerary_change(
         "decision_kind": _decision_kind_name(decision),
         "prompt_to_user": decision.get("prompt_to_user"),
         "checkpoint_pending": engine.has_pending_clarification(),
-        "active_itinerary": select_itinerary_from_state(engine.state)
+        "active_itinerary": select_itinerary_from_policies(engine.policies)
         or current_itinerary,
         "host_applied_change": False,
     }
@@ -124,7 +125,7 @@ def continue_itinerary_change(
     decision = engine.step(user_input)
     host_applied_change = False
     if _decision_kind_name(decision) == "update":
-        host_applied_change = host.apply_selected_itinerary(engine.state)
+        host_applied_change = host.apply_selected_itinerary(engine.policies)
 
     return {
         "compiler_input": user_input,
