@@ -10,7 +10,7 @@ Architecture:
 """
 
 import logging
-from typing import Any
+from typing import Any, TypedDict
 
 try:
     from litellm.integrations.custom_logger import CustomLogger
@@ -23,15 +23,11 @@ except ModuleNotFoundError:
 
 
 from context_compiler import (
+    DecisionKind,
     POLICY_PROHIBIT,
+    PolicyValue,
     create_engine,
-    get_clarify_prompt,
-    State,
-    get_policy_items,
-    get_premise_value,
-    is_clarify,
 )
-from context_compiler.engine import DecisionKind
 from context_compiler_example_integrations.reference_integrations.litellm_proxy._checkpoint_support import (
     MODE_PERSISTENT,
     CheckpointStore,
@@ -53,9 +49,34 @@ _SUPPORTED_CALL_TYPES = {
 CHECKPOINT_STORE: CheckpointStore = InMemoryCheckpointStore()
 
 
-def _render_compiled_state_contract(compiled_state: State) -> str:
-    prohibited = get_policy_items(compiled_state, POLICY_PROHIBIT)
-    premise = get_premise_value(compiled_state)
+class _EngineSnapshot(TypedDict):
+    premise: str | None
+    policies: dict[str, PolicyValue]
+
+
+def _snapshot_engine_state(engine: object) -> _EngineSnapshot:
+    premise = getattr(engine, "premise", None)
+    policies = getattr(engine, "policies", {})
+    normalized_policies = (
+        dict(policies)
+        if isinstance(policies, dict)
+        else dict(policies)
+        if hasattr(policies, "items")
+        else {}
+    )
+    return {
+        "premise": premise if isinstance(premise, str) else None,
+        "policies": normalized_policies,
+    }
+
+
+def _render_compiled_state_contract(compiled_state: _EngineSnapshot) -> str:
+    prohibited = sorted(
+        key
+        for key, value in compiled_state["policies"].items()
+        if value == POLICY_PROHIBIT
+    )
+    premise = compiled_state["premise"]
 
     lines: list[str] = ["The following constraints are authoritative."]
     if prohibited:
@@ -118,7 +139,7 @@ class ContextCompilerPreCallHook(CustomLogger):
             checkpoint = CHECKPOINT_STORE.load(session.session_key)
             if checkpoint is not None:
                 try:
-                    engine.import_checkpoint_json(checkpoint_from_jsonable(checkpoint))
+                    engine.import_json(checkpoint_from_jsonable(checkpoint))
                 except Exception as exc:
                     return (
                         "Context Compiler checkpoint load failed for session "
@@ -128,25 +149,21 @@ class ContextCompilerPreCallHook(CustomLogger):
         if latest_user_text is not None:
             decision = engine.step(latest_user_text)
         else:
-            decision = {
-                "kind": DecisionKind.PASSTHROUGH,
-                "state": engine.state,
-                "prompt_to_user": None,
-            }
+            decision = {"kind": DecisionKind.NO_DIRECTIVE.value}
 
         if session.mode == MODE_PERSISTENT and session.session_key is not None:
             CHECKPOINT_STORE.save(
                 session.session_key,
-                checkpoint_to_jsonable(engine.export_checkpoint_json()),
+                checkpoint_to_jsonable(engine.export_json()),
             )
 
         logger.debug("litellm_proxy: decision_kind=%s", decision["kind"])
 
-        if is_clarify(decision):
+        if decision["kind"] == DecisionKind.ERROR:
             logger.debug("litellm_proxy: blocking_on_clarify=true")
-            return get_clarify_prompt(decision) or "Confirmation required."
+            return decision.get("message") or "Request rejected."
 
-        compiled_state = engine.state
+        compiled_state = _snapshot_engine_state(engine)
         # For long-running conversations, you can optionally compact transcripts by removing user inputs that were compiled into state. See Demo 6.  # noqa: E501
         system_message: dict[str, object] = {
             "role": "system",

@@ -16,7 +16,7 @@ from collections.abc import Callable, Mapping, Sequence
 from importlib import import_module
 from importlib.resources import as_file, files
 from importlib.resources.abc import Traversable
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 
 try:
     from litellm.integrations.custom_logger import CustomLogger
@@ -29,15 +29,11 @@ except ModuleNotFoundError:
 
 
 from context_compiler import (
+    DecisionKind,
     POLICY_PROHIBIT,
-    State,
+    PolicyValue,
     create_engine,
-    get_clarify_prompt,
-    get_policy_items,
-    get_premise_value,
-    is_clarify,
 )
-from context_compiler.engine import DecisionKind
 from context_compiler_directive_drafter import (
     PREPROCESS_OUTCOME_DIRECTIVE,
     parse_preprocessor_output,
@@ -67,9 +63,34 @@ _PROMPTS_DIR = files("context_compiler_directive_drafter").joinpath("prompts")
 CHECKPOINT_STORE: CheckpointStore = InMemoryCheckpointStore()
 
 
-def _render_compiled_state_contract(compiled_state: State) -> str:
-    prohibited = get_policy_items(compiled_state, POLICY_PROHIBIT)
-    premise = get_premise_value(compiled_state)
+class _EngineSnapshot(TypedDict):
+    premise: str | None
+    policies: dict[str, PolicyValue]
+
+
+def _snapshot_engine_state(engine: object) -> _EngineSnapshot:
+    premise = getattr(engine, "premise", None)
+    policies = getattr(engine, "policies", {})
+    normalized_policies = (
+        dict(policies)
+        if isinstance(policies, dict)
+        else dict(policies)
+        if hasattr(policies, "items")
+        else {}
+    )
+    return {
+        "premise": premise if isinstance(premise, str) else None,
+        "policies": normalized_policies,
+    }
+
+
+def _render_compiled_state_contract(compiled_state: _EngineSnapshot) -> str:
+    prohibited = sorted(
+        key
+        for key, value in compiled_state["policies"].items()
+        if value == POLICY_PROHIBIT
+    )
+    premise = compiled_state["premise"]
 
     lines: list[str] = ["The following constraints are authoritative."]
     if prohibited:
@@ -129,7 +150,7 @@ def _get_litellm_completion() -> Callable[..., object]:
     return cast(Callable[..., object], litellm_module.completion)
 
 
-def _llm_fallback_preprocess(message: str, state: State) -> str | None:
+def _llm_fallback_preprocess(message: str, state: _EngineSnapshot) -> str | None:
     with as_file(_prompt_file_path()) as prompt_path:
         prompt = render_prompt(prompt_path, state)
     if prompt is None:
@@ -175,7 +196,9 @@ def _llm_fallback_preprocess(message: str, state: State) -> str | None:
     return parsed
 
 
-def _preprocess_last_user_message(message: str, state: State | None) -> str | None:
+def _preprocess_last_user_message(
+    message: str, state: _EngineSnapshot | None
+) -> str | None:
     try:
         heuristic_result = preprocess_heuristic(message)
         if (
@@ -231,7 +254,7 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
             checkpoint = CHECKPOINT_STORE.load(session.session_key)
             if checkpoint is not None:
                 try:
-                    engine.import_checkpoint_json(checkpoint_from_jsonable(checkpoint))
+                    engine.import_json(checkpoint_from_jsonable(checkpoint))
                 except Exception as exc:
                     return (
                         "Context Compiler checkpoint load failed for session "
@@ -245,9 +268,9 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
         engine_input = latest_user_text
         drafted_input: str | None = None
 
-        if latest_user_text is not None and not engine.has_pending_clarification():
+        if latest_user_text is not None:
             drafted_input = _preprocess_last_user_message(
-                latest_user_text, engine.state
+                latest_user_text, _snapshot_engine_state(engine)
             )
             logger.debug("litellm_proxy: drafted_input=%r", drafted_input)
             if drafted_input is not None:
@@ -256,25 +279,21 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
         if engine_input is not None:
             decision = engine.step(engine_input)
         else:
-            decision = {
-                "kind": DecisionKind.PASSTHROUGH,
-                "state": engine.state,
-                "prompt_to_user": None,
-            }
+            decision = {"kind": DecisionKind.NO_DIRECTIVE.value}
 
         if session.mode == MODE_PERSISTENT and session.session_key is not None:
             CHECKPOINT_STORE.save(
                 session.session_key,
-                checkpoint_to_jsonable(engine.export_checkpoint_json()),
+                checkpoint_to_jsonable(engine.export_json()),
             )
 
         logger.debug("litellm_proxy: decision_kind=%s", decision["kind"])
 
-        if is_clarify(decision):
+        if decision["kind"] == DecisionKind.ERROR:
             logger.debug("litellm_proxy: blocking_on_clarify=true")
-            return get_clarify_prompt(decision) or "Confirmation required."
+            return decision.get("message") or "Request rejected."
 
-        compiled_state = engine.state
+        compiled_state = _snapshot_engine_state(engine)
         system_message: dict[str, object] = {
             "role": "system",
             "content": "You are a helpful assistant.\n"
