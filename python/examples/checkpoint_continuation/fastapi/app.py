@@ -40,7 +40,7 @@ class ChangeTripRequest(BaseModel):
 
 
 @dataclass
-class CheckpointStore:
+class StateStore:
     """Host-owned authoritative state persistence for stateless HTTP requests."""
 
     states_by_booking_id: dict[str, str] = field(default_factory=dict)
@@ -111,16 +111,16 @@ def _fresh_engine() -> Engine:
 
 def create_app(
     *,
-    checkpoint_store: CheckpointStore | None = None,
+    state_store: StateStore | None = None,
     booking_store: BookingStore | None = None,
     engine_factory: Callable[[], Engine] = _fresh_engine,
 ) -> FastAPI:
-    checkpoint_store = checkpoint_store or CheckpointStore()
+    state_store = state_store or StateStore()
     booking_store = booking_store or BookingStore()
     booking_host = BookingHost(booking_store=booking_store)
 
-    app = FastAPI(title="checkpoint-continuation-fastapi-example")
-    app.state.checkpoint_store = checkpoint_store
+    app = FastAPI(title="state-persistence-fastapi-example")
+    app.state.state_store = state_store
     app.state.booking_store = booking_store
     app.state.booking_host = booking_host
     app.state.engine_factory = engine_factory
@@ -133,7 +133,7 @@ def create_app(
         compiler_input = "use chicago_trip"
         decision = engine.step(compiler_input)
         state_json = engine.export_json()
-        checkpoint_store.save(request.booking_id, state_json)
+        state_store.save(request.booking_id, state_json)
 
         selected_itinerary = select_itinerary_from_policies(engine.policies)
         decision_kind: Literal["clarify", "update", "passthrough"]
@@ -159,7 +159,7 @@ def create_app(
     def apply_trip(request: ChangeTripRequest) -> ApplyTripResponse:
         booking = booking_store.get_or_create(request.booking_id)
         try:
-            state_json = checkpoint_store.load(request.booking_id)
+            state_json = state_store.load(request.booking_id)
         except KeyError as exc:
             raise HTTPException(
                 status_code=404, detail="saved state not found"
