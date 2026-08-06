@@ -13,12 +13,10 @@ from importlib import import_module
 from typing import Any, TypedDict, cast
 
 from context_compiler import (
+    DecisionKind,
     POLICY_USE,
     PolicyValue,
     create_engine,
-    get_clarify_prompt,
-    get_decision_state,
-    is_clarify,
 )
 from context_compiler.engine import Engine
 
@@ -102,22 +100,18 @@ def plan_turn(user_input: str, engine: Engine) -> TurnPlan:
     """Run compiler step and decide whether to request LiteLLM structured output."""
 
     decision = engine.step(user_input)
-    if is_clarify(decision):
+    if decision["kind"] == DecisionKind.ERROR:
         return {
             "decision_kind": "clarify",
-            "clarify_prompt": get_clarify_prompt(decision),
+            "clarify_prompt": decision["message"],
             "selected_response_format_item": None,
             "response_format": None,
         }
 
-    decision_state = get_decision_state(decision)
-    policies = (
-        decision_state["policies"] if decision_state is not None else engine.policies
-    )
-    selected_item, response_format = select_litellm_response_format(policies)
+    selected_item, response_format = select_litellm_response_format(engine.policies)
 
     return {
-        "decision_kind": str(decision["kind"]),
+        "decision_kind": str(decision["kind"].value),
         "clarify_prompt": None,
         "selected_response_format_item": selected_item,
         "response_format": response_format,

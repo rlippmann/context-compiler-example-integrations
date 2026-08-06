@@ -2,15 +2,14 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Literal, TypedDict, cast
+from typing import Literal, TypedDict
 
 from context_compiler import (
+    DecisionKind,
     POLICY_PROHIBIT,
     POLICY_USE,
     PolicyValue,
     create_engine,
-    get_decision_state,
-    is_clarify,
 )
 from context_compiler.engine import Engine
 
@@ -50,11 +49,13 @@ def _decision_kind_name(
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
-    kind_name = getattr(kind, "value", None)
-    if kind_name not in {"clarify", "update", "passthrough"}:
-        raise ValueError(f"unexpected decision kind: {kind_name}")
-
-    return cast(Literal["clarify", "update", "passthrough"], kind_name)
+    if kind == DecisionKind.ERROR:
+        return "clarify"
+    if kind == DecisionKind.UPDATE:
+        return "update"
+    if kind == DecisionKind.NO_DIRECTIVE:
+        return "passthrough"
+    raise ValueError(f"unexpected decision kind: {kind}")
 
 
 @dataclass
@@ -120,10 +121,10 @@ def handle_expense_turn(
 
     decision = engine.step(compiler_input)
 
-    if is_clarify(decision):
+    if decision["kind"] == DecisionKind.ERROR:
         return {
             "decision_kind": "clarify",
-            "prompt_to_user": decision.get("prompt_to_user"),
+            "prompt_to_user": decision["message"],
             "execution_result": {
                 "authorization_state": "blocked",
                 "executed": False,
@@ -133,19 +134,12 @@ def handle_expense_turn(
             },
         }
 
-    authoritative_state = get_decision_state(decision)
-    if authoritative_state is None:
-        authoritative_state = {
-            "premise": engine.premise,
-            "policies": dict(engine.policies),
-        }
-
     return {
         "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision.get("prompt_to_user"),
+        "prompt_to_user": decision["message"],
         "execution_result": execute_expense_if_authorized(
             request,
-            policies=authoritative_state["policies"],
+            policies=engine.policies,
             host=host,
         ),
     }

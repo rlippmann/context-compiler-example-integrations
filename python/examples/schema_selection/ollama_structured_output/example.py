@@ -14,12 +14,10 @@ from collections.abc import Mapping
 from typing import Any, TypedDict, cast
 
 from context_compiler import (
+    DecisionKind,
     POLICY_USE,
     PolicyValue,
     create_engine,
-    get_clarify_prompt,
-    get_decision_state,
-    is_clarify,
 )
 from context_compiler.engine import Engine
 
@@ -80,22 +78,18 @@ def plan_turn(user_input: str, engine: Engine) -> TurnPlan:
     """Run compiler step and decide whether to request Ollama structured output."""
 
     decision = engine.step(user_input)
-    if is_clarify(decision):
+    if decision["kind"] == DecisionKind.ERROR:
         return {
             "decision_kind": "clarify",
-            "clarify_prompt": get_clarify_prompt(decision),
+            "clarify_prompt": decision["message"],
             "selected_schema_item": None,
             "format_schema": None,
         }
 
-    decision_state = get_decision_state(decision)
-    policies = (
-        decision_state["policies"] if decision_state is not None else engine.policies
-    )
-    selected_item, format_schema = select_ollama_format_schema(policies)
+    selected_item, format_schema = select_ollama_format_schema(engine.policies)
 
     return {
-        "decision_kind": str(decision["kind"]),
+        "decision_kind": str(decision["kind"].value),
         "clarify_prompt": None,
         "selected_schema_item": selected_item,
         "format_schema": format_schema,

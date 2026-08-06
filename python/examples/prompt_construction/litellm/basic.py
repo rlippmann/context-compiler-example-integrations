@@ -19,18 +19,13 @@ from importlib import import_module
 from typing import TypedDict, cast
 
 from context_compiler import (
-    DECISION_CLARIFY,
-    DECISION_PASSTHROUGH,
+    DecisionKind,
     DECISION_UPDATE,
     POLICY_PROHIBIT,
     POLICY_USE,
     State,
-    get_clarify_prompt,
-    get_decision_state,
     get_policy_items,
     get_premise_value,
-    is_clarify,
-    is_passthrough,
     is_update,
     state_diff,
 )
@@ -213,7 +208,7 @@ def _persist_session_checkpoint_if_needed(
 ) -> None:
     if session_key is None:
         return
-    if kind not in {DECISION_UPDATE, DECISION_CLARIFY}:
+    if kind not in {DECISION_UPDATE, DecisionKind.ERROR.value}:
         return
     _CHECKPOINTS_BY_SESSION_KEY[session_key] = engine.export_checkpoint_json()
 
@@ -318,18 +313,18 @@ def handle_turn(
     checkpoint_before = engine.export_checkpoint() if has_pending_before else None
     logger.debug("litellm_basic: engine_input=%s", f"user_input len={len(user_input)}")
     decision = engine.step(user_input)
-    if is_clarify(decision):
-        kind = DECISION_CLARIFY
+    if decision["kind"] == DecisionKind.ERROR:
+        kind = DecisionKind.ERROR.value
     elif is_update(decision):
         kind = DECISION_UPDATE
     else:
-        kind = DECISION_PASSTHROUGH
+        kind = DecisionKind.NO_DIRECTIVE.value
     logger.debug("litellm_basic: decision=%s", kind)
     near_miss_prompt = _near_miss_directive_clarify(user_input)
 
-    if is_clarify(decision):
+    if decision["kind"] == DecisionKind.ERROR:
         _persist_session_checkpoint_if_needed(engine, kind, session_key)
-        response_text = near_miss_prompt or get_clarify_prompt(decision) or ""
+        response_text = near_miss_prompt or decision["message"] or ""
         return _append_trace(
             response_text,
             original_input=user_input,
@@ -339,12 +334,12 @@ def handle_turn(
             state_after=engine.state,
             llm_called=False,
         )
-    if near_miss_prompt is not None and is_passthrough(decision):
+    if near_miss_prompt is not None and decision["kind"] == DecisionKind.NO_DIRECTIVE:
         return _append_trace(
             near_miss_prompt,
             original_input=user_input,
             compiler_input=user_input,
-            decision={"kind": DECISION_CLARIFY, "prompt_to_user": near_miss_prompt},
+            decision={"kind": DecisionKind.ERROR, "message": near_miss_prompt},
             state_before=state_before,
             state_after=engine.state,
             llm_called=False,
@@ -377,9 +372,7 @@ def handle_turn(
             llm_called=False,
         )
 
-    decision_state = get_decision_state(decision)
-    compiled_state = decision_state if decision_state is not None else engine.state
-    messages = _build_messages(user_input, compiled_state)
+    messages = _build_messages(user_input, engine.state)
     response_text = _call_litellm(messages)
     return _append_trace(
         response_text,
@@ -387,6 +380,6 @@ def handle_turn(
         compiler_input=user_input,
         decision=decision,
         state_before=state_before,
-        state_after=compiled_state,
+        state_after=engine.state,
         llm_called=True,
     )

@@ -4,7 +4,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Literal
 
-from context_compiler import POLICY_USE, PolicyValue, create_engine
+from context_compiler import DecisionKind, POLICY_USE, PolicyValue, create_engine
 from context_compiler.engine import Checkpoint, Engine
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -148,8 +148,10 @@ def create_app(
         checkpoint_store.save(request.booking_id, engine.export_checkpoint())
 
         return {
-            "decision_kind": "clarify",
-            "prompt_to_user": decision.get("prompt_to_user"),
+            "decision_kind": "clarify"
+            if decision["kind"] == DecisionKind.ERROR
+            else "update",
+            "prompt_to_user": decision["message"],
             "checkpoint_pending": engine.has_pending_clarification(),
             "booking": {
                 "booking_id": booking["booking_id"],
@@ -176,8 +178,14 @@ def create_app(
             )
 
         return {
-            "decision_kind": decision["kind"].value,
-            "prompt_to_user": decision.get("prompt_to_user"),
+            "decision_kind": (
+                "clarify"
+                if decision["kind"] == DecisionKind.ERROR
+                else "update"
+                if decision["kind"] == DecisionKind.UPDATE
+                else "passthrough"
+            ),
+            "prompt_to_user": decision["message"],
             "checkpoint_pending": engine.has_pending_clarification(),
             "host_applied_change": host_applied_change,
             "booking": {

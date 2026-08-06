@@ -8,12 +8,11 @@ from uuid import uuid4
 import chromadb
 from chromadb.api.models.Collection import Collection
 from context_compiler import (
+    DecisionKind,
     POLICY_PROHIBIT,
     POLICY_USE,
     PolicyValue,
     create_engine,
-    get_decision_state,
-    is_clarify,
 )
 from context_compiler.engine import Engine
 
@@ -85,10 +84,13 @@ def _decision_kind_name(
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
-    kind_name = getattr(kind, "value", None)
-    if kind_name not in {"clarify", "update", "passthrough"}:
-        raise ValueError(f"unexpected decision kind: {kind_name}")
-    return cast(Literal["clarify", "update", "passthrough"], kind_name)
+    if kind == DecisionKind.ERROR:
+        return "clarify"
+    if kind == DecisionKind.UPDATE:
+        return "update"
+    if kind == DecisionKind.NO_DIRECTIVE:
+        return "passthrough"
+    raise ValueError(f"unexpected decision kind: {kind}")
 
 
 def allowed_audiences_from_policies(policies: Mapping[str, PolicyValue]) -> set[str]:
@@ -255,10 +257,10 @@ def handle_retrieval_turn(
 
     decision = engine.step(compiler_input)
 
-    if is_clarify(decision):
+    if decision["kind"] == DecisionKind.ERROR:
         return {
             "decision_kind": "clarify",
-            "prompt_to_user": decision.get("prompt_to_user"),
+            "prompt_to_user": decision["message"],
             "retrieval_result": {
                 "query": query,
                 "eligible_document_ids": [],
@@ -267,19 +269,12 @@ def handle_retrieval_turn(
             },
         }
 
-    authoritative_state = get_decision_state(decision)
-    if authoritative_state is None:
-        authoritative_state = {
-            "premise": engine.premise,
-            "policies": dict(engine.policies),
-        }
-
     return {
         "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision.get("prompt_to_user"),
+        "prompt_to_user": decision["message"],
         "retrieval_result": retrieve_hr_documents(
             query,
-            policies=authoritative_state["policies"],
+            policies=engine.policies,
             retriever=retriever,
         ),
     }
