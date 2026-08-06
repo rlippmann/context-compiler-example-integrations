@@ -1,22 +1,20 @@
-from context_compiler import State, create_engine
+from context_compiler import create_engine
 
 from context_compiler_example_integrations.examples.retrieval_filtering.chromadb_hr_policy_lookup.example import (
     EMPLOYEE_ACCESS,
     MANAGER_ACCESS,
     ChromaHRPolicyRetriever,
-    allowed_audiences_from_state,
+    allowed_audiences_from_policies,
     handle_retrieval_turn,
     retrieve_hr_documents,
     run_demo,
 )
 
 
-def employee_prohibited_state() -> State:
-    return {
-        "version": 2,
-        "premise": None,
-        "policies": {EMPLOYEE_ACCESS: "prohibit"},
-    }
+def employee_prohibited_engine():
+    engine = create_engine()
+    engine.step(f"prohibit {EMPLOYEE_ACCESS}")
+    return engine
 
 
 def test_employee_access_retrieves_employee_documents_only() -> None:
@@ -26,7 +24,7 @@ def test_employee_access_retrieves_employee_documents_only() -> None:
 
     result = retrieve_hr_documents(
         "handbook benefits",
-        state=engine.state,
+        policies=engine.policies,
         retriever=retriever,
     )
 
@@ -41,7 +39,7 @@ def test_manager_access_retrieves_manager_documents() -> None:
 
     result = retrieve_hr_documents(
         "manager approvals handbook",
-        state=engine.state,
+        policies=engine.policies,
         retriever=retriever,
     )
 
@@ -59,7 +57,7 @@ def test_restricted_documents_are_filtered_before_return() -> None:
 
     result = retrieve_hr_documents(
         "executive compensation",
-        state=engine.state,
+        policies=engine.policies,
         retriever=retriever,
     )
 
@@ -79,7 +77,7 @@ def test_adversarial_queries_do_not_bypass_filtering() -> None:
     ):
         result = retrieve_hr_documents(
             query,
-            state=engine.state,
+            policies=engine.policies,
             retriever=retriever,
         )
         assert result["eligible_document_ids"] == ["employee_handbook"]
@@ -96,17 +94,17 @@ def test_retrieval_behavior_changes_when_authoritative_state_changes() -> None:
 
     absent_result = retrieve_hr_documents(
         "handbook benefits",
-        state=absent_engine.state,
+        policies=absent_engine.policies,
         retriever=retriever,
     )
     employee_result = retrieve_hr_documents(
         "handbook benefits",
-        state=employee_engine.state,
+        policies=employee_engine.policies,
         retriever=retriever,
     )
     manager_result = retrieve_hr_documents(
         "manager approvals handbook",
-        state=manager_engine.state,
+        policies=manager_engine.policies,
         retriever=retriever,
     )
 
@@ -144,16 +142,16 @@ def test_contradictory_directives_clarify_instead_of_silent_overwrite() -> None:
 def test_absent_state_uses_documented_default_behavior() -> None:
     engine = create_engine()
 
-    assert allowed_audiences_from_state(engine.state) == set()
+    assert allowed_audiences_from_policies(engine.policies) == set()
 
 
 def test_prohibited_state_blocks_retrieval() -> None:
-    engine = create_engine(state=employee_prohibited_state())
+    engine = employee_prohibited_engine()
     retriever = ChromaHRPolicyRetriever.build()
 
     result = retrieve_hr_documents(
         "handbook benefits",
-        state=engine.state,
+        policies=engine.policies,
         retriever=retriever,
     )
 

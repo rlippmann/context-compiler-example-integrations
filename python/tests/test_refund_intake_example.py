@@ -9,7 +9,7 @@ from context_compiler_example_integrations.examples.schema_selection.refund_inta
     run_demo,
     run_intake,
     select_schema_from_order_intake_context,
-    select_schema_from_state,
+    select_schema_from_semantics,
 )
 
 
@@ -37,7 +37,10 @@ def test_adversarial_technical_support_path_is_not_called() -> None:
     refund_handler = IntakeHandler("refund_intake")
     technical_support_handler = IntakeHandler("technical_support")
 
-    selected_schema = select_schema_from_state(engine.state)
+    selected_schema = select_schema_from_semantics(
+        premise=engine.premise,
+        policies=engine.policies,
+    )
     result = run_intake(
         request,
         selected_schema=selected_schema,
@@ -66,7 +69,10 @@ def test_technical_support_policy_selects_technical_support_handler() -> None:
     refund_handler = IntakeHandler("refund_intake")
     technical_support_handler = IntakeHandler("technical_support")
 
-    selected_schema = select_schema_from_state(engine.state)
+    selected_schema = select_schema_from_semantics(
+        premise=engine.premise,
+        policies=engine.policies,
+    )
     result = run_intake(
         request,
         selected_schema=selected_schema,
@@ -139,7 +145,10 @@ def test_damaged_order_premise_selects_refund_schema() -> None:
     refund_handler = IntakeHandler("refund_intake")
     technical_support_handler = IntakeHandler("technical_support")
 
-    selected_schema = select_schema_from_state(engine.state)
+    selected_schema = select_schema_from_semantics(
+        premise=engine.premise,
+        policies=engine.policies,
+    )
     result = run_intake(
         request,
         selected_schema=selected_schema,
@@ -168,7 +177,10 @@ def test_digital_login_failure_premise_selects_technical_support_schema() -> Non
     refund_handler = IntakeHandler("refund_intake")
     technical_support_handler = IntakeHandler("technical_support")
 
-    selected_schema = select_schema_from_state(engine.state)
+    selected_schema = select_schema_from_semantics(
+        premise=engine.premise,
+        policies=engine.policies,
+    )
     result = run_intake(
         request,
         selected_schema=selected_schema,
@@ -189,7 +201,10 @@ def test_digital_login_failure_premise_selects_technical_support_schema() -> Non
 def test_no_matching_policy_selects_no_schema() -> None:
     engine = create_engine()
 
-    selected_schema = select_schema_from_state(engine.state)
+    selected_schema = select_schema_from_semantics(
+        premise=engine.premise,
+        policies=engine.policies,
+    )
 
     assert selected_schema is None
 
@@ -198,7 +213,10 @@ def test_unrelated_premise_selects_no_schema() -> None:
     engine = create_engine()
     engine.step("set premise customer asked about changing a mailing address")
 
-    selected_schema = select_schema_from_state(engine.state)
+    selected_schema = select_schema_from_semantics(
+        premise=engine.premise,
+        policies=engine.policies,
+    )
 
     assert selected_schema is None
 
@@ -213,7 +231,10 @@ def test_refund_like_wording_without_state_does_not_select_schema() -> None:
     refund_handler = IntakeHandler("refund_intake")
     technical_support_handler = IntakeHandler("technical_support")
 
-    selected_schema = select_schema_from_state(engine.state)
+    selected_schema = select_schema_from_semantics(
+        premise=engine.premise,
+        policies=engine.policies,
+    )
     result = run_intake(
         request,
         selected_schema=selected_schema,
@@ -238,7 +259,10 @@ def test_adversarial_user_text_does_not_override_refund_premise() -> None:
     refund_handler = IntakeHandler("refund_intake")
     technical_support_handler = IntakeHandler("technical_support")
 
-    selected_schema = select_schema_from_state(engine.state)
+    selected_schema = select_schema_from_semantics(
+        premise=engine.premise,
+        policies=engine.policies,
+    )
     result = run_intake(
         request,
         selected_schema=selected_schema,

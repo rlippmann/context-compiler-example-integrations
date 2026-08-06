@@ -47,7 +47,10 @@ def test_live_model_tool_surface_changes_with_authoritative_state(
     allowed_engine.step("use calendar_admin")
     allowed_result = run_live_model_turn(
         user_intent=USER_INTENT,
-        authoritative_state=allowed_engine.state,
+        authoritative_state={
+            "premise": allowed_engine.premise,
+            "policies": dict(allowed_engine.policies),
+        },
         artifact_path=artifact_path,
     )
 
@@ -65,7 +68,10 @@ def test_live_model_tool_surface_changes_with_authoritative_state(
 
     clarify_result = run_live_model_turn(
         user_intent=USER_INTENT,
-        authoritative_state=allowed_engine.state,
+        authoritative_state={
+            "premise": allowed_engine.premise,
+            "policies": dict(allowed_engine.policies),
+        },
         compiler_input="prohibit calendar_admin",
         artifact_path=artifact_path,
     )

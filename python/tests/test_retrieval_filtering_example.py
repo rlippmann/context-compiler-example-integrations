@@ -1,11 +1,11 @@
-from context_compiler import State, create_engine
+from context_compiler import create_engine
 
 from context_compiler_example_integrations.examples.retrieval_filtering.hr_policy_lookup.example import (
     EMPLOYEE_ACCESS,
     GENERAL_HANDBOOK_PREMISE,
     MANAGER_ACCESS,
     HRPolicyRetriever,
-    allowed_audiences_from_state,
+    allowed_audiences_from_policies,
     classify_premise_as_case_context,
     example_documents,
     handle_retrieval_turn,
@@ -16,20 +16,17 @@ from context_compiler_example_integrations.examples.retrieval_filtering.hr_polic
 )
 
 
-def employee_prohibited_state() -> State:
-    return {
-        "version": 2,
-        "premise": None,
-        "policies": {EMPLOYEE_ACCESS: "prohibit"},
-    }
+def employee_prohibited_engine():
+    engine = create_engine()
+    engine.step(f"prohibit {EMPLOYEE_ACCESS}")
+    return engine
 
 
-def premise_state(premise: str) -> State:
-    return {
-        "version": 2,
-        "premise": premise,
-        "policies": {EMPLOYEE_ACCESS: "use"},
-    }
+def premise_engine(premise: str):
+    engine = create_engine()
+    engine.step(f"use {EMPLOYEE_ACCESS}")
+    engine.step(f"set premise {premise}")
+    return engine
 
 
 def test_employee_access_retrieves_employee_documents_only() -> None:
@@ -39,7 +36,8 @@ def test_employee_access_retrieves_employee_documents_only() -> None:
 
     result = retrieve_hr_documents(
         "handbook policy",
-        state=engine.state,
+        premise=engine.premise,
+        policies=engine.policies,
         retriever=retriever,
     )
 
@@ -57,7 +55,8 @@ def test_manager_access_retrieves_manager_documents() -> None:
 
     result = retrieve_hr_documents(
         "manager handbook policy",
-        state=engine.state,
+        premise=engine.premise,
+        policies=engine.policies,
         retriever=retriever,
     )
 
@@ -79,7 +78,8 @@ def test_restricted_documents_are_filtered() -> None:
 
     result = retrieve_hr_documents(
         "executive compensation",
-        state=engine.state,
+        premise=engine.premise,
+        policies=engine.policies,
         retriever=retriever,
     )
 
@@ -102,7 +102,8 @@ def test_adversarial_queries_do_not_bypass_filtering() -> None:
     ):
         result = retrieve_hr_documents(
             query,
-            state=engine.state,
+            premise=engine.premise,
+            policies=engine.policies,
             retriever=retriever,
         )
         assert result["eligible_document_ids"] == [
@@ -122,17 +123,20 @@ def test_retrieval_behavior_changes_when_authoritative_state_changes() -> None:
 
     absent_result = retrieve_hr_documents(
         "handbook policy",
-        state=absent_engine.state,
+        premise=absent_engine.premise,
+        policies=absent_engine.policies,
         retriever=retriever,
     )
     employee_result = retrieve_hr_documents(
         "handbook policy",
-        state=employee_engine.state,
+        premise=employee_engine.premise,
+        policies=employee_engine.policies,
         retriever=retriever,
     )
     manager_result = retrieve_hr_documents(
         "handbook policy",
-        state=manager_engine.state,
+        premise=manager_engine.premise,
+        policies=manager_engine.policies,
         retriever=retriever,
     )
 
@@ -146,14 +150,18 @@ def test_retrieval_behavior_changes_when_authoritative_state_changes() -> None:
 
 def test_same_query_with_different_premises_changes_employee_results() -> None:
     retriever = HRPolicyRetriever(documents=example_documents())
+    leave_engine = premise_engine(LEAVE_CASE_PREMISE)
+    handbook_engine = premise_engine(GENERAL_HANDBOOK_PREMISE)
     leave_result = retrieve_hr_documents(
         "leave",
-        state=premise_state(LEAVE_CASE_PREMISE),
+        premise=leave_engine.premise,
+        policies=leave_engine.policies,
         retriever=retriever,
     )
     handbook_result = retrieve_hr_documents(
         "leave",
-        state=premise_state(GENERAL_HANDBOOK_PREMISE),
+        premise=handbook_engine.premise,
+        policies=handbook_engine.policies,
         retriever=retriever,
     )
 
@@ -175,7 +183,12 @@ def test_premise_does_not_expand_access_beyond_eligible_documents() -> None:
     engine.step(f"set premise {STAFFING_CASE_PREMISE}")
     retriever = HRPolicyRetriever(documents=example_documents())
 
-    result = retrieve_hr_documents("staffing", state=engine.state, retriever=retriever)
+    result = retrieve_hr_documents(
+        "staffing",
+        premise=engine.premise,
+        policies=engine.policies,
+        retriever=retriever,
+    )
 
     assert result["eligible_document_ids"] == [
         "employee_handbook",
@@ -188,15 +201,18 @@ def test_absent_or_unknown_premise_does_not_invent_results() -> None:
     retriever = HRPolicyRetriever(documents=example_documents())
     absent_engine = create_engine()
     absent_engine.step(f"use {EMPLOYEE_ACCESS}")
+    unknown_engine = premise_engine("case concerns badge printer toner levels")
 
     absent_result = retrieve_hr_documents(
         "leave",
-        state=absent_engine.state,
+        premise=absent_engine.premise,
+        policies=absent_engine.policies,
         retriever=retriever,
     )
     unknown_result = retrieve_hr_documents(
         "leave",
-        state=premise_state("case concerns badge printer toner levels"),
+        premise=unknown_engine.premise,
+        policies=unknown_engine.policies,
         retriever=retriever,
     )
 
@@ -230,7 +246,7 @@ def test_contradictory_directives_clarify_instead_of_silent_overwrite() -> None:
 def test_absent_state_uses_documented_default_behavior() -> None:
     engine = create_engine()
 
-    assert allowed_audiences_from_state(engine.state) == set()
+    assert allowed_audiences_from_policies(engine.policies) == set()
 
 
 def test_premise_classifier_maps_saved_case_facts() -> None:
@@ -247,12 +263,13 @@ def test_premise_classifier_maps_saved_case_facts() -> None:
 
 
 def test_prohibited_state_blocks_retrieval() -> None:
-    engine = create_engine(state=employee_prohibited_state())
+    engine = employee_prohibited_engine()
     retriever = HRPolicyRetriever(documents=example_documents())
 
     result = retrieve_hr_documents(
         "handbook policy",
-        state=engine.state,
+        premise=engine.premise,
+        policies=engine.policies,
         retriever=retriever,
     )
 
