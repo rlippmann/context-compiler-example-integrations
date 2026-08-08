@@ -206,7 +206,7 @@ def _start_proxy_runtime(
         config_path.unlink(missing_ok=True)
 
 
-def test_litellm_proxy_runtime_blocks_confirmation_before_upstream(
+def test_litellm_proxy_runtime_persists_state_without_removed_confirmation_flow(
     litellm_proxy_runtime_basic: _ProxyRuntime,
     litellm_runtime_stub: _ThreadedStubServer,
 ) -> None:
@@ -216,9 +216,17 @@ def test_litellm_proxy_runtime_blocks_confirmation_before_upstream(
         session_key="runtime-basic-confirm",
     )
 
-    assert response.status_code == 400
-    assert "Did you mean to use" in response.text
-    assert litellm_runtime_stub.captured_requests == []
+    assert response.status_code == 200
+    assert response.json()["choices"][0]["message"]["content"] == "stubbed reply"
+    assert len(litellm_runtime_stub.captured_requests) == 1
+
+    forwarded_payload = litellm_runtime_stub.captured_requests[0]
+    forwarded_messages = forwarded_payload["messages"]
+    assert isinstance(forwarded_messages, list)
+    assert len(forwarded_messages) == 2
+    assert forwarded_messages[1:] == [
+        {"role": "user", "content": "use kubectl instead of docker"}
+    ]
 
 
 def test_litellm_proxy_runtime_forwards_allowed_request_with_contract(
@@ -267,7 +275,7 @@ def test_litellm_proxy_runtime_forwards_allowed_request_with_contract(
     assert forwarded_messages[1:] == original_messages
 
 
-def test_litellm_proxy_runtime_with_directive_drafter_blocks_confirmation_before_upstream(
+def test_litellm_proxy_runtime_with_directive_drafter_persists_state_without_removed_confirmation_flow(
     litellm_proxy_runtime_with_directive_drafter: _ProxyRuntime,
     litellm_runtime_stub: _ThreadedStubServer,
 ) -> None:
@@ -277,9 +285,17 @@ def test_litellm_proxy_runtime_with_directive_drafter_blocks_confirmation_before
         session_key="runtime-drafter-confirm",
     )
 
-    assert response.status_code == 400
-    assert "Did you mean to use" in response.text
-    assert litellm_runtime_stub.captured_requests == []
+    assert response.status_code == 200
+    assert response.json()["choices"][0]["message"]["content"] == "stubbed reply"
+    assert len(litellm_runtime_stub.captured_requests) == 1
+
+    forwarded_payload = litellm_runtime_stub.captured_requests[0]
+    forwarded_messages = forwarded_payload["messages"]
+    assert isinstance(forwarded_messages, list)
+    assert len(forwarded_messages) == 2
+    assert forwarded_messages[1:] == [
+        {"role": "user", "content": "use kubectl instead of docker"}
+    ]
 
 
 def test_litellm_proxy_runtime_with_directive_drafter_forwards_allowed_request_with_contract(
