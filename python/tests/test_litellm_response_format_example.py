@@ -77,7 +77,7 @@ def litellm_runtime_stub():
 def test_no_matching_policy_selects_no_response_format() -> None:
     plan = plan_turn("Summarize this.", create_engine())
 
-    assert plan["decision_kind"] == "passthrough"
+    assert plan["decision_kind"] == "no_directive"
     assert plan["selected_response_format_item"] is None
     assert plan["response_format"] is None
 

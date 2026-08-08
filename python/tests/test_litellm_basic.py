@@ -13,8 +13,6 @@ MODULE_NAME = (
 @pytest.fixture
 def basic_module():
     module = importlib.import_module(MODULE_NAME)
-    module._CHECKPOINTS_BY_SESSION_KEY.clear()
-    module._RESTORED_ENGINE_BY_SESSION_KEY.clear()
     return module
 
 
@@ -114,30 +112,28 @@ def test_saved_premise_and_policy_appear_in_litellm_system_contract(
     assert "Items marked use: concise_style." in system_prompt
 
 
-def test_checkpoint_restore_and_confirmation_resume_skip_downstream_call(
+def test_session_key_does_not_restore_removed_confirmation_continuation(
     basic_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     llm_calls: list[object] = []
     monkeypatch.setattr(
         basic_module,
         "_call_litellm",
-        lambda messages: llm_calls.append(messages) or "should not be used",
+        lambda messages: llm_calls.append(messages) or "downstream reply",
     )
 
     first_engine = create_engine()
-    clarify = basic_module.handle_turn(
+    first = basic_module.handle_turn(
         "use podman instead of docker", first_engine, session_key="session-1"
     )
     second_engine = create_engine()
-    resume = basic_module.handle_turn("yes", second_engine, session_key="session-1")
+    follow_up = basic_module.handle_turn("yes", second_engine, session_key="session-1")
 
-    assert clarify == 'Did you mean to use "podman" instead?'
-    assert resume == "State updated: Use podman."
-    assert llm_calls == []
-    assert second_engine.export_checkpoint()["authoritative_state"]["policies"] == {
-        "podman": "use"
-    }
-    assert basic_module._CHECKPOINTS_BY_SESSION_KEY["session-1"]
+    assert first == "State updated: Use podman."
+    assert follow_up == "downstream reply"
+    assert len(llm_calls) == 1
+    assert dict(first_engine.policies) == {"podman": "use"}
+    assert dict(second_engine.policies) == {}
 
 
 def test_near_miss_directive_returns_clarify_text_and_skips_downstream(
@@ -156,23 +152,23 @@ def test_near_miss_directive_returns_clarify_text_and_skips_downstream(
     assert llm_calls == []
 
 
-def test_near_miss_confirmation_returns_existing_clarify_text_and_skips_downstream(
+def test_confirmation_text_without_pending_flow_uses_normal_turn_handling(
     basic_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     llm_calls: list[object] = []
     monkeypatch.setattr(
         basic_module,
         "_call_litellm",
-        lambda messages: llm_calls.append(messages) or "should not be used",
+        lambda messages: llm_calls.append(messages) or "downstream reply",
     )
 
     engine = create_engine()
-    clarify = basic_module.handle_turn("use podman instead of docker", engine)
+    first = basic_module.handle_turn("use podman instead of docker", engine)
     retry = basic_module.handle_turn("yess", engine)
 
-    assert clarify == 'Did you mean to use "podman" instead?'
-    assert retry == 'Did you mean to use "podman" instead?'
-    assert llm_calls == []
+    assert first == "State updated: Use podman."
+    assert retry == "downstream reply"
+    assert len(llm_calls) == 1
 
 
 def test_missing_litellm_response_content_raises_runtime_error(

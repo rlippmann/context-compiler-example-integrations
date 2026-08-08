@@ -132,7 +132,7 @@ def test_persistent_mode_restores_checkpoint_and_isolates_sessions(monkeypatch) 
     assert "peanuts" not in str(other["messages"][0]["content"])
 
 
-def test_pending_clarification_persists_and_later_confirmation_resolves(
+def test_persistent_mode_saves_updated_authoritative_state_for_follow_up_turns(
     monkeypatch,
 ) -> None:
     module = _load_proxy_module(monkeypatch, "litellm_proxy_pending")
@@ -163,15 +163,14 @@ def test_pending_clarification_persists_and_later_confirmation_resolves(
         hook.async_pre_call_hook(None, None, confirm_data, "completion")
     )
 
-    assert isinstance(first, str)
-    assert "Did you mean" in first
+    assert first is clarify_data
     assert second is confirm_data
     checkpoint = module.CHECKPOINT_STORE.load("chat-clarify")
     assert checkpoint is not None
-    assert checkpoint.get("pending") is None
+    assert checkpoint["policies"] == {"kubectl": "use"}
 
 
-def test_pending_clarification_persists_and_later_rejection_resolves(
+def test_persistent_mode_does_not_treat_confirmation_text_as_removed_resume_flow(
     monkeypatch,
 ) -> None:
     module = _load_proxy_module(monkeypatch, "litellm_proxy_pending_no")
@@ -202,31 +201,31 @@ def test_pending_clarification_persists_and_later_rejection_resolves(
         hook.async_pre_call_hook(None, None, reject_data, "completion")
     )
 
-    assert isinstance(first, str)
+    assert first is clarify_data
     assert second is reject_data
     checkpoint = module.CHECKPOINT_STORE.load("chat-clarify-no")
     assert checkpoint is not None
-    assert checkpoint.get("pending") is None
+    assert checkpoint["policies"] == {"kubectl": "use"}
     assert "docker" not in str(reject_data["messages"][0]["content"])
 
 
-def test_checkpoint_is_saved_after_clarify(monkeypatch) -> None:
-    module = _load_proxy_module(monkeypatch, "litellm_proxy_save_after_clarify")
+def test_state_is_saved_after_update(monkeypatch) -> None:
+    module = _load_proxy_module(monkeypatch, "litellm_proxy_save_after_update_path")
     module.CHECKPOINT_STORE.clear()
     hook = module.ContextCompilerPreCallHook()
     data = {
         "model": "demo",
         "context_compiler_mode": "persistent",
-        "context_compiler_session_key": "chat-save-clarify",
-        "messages": [{"role": "user", "content": "use kubectl instead of docker"}],
+        "context_compiler_session_key": "chat-save-update-path",
+        "messages": [{"role": "user", "content": "prohibit peanuts"}],
     }
 
     result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
 
-    assert isinstance(result, str)
-    checkpoint = module.CHECKPOINT_STORE.load("chat-save-clarify")
+    assert result is data
+    checkpoint = module.CHECKPOINT_STORE.load("chat-save-update-path")
     assert checkpoint is not None
-    assert checkpoint.get("pending") is not None
+    assert checkpoint["policies"] == {"peanuts": "prohibit"}
 
 
 def test_normal_update_explicitly_saves_checkpoint(monkeypatch) -> None:
@@ -245,8 +244,7 @@ def test_normal_update_explicitly_saves_checkpoint(monkeypatch) -> None:
     assert result is data
     checkpoint = module.CHECKPOINT_STORE.load("chat-save-update")
     assert checkpoint is not None
-    assert checkpoint["authoritative_state"]["policies"] == {"peanuts": "prohibit"}
-    assert checkpoint.get("pending") is None
+    assert checkpoint["policies"] == {"peanuts": "prohibit"}
 
 
 def test_current_turn_is_processed_exactly_once(monkeypatch) -> None:

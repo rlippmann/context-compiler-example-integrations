@@ -62,9 +62,7 @@ def test_drafter_runs_only_for_current_turn(monkeypatch) -> None:
     result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
 
     assert result is data
-    assert drafted_calls == [
-        ("please use docker", {"premise": None, "policies": {}, "version": 2})
-    ]
+    assert drafted_calls == [("please use docker", {"premise": None, "policies": {}})]
 
 
 def test_drafter_output_applies_to_current_turn_only(monkeypatch) -> None:
@@ -91,7 +89,7 @@ def test_drafter_output_applies_to_current_turn_only(monkeypatch) -> None:
     assert "peanuts" not in str(data["messages"][0]["content"])
 
 
-def test_pending_clarification_bypasses_drafting_and_later_confirmation_resolves(
+def test_persistent_mode_with_drafter_saves_updated_state_for_follow_up_turns(
     monkeypatch,
 ) -> None:
     module = _load_module(monkeypatch, "litellm_proxy_with_drafter_pending")
@@ -130,12 +128,12 @@ def test_pending_clarification_bypasses_drafting_and_later_confirmation_resolves
         hook.async_pre_call_hook(None, None, second, "completion")
     )
 
-    assert isinstance(first_result, str)
+    assert first_result is first
     assert second_result is second
-    assert drafted_inputs == ["use kubectl instead of docker"]
+    assert drafted_inputs == ["use kubectl instead of docker", "yes"]
     checkpoint = module.CHECKPOINT_STORE.load("chat-drafter-pending")
     assert checkpoint is not None
-    assert checkpoint.get("pending") is None
+    assert checkpoint["policies"] == {"kubectl": "use", "docker": "use"}
 
 
 def test_missing_session_key_fails_clearly_in_persistent_mode(monkeypatch) -> None:
@@ -195,7 +193,7 @@ def test_stateless_mode_has_no_cross_call_continuity(monkeypatch) -> None:
     assert "peanuts" not in str(second["messages"][0]["content"])
 
 
-def test_pending_clarification_bypasses_drafting_and_later_rejection_resolves(
+def test_persistent_mode_with_drafter_does_not_resume_removed_confirmation_flow(
     monkeypatch,
 ) -> None:
     module = _load_module(monkeypatch, "litellm_proxy_with_drafter_pending_no")
@@ -232,12 +230,12 @@ def test_pending_clarification_bypasses_drafting_and_later_rejection_resolves(
         hook.async_pre_call_hook(None, None, second, "completion")
     )
 
-    assert isinstance(first_result, str)
+    assert first_result is first
     assert second_result is second
-    assert drafted_inputs == ["use kubectl instead of docker"]
+    assert drafted_inputs == ["use kubectl instead of docker", "no"]
     checkpoint = module.CHECKPOINT_STORE.load("chat-drafter-pending-no")
     assert checkpoint is not None
-    assert checkpoint.get("pending") is None
+    assert checkpoint["policies"] == {"kubectl": "use"}
     assert "docker" not in str(second["messages"][0]["content"])
 
 
@@ -262,8 +260,7 @@ def test_normal_update_explicitly_saves_checkpoint(monkeypatch) -> None:
     assert result is data
     checkpoint = module.CHECKPOINT_STORE.load("chat-drafter-save-update")
     assert checkpoint is not None
-    assert checkpoint["authoritative_state"]["policies"] == {"peanuts": "prohibit"}
-    assert checkpoint.get("pending") is None
+    assert checkpoint["policies"] == {"peanuts": "prohibit"}
 
 
 def test_restore_happens_before_drafting(monkeypatch) -> None:
@@ -272,15 +269,7 @@ def test_restore_happens_before_drafting(monkeypatch) -> None:
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
     module.CHECKPOINT_STORE.save(
         "chat-restore-first",
-        {
-            "checkpoint_version": 1,
-            "authoritative_state": {
-                "premise": None,
-                "policies": {"peanuts": "prohibit"},
-                "version": 2,
-            },
-            "pending": None,
-        },
+        {"premise": None, "policies": {"peanuts": "prohibit"}, "version": 2},
     )
     seen_states: list[dict[str, object]] = []
 
@@ -299,9 +288,7 @@ def test_restore_happens_before_drafting(monkeypatch) -> None:
 
     asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
 
-    assert seen_states == [
-        {"premise": None, "policies": {"peanuts": "prohibit"}, "version": 2}
-    ]
+    assert seen_states == [{"premise": None, "policies": {"peanuts": "prohibit"}}]
 
 
 def test_corrupt_checkpoint_fails_clearly(monkeypatch) -> None:
@@ -344,7 +331,7 @@ def test_forwarded_messages_keep_original_user_prompt_text(monkeypatch) -> None:
     assert data["messages"][1:] == original_messages
 
 
-def test_compound_directives_block_upstream_and_do_not_mutate_state(
+def test_compound_directives_fall_through_to_normal_forwarding_when_not_applied(
     monkeypatch,
 ) -> None:
     module = _load_module(monkeypatch, "litellm_proxy_with_drafter_compound")
@@ -366,14 +353,10 @@ def test_compound_directives_block_upstream_and_do_not_mutate_state(
 
     result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
 
-    assert result == (
-        "Multiple directives are not supported in one input.\n"
-        "Submit each directive separately."
-    )
+    assert result is data
     checkpoint = module.CHECKPOINT_STORE.load("chat-compound")
     assert checkpoint is not None
-    assert checkpoint["authoritative_state"]["policies"] == {}
-    assert checkpoint.get("pending") is None
+    assert checkpoint["policies"] == {}
 
 
 def test_no_removed_replay_api_remains(monkeypatch) -> None:

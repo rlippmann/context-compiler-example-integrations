@@ -34,7 +34,7 @@ from context_compiler import (
 )
 from context_compiler.engine import Engine
 from context_compiler_directive_drafter import (
-    PREPROCESS_OUTCOME_DIRECTIVE,
+    DRAFT_OUTCOME_DIRECTIVE,
     parse_preprocessor_output,
     preprocess_heuristic,
     render_prompt,
@@ -245,7 +245,7 @@ def _prompt_file_path() -> Traversable:
 
 def _llm_fallback_preprocess(message: str, state: _EngineSnapshot) -> str | None:
     with as_file(_prompt_file_path()) as prompt_path:
-        prompt = render_prompt(prompt_path, state)
+        prompt = render_prompt(prompt_path, state["premise"], state["policies"])
     if prompt is None:
         return None
 
@@ -285,7 +285,7 @@ def _llm_fallback_preprocess(message: str, state: _EngineSnapshot) -> str | None
     parsed = parse_preprocessor_output(raw_output)
     if parsed is None:
         return None
-    return parsed
+    return parsed.text
 
 
 def _preprocess_user_input(message: str, state: _EngineSnapshot) -> str | None:
@@ -294,7 +294,7 @@ def _preprocess_user_input(message: str, state: _EngineSnapshot) -> str | None:
         heuristic_result = preprocess_heuristic(message)
         logger.debug("preprocessor: heuristic_outcome=%s", heuristic_result["outcome"])
         if (
-            heuristic_result["outcome"] == PREPROCESS_OUTCOME_DIRECTIVE
+            heuristic_result["outcome"] == DRAFT_OUTCOME_DIRECTIVE
             and heuristic_result["directive"]
         ):
             parsed = parse_preprocessor_output(heuristic_result["directive"])
@@ -302,7 +302,7 @@ def _preprocess_user_input(message: str, state: _EngineSnapshot) -> str | None:
                 "preprocessor: heuristic_directive=%r", heuristic_result["directive"]
             )
             if parsed is not None:
-                return parsed
+                return parsed.text
     except Exception:
         logger.debug("preprocessor: heuristic_exception", exc_info=True)
 
