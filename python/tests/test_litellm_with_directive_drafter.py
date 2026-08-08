@@ -1,5 +1,5 @@
-import json
-from typing import Any, cast
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from context_compiler import create_engine
@@ -10,8 +10,7 @@ from context_compiler_example_integrations.examples.prompt_construction.litellm 
 
 
 def setup_function() -> None:
-    module._CHECKPOINTS_BY_SESSION_KEY.clear()
-    module._RESTORED_ENGINE_BY_SESSION_KEY.clear()
+    return None
 
 
 def test_directive_shaped_or_natural_language_input_is_drafted_before_engine_step(
@@ -31,12 +30,14 @@ def test_directive_shaped_or_natural_language_input_is_drafted_before_engine_ste
         module,
         "preprocess_heuristic",
         lambda message: {
-            "outcome": module.PREPROCESS_OUTCOME_DIRECTIVE,
+            "outcome": module.DRAFT_OUTCOME_DIRECTIVE,
             "directive": "use docker",
         },
     )
     monkeypatch.setattr(
-        module, "parse_preprocessor_output", lambda value, **kwargs: value
+        module,
+        "parse_preprocessor_output",
+        lambda value, **kwargs: SimpleNamespace(text=value),
     )
 
     result = module.handle_turn("please use docker", engine)
@@ -45,31 +46,23 @@ def test_directive_shaped_or_natural_language_input_is_drafted_before_engine_ste
     assert compile_inputs == ["use docker"]
 
 
-def test_pending_clarification_bypasses_drafting(monkeypatch) -> None:
+def test_follow_up_confirmation_is_not_treated_as_pending_resume(monkeypatch) -> None:
     engine = create_engine()
-    first = engine.step("use docker instead of kubectl")
-    assert str(first["kind"]) == "clarify"
+    first = module.handle_turn("use docker instead of kubectl", engine)
+    assert first == "State updated: Use docker."
 
-    compile_inputs: list[str] = []
-    real_step = engine.step
+    llm_calls: list[list[dict[str, str]]] = []
 
-    def step_with_capture(user_input: str):
-        compile_inputs.append(user_input)
-        return real_step(user_input)
+    def downstream(messages: list[dict[str, str]]) -> str:
+        llm_calls.append(messages)
+        return "stubbed reply"
 
-    monkeypatch.setattr(engine, "step", step_with_capture)
-    monkeypatch.setattr(
-        module,
-        "_preprocess_user_input",
-        lambda message, state: (_ for _ in ()).throw(
-            AssertionError("should not draft")
-        ),
-    )
+    monkeypatch.setattr(module, "_call_litellm", downstream)
 
     second = module.handle_turn("yes", engine)
 
-    assert second == "State updated: Use docker."
-    assert compile_inputs == ["yes"]
+    assert second == "stubbed reply"
+    assert llm_calls
 
 
 def test_unknown_or_unsafe_drafting_falls_back_to_raw_input(monkeypatch) -> None:
@@ -115,12 +108,14 @@ def test_local_update_and_clarify_responses_skip_downstream_litellm_call(
         module,
         "preprocess_heuristic",
         lambda message: {
-            "outcome": module.PREPROCESS_OUTCOME_DIRECTIVE,
+            "outcome": module.DRAFT_OUTCOME_DIRECTIVE,
             "directive": "use docker",
         },
     )
     monkeypatch.setattr(
-        module, "parse_preprocessor_output", lambda value, **kwargs: value
+        module,
+        "parse_preprocessor_output",
+        lambda value, **kwargs: SimpleNamespace(text=value),
     )
 
     update_engine = create_engine()
@@ -239,10 +234,17 @@ def test_preprocessor_model_defaults_to_model(monkeypatch) -> None:
     monkeypatch.setattr(module, "_get_litellm_completion", lambda: completion)
     monkeypatch.setattr(module, "render_prompt", lambda *_: "prompt")
     monkeypatch.setattr(
-        module, "parse_preprocessor_output", lambda value, **_kwargs: value
+        module,
+        "parse_preprocessor_output",
+        lambda value, **_kwargs: SimpleNamespace(text=value),
     )
 
-    assert module._llm_fallback_preprocess("please use docker", {}) == "use docker"
+    assert (
+        module._llm_fallback_preprocess(
+            "please use docker", {"premise": None, "policies": {}}
+        )
+        == "use docker"
+    )
     assert seen["model"] == "openai/main-model"
 
 
@@ -259,10 +261,17 @@ def test_preprocessor_model_override_wins(monkeypatch) -> None:
     monkeypatch.setattr(module, "_get_litellm_completion", lambda: completion)
     monkeypatch.setattr(module, "render_prompt", lambda *_: "prompt")
     monkeypatch.setattr(
-        module, "parse_preprocessor_output", lambda value, **_kwargs: value
+        module,
+        "parse_preprocessor_output",
+        lambda value, **_kwargs: SimpleNamespace(text=value),
     )
 
-    assert module._llm_fallback_preprocess("please use docker", {}) == "use docker"
+    assert (
+        module._llm_fallback_preprocess(
+            "please use docker", {"premise": None, "policies": {}}
+        )
+        == "use docker"
+    )
     assert seen["model"] == "openai/preprocessor-model"
 
 
@@ -284,12 +293,16 @@ def test_fallback_accepts_structurally_valid_output_without_source_awareness(
     monkeypatch.setattr(module, "render_prompt", lambda *_: "prompt")
 
     assert (
-        module._llm_fallback_preprocess("set premise to concise replies", {})
+        module._llm_fallback_preprocess(
+            "set premise to concise replies", {"premise": None, "policies": {}}
+        )
         == "set premise concise replies"
     )
 
 
-def test_directive_shaped_malformed_inputs_skip_fallback(monkeypatch) -> None:
+def test_directive_shaped_malformed_inputs_skip_fallback_and_use_normal_turn_flow(
+    monkeypatch,
+) -> None:
     fallback_calls = 0
     downstream_calls = 0
 
@@ -310,23 +323,23 @@ def test_directive_shaped_malformed_inputs_skip_fallback(monkeypatch) -> None:
         raise AssertionError("downstream should not run")
 
     monkeypatch.setattr(module, "_llm_fallback_preprocess", fallback)
-    monkeypatch.setattr(module, "_call_litellm", downstream)
+    monkeypatch.setattr(module, "_call_litellm", lambda _messages: "downstream reply")
 
     assert (
         module.handle_turn("use docker instead of", create_engine())
-        == "Replacement requires both new and old items.\nUse 'use <new item> instead of <old item>' with non-empty values."
+        == "downstream reply"
     )
     assert fallback_calls == 0
     assert downstream_calls == 0
 
 
-def test_compound_directives_stay_local_and_do_not_call_downstream(monkeypatch) -> None:
+def test_compound_directives_fall_through_when_not_applied(monkeypatch) -> None:
     downstream_calls = 0
 
     def downstream(_messages: list[dict[str, str]]) -> str:
         nonlocal downstream_calls
         downstream_calls += 1
-        raise AssertionError("downstream model should not be called")
+        return "downstream reply"
 
     monkeypatch.setattr(module, "_call_litellm", downstream)
     monkeypatch.setattr(
@@ -340,150 +353,58 @@ def test_compound_directives_stay_local_and_do_not_call_downstream(monkeypatch) 
         create_engine(),
     )
 
-    assert result == (
-        "Multiple directives are not supported in one input.\n"
-        "Submit each directive separately."
-    )
-    assert downstream_calls == 0
+    assert result == "downstream reply"
+    assert downstream_calls == 1
 
 
-@pytest.mark.parametrize(
-    ("confirmation", "expected_policies", "expected_response"),
-    [
-        ("yes", {"kubectl": "use"}, "State updated: Use kubectl."),
-        ("no thanks.", {}, "State unchanged."),
-    ],
-)
-def test_checkpoint_resume_bypasses_preprocess_and_downstream_while_pending(
+def test_confirmation_follow_up_does_not_resume_removed_checkpoint_flow(
     monkeypatch,
-    confirmation: str,
-    expected_policies: dict[str, str],
-    expected_response: str,
 ) -> None:
-    preprocess_inputs: list[str] = []
-    llm_calls = 0
-    session_key = "resume-with-drafter"
-
-    def preprocess_before_pending(text: str, _state: dict[str, object]) -> None:
-        preprocess_inputs.append(text)
-        return None
-
-    def fail_preprocess(_text: str, _state: dict[str, object]) -> None:
-        raise AssertionError("preprocess should be bypassed while pending")
-
-    def downstream(_messages: list[dict[str, str]]) -> str:
-        nonlocal llm_calls
-        llm_calls += 1
-        raise AssertionError("downstream model should not be called")
-
-    monkeypatch.setattr(module, "_call_litellm", downstream)
-    monkeypatch.setattr(module, "_preprocess_user_input", preprocess_before_pending)
-
     first_engine = create_engine()
     clarify = module.handle_turn(
         "use kubectl instead of docker",
         first_engine,
-        session_key=session_key,
+        session_key="resume-with-drafter",
+    )
+    llm_calls = 0
+
+    def downstream(_messages: list[dict[str, str]]) -> str:
+        nonlocal llm_calls
+        llm_calls += 1
+        return "downstream reply"
+
+    monkeypatch.setattr(module, "_call_litellm", downstream)
+    resumed_engine = create_engine()
+    resumed = module.handle_turn(
+        "yes", resumed_engine, session_key="resume-with-drafter"
     )
 
-    assert clarify == 'Did you mean to use "kubectl" instead?'
-    assert preprocess_inputs == ["use kubectl instead of docker"]
-    assert session_key in module._CHECKPOINTS_BY_SESSION_KEY
-
-    monkeypatch.setattr(module, "_preprocess_user_input", fail_preprocess)
-    resumed_engine = create_engine()
-    resumed = module.handle_turn(confirmation, resumed_engine, session_key=session_key)
-
-    assert resumed == expected_response
-    assert llm_calls == 0
-    assert resumed_engine.state == {
-        "premise": None,
-        "policies": expected_policies,
-        "version": 2,
-    }
-    resumed_checkpoint = json.loads(module._CHECKPOINTS_BY_SESSION_KEY[session_key])
-    assert resumed_checkpoint["pending"] is None
+    assert clarify == "State updated: Use kubectl."
+    assert resumed == "downstream reply"
+    assert llm_calls == 1
+    assert dict(first_engine.policies) == {"kubectl": "use"}
+    assert dict(resumed_engine.policies) == {}
 
 
-def test_checkpoint_restore_and_persist_by_session_key(monkeypatch) -> None:
-    class FakeEngine:
-        def __init__(
-            self, kind: str, checkpoint_out: str, *, has_pending: bool = False
-        ) -> None:
-            self.kind = kind
-            self.state: dict[str, object] = {
-                "premise": None,
-                "policies": {"peanuts": "prohibit"},
-                "version": 2,
-            }
-            self._checkpoint_out = checkpoint_out
-            self._has_pending = has_pending
-            self.imported: list[str] = []
-            self.export_calls = 0
-
-        def import_checkpoint_json(self, payload: str) -> None:
-            self.imported.append(payload)
-
-        def export_checkpoint_json(self) -> str:
-            self.export_calls += 1
-            return self._checkpoint_out
-
-        def export_checkpoint(self) -> dict[str, object]:
-            pending: object = None
-            if self._has_pending:
-                pending = {
-                    "kind": "replacement",
-                    "replacement": {
-                        "kind": "use_only",
-                        "new_item": "kubectl",
-                        "old_item": None,
-                    },
-                    "prompt_to_user": "confirm?",
-                }
-            return {
-                "checkpoint_version": 1,
-                "authoritative_state": self.state,
-                "pending": pending,
-            }
-
-        def has_pending_clarification(self) -> bool:
-            return self._has_pending
-
-        def step(self, _text: str) -> dict[str, object]:
-            if self.kind == "clarify":
-                return {"kind": "clarify", "state": None, "prompt_to_user": "confirm?"}
-            return {"kind": self.kind, "state": self.state}
-
-    checkpoints = cast(dict[str, str], module._CHECKPOINTS_BY_SESSION_KEY)
-    restored = cast(dict[str, int], module._RESTORED_ENGINE_BY_SESSION_KEY)
-    checkpoints.clear()
-    restored.clear()
-    checkpoints["s1"] = "ckpt-in"
+def test_session_key_no_longer_restores_or_persists_checkpoint_state(
+    monkeypatch,
+) -> None:
     monkeypatch.setattr(module, "_call_litellm", lambda _messages: "ok")
     monkeypatch.setattr(module, "_preprocess_user_input", lambda _text, _state: None)
 
-    passthrough_engine = FakeEngine("passthrough", "ckpt-passthrough")
-    assert module.handle_turn("hello", passthrough_engine, session_key="s1") == "ok"
-    assert passthrough_engine.imported == ["ckpt-in"]
-    assert passthrough_engine.export_calls == 0
-    assert checkpoints["s1"] == "ckpt-in"
+    first_engine = create_engine()
+    assert module.handle_turn("hello", first_engine, session_key="s1") == "ok"
 
-    update_engine = FakeEngine("update", "ckpt-update")
+    update_engine = create_engine()
     assert (
         module.handle_turn("use docker", update_engine, session_key="s1")
         == "State updated: Use docker."
     )
-    assert update_engine.imported == ["ckpt-in"]
-    assert update_engine.export_calls == 1
-    assert checkpoints["s1"] == "ckpt-update"
 
-    clarify_engine = FakeEngine("clarify", "ckpt-clarify")
+    clarify_engine = create_engine()
     assert (
         module.handle_turn(
             "use kubectl instead of docker", clarify_engine, session_key="s1"
         )
-        == "confirm?"
+        == "State updated: Use kubectl."
     )
-    assert clarify_engine.imported == ["ckpt-update"]
-    assert clarify_engine.export_calls == 1
-    assert checkpoints["s1"] == "ckpt-clarify"

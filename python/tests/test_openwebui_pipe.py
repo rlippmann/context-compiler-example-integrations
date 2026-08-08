@@ -73,7 +73,6 @@ def _load_module_with_stubs(module_name: str, monkeypatch: pytest.MonkeyPatch):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module._ENGINES_BY_CHAT_KEY.clear()
-    module._CHECKPOINTS_BY_CHAT_KEY.clear()
     return module
 
 
@@ -122,8 +121,10 @@ def test_recursive_base_model_id_returns_deterministic_recursion_guard_message(
     )
 
 
-def test_checkpoint_restore_and_persist_across_chat_ids(monkeypatch) -> None:
-    module = _load_module_with_stubs("owui_checkpoint_restore", monkeypatch)
+def test_engine_state_is_kept_per_chat_id_until_engine_cache_is_cleared(
+    monkeypatch,
+) -> None:
+    module = _load_module_with_stubs("owui_engine_cache", monkeypatch)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
 
@@ -140,8 +141,7 @@ def test_checkpoint_restore_and_persist_across_chat_ids(monkeypatch) -> None:
             __chat_id__="chat-1",
         )
     )
-    assert first == 'Did you mean to use "docker" instead?'
-    checkpoint = module._CHECKPOINTS_BY_CHAT_KEY["chat-1"]
+    assert first == "State updated: Use docker."
 
     module._ENGINES_BY_CHAT_KEY.clear()
 
@@ -165,12 +165,8 @@ def test_checkpoint_restore_and_persist_across_chat_ids(monkeypatch) -> None:
         )
     )
 
-    assert second == "State updated."
-    assert checkpoint != module._CHECKPOINTS_BY_CHAT_KEY["chat-1"]
-    assert (
-        other_chat
-        == "Premise: none\nUse: none\nProhibit: none\nPending clarification: no"
-    )
+    assert second == {"choices": [{"message": {"content": ""}}]}
+    assert other_chat == "Premise: none\nUse: none\nProhibit: none"
 
 
 def test_normal_update_returns_local_ack_and_skips_downstream(monkeypatch) -> None:
@@ -203,7 +199,7 @@ def test_normal_update_returns_local_ack_and_skips_downstream(monkeypatch) -> No
     assert forwarded == []
 
 
-def test_confirmation_resume_returns_local_ack_and_skips_downstream(
+def test_confirmation_text_is_not_treated_as_removed_resume_flow(
     monkeypatch,
 ) -> None:
     module = _load_module_with_stubs("owui_confirmation_resume", monkeypatch)
@@ -220,7 +216,7 @@ def test_confirmation_resume_returns_local_ack_and_skips_downstream(
     pipe.valves.BASE_MODEL_ID = "base-model"
     chat_id = "chat-confirm"
 
-    clarify = asyncio.run(
+    update = asyncio.run(
         pipe.pipe(
             {
                 "model": "pipe-model",
@@ -242,9 +238,9 @@ def test_confirmation_resume_returns_local_ack_and_skips_downstream(
         )
     )
 
-    assert clarify == 'Did you mean to use "docker" instead?'
-    assert resumed == "State updated."
-    assert forwarded == []
+    assert update == "State updated: Use docker."
+    assert resumed == {"ok": True}
+    assert len(forwarded) == 1
 
 
 def test_exact_show_state_is_local_and_non_exact_forwards_normally(monkeypatch) -> None:
@@ -284,9 +280,7 @@ def test_exact_show_state_is_local_and_non_exact_forwards_normally(monkeypatch) 
         )
     )
 
-    assert (
-        exact == "Premise: none\nUse: none\nProhibit: none\nPending clarification: no"
-    )
+    assert exact == "Premise: none\nUse: none\nProhibit: none"
     assert non_exact == {"choices": [{"message": {"content": "downstream"}}]}
     assert len(forwarded) == 1
 

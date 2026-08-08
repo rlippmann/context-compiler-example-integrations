@@ -82,30 +82,26 @@ def _load_module(module_name: str, monkeypatch: pytest.MonkeyPatch):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module._ENGINES_BY_CHAT_KEY.clear()
-    module._CHECKPOINTS_BY_CHAT_KEY.clear()
     return module
 
 
 def test_directive_drafting_runs_before_compiler_step(monkeypatch) -> None:
     module = _load_module("owui_with_drafter_before_step", monkeypatch)
     compile_inputs: list[str] = []
+    real_create_engine = module.create_engine
 
-    class FakeEngine:
-        def __init__(self) -> None:
-            self.state = {"premise": None, "policies": {}, "version": 2}
+    def create_engine_with_tracking():
+        engine = real_create_engine()
+        original_step = engine.step
 
-        def has_pending_clarification(self) -> bool:
-            return False
-
-        def step(self, user_input: str) -> dict[str, object]:
+        def tracked_step(user_input: str):
             compile_inputs.append(user_input)
-            self.state = {"premise": None, "policies": {"docker": "use"}, "version": 2}
-            return {"kind": "update", "state": self.state}
+            return original_step(user_input)
 
-        def export_checkpoint_json(self) -> str:
-            return '{"checkpoint_version":1,"authoritative_state":{"premise":null,"policies":{"docker":"use"},"version":2},"pending":null}'
+        engine.step = tracked_step
+        return engine
 
-    monkeypatch.setattr(module, "create_engine", lambda: FakeEngine())
+    monkeypatch.setattr(module, "create_engine", create_engine_with_tracking)
 
     async def fake_preprocess(*args, **kwargs):
         return "use docker", None
@@ -132,39 +128,44 @@ def test_directive_drafting_runs_before_compiler_step(monkeypatch) -> None:
     assert compile_inputs == ["use docker"]
 
 
-def test_pending_clarification_bypasses_drafting(monkeypatch) -> None:
-    module = _load_module("owui_with_drafter_pending", monkeypatch)
-    compile_inputs: list[str] = []
+def test_confirmation_text_is_not_treated_as_removed_pending_resume(
+    monkeypatch,
+) -> None:
+    module = _load_module("owui_with_drafter_confirmation_followup", monkeypatch)
+    forwarded: list[dict[str, object]] = []
 
-    class FakeEngine:
-        def __init__(self) -> None:
-            self._pending = True
-            self.state = {"premise": None, "policies": {}, "version": 2}
+    async def forward(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
+        forwarded.append(payload)
+        return {"choices": [{"message": {"content": "downstream"}}]}
 
-        def has_pending_clarification(self) -> bool:
-            return self._pending
-
-        def step(self, user_input: str) -> dict[str, object]:
-            compile_inputs.append(user_input)
-            self._pending = False
-            self.state = {"premise": None, "policies": {"docker": "use"}, "version": 2}
-            return {"kind": "update", "state": self.state}
-
-        def export_checkpoint_json(self) -> str:
-            return '{"checkpoint_version":1,"authoritative_state":{"premise":null,"policies":{"docker":"use"},"version":2},"pending":null}'
-
-    monkeypatch.setattr(module, "create_engine", lambda: FakeEngine())
-
-    async def should_not_run(*args, **kwargs):
-        raise AssertionError("drafting should be bypassed")
-
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", should_not_run)
-
+    module.generate_chat_completion = forward
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
 
-    result = asyncio.run(
+    async def update_draft(*args, **kwargs):
+        return "use docker", None
+
+    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", update_draft)
+    update = asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "please use docker"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-pending",
+        )
+    )
+
+    async def no_draft(*args, **kwargs):
+        return None, None
+
+    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", no_draft)
+    follow_up = asyncio.run(
         pipe.pipe(
             {"model": "pipe-model", "messages": [{"role": "user", "content": "yes"}]},
             __user__={"id": "u1"},
@@ -173,8 +174,9 @@ def test_pending_clarification_bypasses_drafting(monkeypatch) -> None:
         )
     )
 
-    assert result == "State updated."
-    assert compile_inputs == ["yes"]
+    assert update == "State updated: Use docker."
+    assert follow_up == {"choices": [{"message": {"content": "downstream"}}]}
+    assert len(forwarded) == 1
 
 
 def test_fallback_to_raw_input_path_preserves_host_behavior(monkeypatch) -> None:
@@ -265,7 +267,7 @@ def test_local_update_and_clarify_responses_skip_downstream_model(monkeypatch) -
     assert forwarded == []
 
 
-def test_compound_directives_stay_local_and_do_not_call_downstream(monkeypatch) -> None:
+def test_compound_directives_fall_through_to_normal_forwarding(monkeypatch) -> None:
     module = _load_module("owui_with_drafter_compound", monkeypatch)
     forwarded: list[dict[str, object]] = []
 
@@ -273,7 +275,7 @@ def test_compound_directives_stay_local_and_do_not_call_downstream(monkeypatch) 
         _: object, payload: dict[str, object], __: object
     ) -> dict[str, object]:
         forwarded.append(payload)
-        raise AssertionError("downstream model should not be called")
+        return {"choices": [{"message": {"content": "downstream"}}]}
 
     module.generate_chat_completion = forward
     pipe = module.Pipe()
@@ -301,11 +303,8 @@ def test_compound_directives_stay_local_and_do_not_call_downstream(monkeypatch) 
         )
     )
 
-    assert result == (
-        "Multiple directives are not supported in one input.\n"
-        "Submit each directive separately."
-    )
-    assert forwarded == []
+    assert result == {"choices": [{"message": {"content": "downstream"}}]}
+    assert len(forwarded) == 1
 
 
 def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exists(
