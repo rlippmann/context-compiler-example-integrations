@@ -22,10 +22,10 @@ Available hook files:
   turn with a fresh engine.
 - In explicit persistent mode, the hook resolves a session key, loads a saved
   checkpoint, restores the engine, processes the latest user turn once, and
-  saves the resulting checkpoint after every decision, including `clarify`.
+  saves the resulting checkpoint only after non-error decisions.
 - In stateless mode, no continuity is preserved across requests.
-- If result is `clarify`, the proxy does not call the downstream model and
-  LiteLLM surfaces the clarification as an HTTP 400 response.
+- If directive application fails, the proxy does not call the downstream model
+  and LiteLLM surfaces the rejection as an HTTP 400 response.
 - If result is `passthrough`, the proxy forwards the request normally.
 - If result is `update`, the proxy injects compiler state as a system message
   and then calls the model.
@@ -49,7 +49,7 @@ The reference hooks support two explicit modes:
 - `persistent`
   - explicit mode
   - requires a stable session key
-  - preserves saved state and pending clarification across requests
+  - preserves saved authoritative state across requests
 - `stateless`
   - default mode
   - processes only the latest user turn
@@ -217,8 +217,8 @@ Use `llama` only for LLM-only fallback drafting with Llama-family models.
 - In the directive-drafter hook, drafter state context now comes from restored
   checkpoint state rather than transcript-prefix reconstruction.
 - Compound directive-shaped input such as `use docker and prohibit peanuts`
-  should produce a local clarify response telling the user to submit each
-  directive separately, without mutating saved state or forwarding upstream.
+  should produce a local rejection telling the user to submit each directive
+  separately, without mutating saved state or forwarding upstream.
 
 ## Troubleshooting
 

@@ -5,8 +5,9 @@ Architecture:
 - In persistent mode, restore compiler checkpoint by session key.
 - Draft only the latest user message after restore.
 - Call ``engine.step(...)`` exactly once for the current turn.
-- Save checkpoint after each decision, including clarify.
-- If clarification is required, block upstream model call.
+- Save checkpoints only after successful authoritative state transitions.
+- If directive application fails, reject the current request without persisting
+  failed-turn engine state.
 - Otherwise inject compiled state guidance into a system message.
 """
 
@@ -281,17 +282,17 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
         else:
             decision = {"kind": DecisionKind.NO_DIRECTIVE, "message": None}
 
+        logger.debug("litellm_proxy: decision_kind=%s", decision["kind"])
+
+        if decision["kind"] == DecisionKind.ERROR:
+            logger.debug("litellm_proxy: rejecting_failed_application=true")
+            return decision.get("message") or "Request rejected."
+
         if session.mode == MODE_PERSISTENT and session.session_key is not None:
             CHECKPOINT_STORE.save(
                 session.session_key,
                 checkpoint_to_jsonable(engine.export_json()),
             )
-
-        logger.debug("litellm_proxy: decision_kind=%s", decision["kind"])
-
-        if decision["kind"] == DecisionKind.ERROR:
-            logger.debug("litellm_proxy: blocking_on_clarify=true")
-            return decision.get("message") or "Request rejected."
 
         compiled_state = _snapshot_engine_state(engine)
         system_message: dict[str, object] = {
