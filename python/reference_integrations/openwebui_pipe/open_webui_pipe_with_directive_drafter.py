@@ -822,45 +822,6 @@ class Pipe:
             return normalized_error
         return response
 
-    async def _forward_update(
-        self,
-        body: dict[str, Any],
-        user_payload: dict[str, Any],
-        request: Request,
-        state: _EngineSnapshot,
-        *,
-        base_model_id: str | None,
-    ) -> Any:
-        if base_model_id is None:
-            if self._allow_missing_base_model_for_debug():
-                return (
-                    "Context Compiler debug mode: BASE_MODEL_ID is empty; "
-                    "skipping model passthrough."
-                )
-            return (
-                "Context Compiler pipe misconfigured: BASE_MODEL_ID is required "
-                "(or set ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true for testing)."
-            )
-        payload = {**body}
-        payload["model"] = base_model_id
-
-        payload["messages"] = _build_forward_messages(body.get("messages"), state=state)
-
-        user = Users.get_user_by_id(user_payload["id"])
-        if inspect.isawaitable(user):
-            user = await user
-        try:
-            response = await generate_chat_completion(request, payload, user)
-        except Exception as exc:
-            normalized_exception = self._normalize_forward_exception(exc)
-            if normalized_exception is not None:
-                return normalized_exception
-            raise
-        normalized_error = self._normalize_forward_error(response)
-        if normalized_error is not None:
-            return normalized_error
-        return response
-
     async def pipe(
         self,
         body: dict[str, Any],

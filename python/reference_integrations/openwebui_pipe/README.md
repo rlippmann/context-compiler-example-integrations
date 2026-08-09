@@ -133,7 +133,7 @@ Use this pipe when you want the same runtime behavior plus Directive Drafter pre
 Suggested verification:
 
 - Send `use docker` and confirm you get `State updated: Use docker.` with trace showing a local turn
-- Send `set premise to concise replies` and confirm Open WebUI clarifies locally with `Use 'set premise <value>'.`
+- Send `set premise to concise replies` and confirm Open WebUI rejects the request with `Use 'set premise <value>'.`
 - Send `please use docker` and confirm either:
   - the Directive Drafter converts it into a local state update, or
   - trace shows the turn followed the normal compiler path without a silent state change
@@ -205,7 +205,7 @@ If you want a slightly broader manual pass:
 ### Case 5
 
 - prompt(s): `clear state` → `change premise concise replies`
-- base model: generic “please clarify changes” response
+- base model: generic “please revise the request” response
 - basic pipe: `Did you mean 'change premise to concise replies'?`
 - directive-drafter pipe: same deterministic rejection (near-miss is passed through unchanged)
 - why this matters: the app waits for explicit, valid directive text before changing state.

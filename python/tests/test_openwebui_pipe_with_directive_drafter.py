@@ -193,8 +193,10 @@ def test_failed_transition_is_rejected_and_follow_up_is_a_new_request(
     assert len(forwarded) == 1
 
 
-def test_failed_transition_does_not_create_resumable_engine_state(monkeypatch) -> None:
-    module = _load_module("owui_with_drafter_failed_transition_no_resume", monkeypatch)
+def test_failed_transition_does_not_change_existing_engine_state(monkeypatch) -> None:
+    module = _load_module(
+        "owui_with_drafter_failed_transition_state_preserved", monkeypatch
+    )
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
@@ -214,7 +216,7 @@ def test_failed_transition_does_not_create_resumable_engine_state(monkeypatch) -
             },
             __user__={"id": "u1"},
             __request__=object(),
-            __chat_id__="chat-no-resume-state",
+            __chat_id__="chat-state-preserved",
         )
     )
 
@@ -227,7 +229,7 @@ def test_failed_transition_does_not_create_resumable_engine_state(monkeypatch) -
             },
             __user__={"id": "u1"},
             __request__=object(),
-            __chat_id__="chat-no-resume-state",
+            __chat_id__="chat-state-preserved",
         )
     )
 
@@ -239,7 +241,7 @@ def test_failed_transition_does_not_create_resumable_engine_state(monkeypatch) -
             },
             __user__={"id": "u1"},
             __request__=object(),
-            __chat_id__="chat-no-resume-state",
+            __chat_id__="chat-state-preserved",
         )
     )
 
@@ -327,7 +329,7 @@ def test_local_update_and_rejection_responses_skip_downstream_model(
             },
             __user__={"id": "u1"},
             __request__=object(),
-            __chat_id__="chat-clarify",
+            __chat_id__="chat-invalid-request",
         )
     )
 
@@ -336,8 +338,8 @@ def test_local_update_and_rejection_responses_skip_downstream_model(
     assert forwarded == []
 
 
-def test_near_miss_rejection_does_not_create_pending_state(monkeypatch) -> None:
-    module = _load_module("owui_with_drafter_near_miss_no_pending", monkeypatch)
+def test_near_miss_rejection_does_not_change_existing_engine_state(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_near_miss_state_preserved", monkeypatch)
     forwarded: list[dict[str, object]] = []
 
     async def forward(
