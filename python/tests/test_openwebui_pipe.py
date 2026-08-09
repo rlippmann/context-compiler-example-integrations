@@ -199,10 +199,10 @@ def test_normal_update_returns_local_ack_and_skips_downstream(monkeypatch) -> No
     assert forwarded == []
 
 
-def test_confirmation_text_is_not_treated_as_removed_resume_flow(
+def test_failed_transition_is_rejected_and_follow_up_is_a_new_request(
     monkeypatch,
 ) -> None:
-    module = _load_module_with_stubs("owui_confirmation_resume", monkeypatch)
+    module = _load_module_with_stubs("owui_failed_transition_followup", monkeypatch)
     forwarded: list[dict[str, object]] = []
 
     async def _forward(
@@ -214,22 +214,31 @@ def test_confirmation_text_is_not_treated_as_removed_resume_flow(
     module.generate_chat_completion = _forward
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    chat_id = "chat-confirm"
+    chat_id = "chat-failed-transition"
 
-    update = asyncio.run(
+    seed = asyncio.run(
         pipe.pipe(
             {
                 "model": "pipe-model",
-                "messages": [
-                    {"role": "user", "content": "use docker instead of kubectl"}
-                ],
+                "messages": [{"role": "user", "content": "use docker"}],
             },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__=chat_id,
         )
     )
-    resumed = asyncio.run(
+    rejected = asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "prohibit docker"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+    follow_up = asyncio.run(
         pipe.pipe(
             {"model": "pipe-model", "messages": [{"role": "user", "content": "yes"}]},
             __user__={"id": "u1"},
@@ -238,9 +247,58 @@ def test_confirmation_text_is_not_treated_as_removed_resume_flow(
         )
     )
 
-    assert update == "State updated: Use docker."
-    assert resumed == {"ok": True}
+    assert seed == "State updated: Use docker."
+    assert rejected == (
+        '"docker" is currently in use.\nRemove or replace it before prohibiting it.'
+    )
+    assert follow_up == {"ok": True}
     assert len(forwarded) == 1
+
+
+def test_failed_transition_does_not_create_resumable_engine_state(monkeypatch) -> None:
+    module = _load_module_with_stubs(
+        "owui_failed_transition_no_resume_state", monkeypatch
+    )
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    chat_id = "chat-no-resume-state"
+
+    asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "use docker"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+    asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "prohibit docker"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+
+    show_state = asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "show state"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+
+    assert show_state == "Premise: none\nUse: docker\nProhibit: none"
 
 
 def test_exact_show_state_is_local_and_non_exact_forwards_normally(monkeypatch) -> None:
@@ -285,7 +343,7 @@ def test_exact_show_state_is_local_and_non_exact_forwards_normally(monkeypatch) 
     assert len(forwarded) == 1
 
 
-def test_near_miss_directive_clarify_returns_deterministic_text_and_skips_downstream(
+def test_near_miss_directive_is_rejected_and_skips_downstream(
     monkeypatch,
 ) -> None:
     module = _load_module_with_stubs("owui_near_miss", monkeypatch)
@@ -317,6 +375,60 @@ def test_near_miss_directive_clarify_returns_deterministic_text_and_skips_downst
 
     assert result == "Invalid premise syntax.\nUse 'set premise <value>'."
     assert forwarded == []
+
+
+def test_near_miss_rejection_does_not_create_pending_state(monkeypatch) -> None:
+    module = _load_module_with_stubs("owui_near_miss_no_pending_state", monkeypatch)
+    forwarded: list[dict[str, object]] = []
+
+    async def _forward(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
+        forwarded.append(payload)
+        return {"ok": True}
+
+    module.generate_chat_completion = _forward
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    chat_id = "chat-near-miss-followup"
+
+    rejected = asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [
+                    {"role": "user", "content": "set premise to concise replies"}
+                ],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+    follow_up = asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "yes"}]},
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+    show_state = asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "show state"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+
+    assert rejected == "Invalid premise syntax.\nUse 'set premise <value>'."
+    assert follow_up == {"ok": True}
+    assert show_state == "Premise: none\nUse: none\nProhibit: none"
+    assert len(forwarded) == 1
 
 
 def test_passthrough_with_non_empty_state_injects_exactly_one_cc_state_system_message(

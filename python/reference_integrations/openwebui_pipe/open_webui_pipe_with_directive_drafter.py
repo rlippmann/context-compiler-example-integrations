@@ -14,6 +14,8 @@ This example extends `open_webui_pipe.py` by inserting a directive-drafting step
 3. Pass resulting directive (or original input) to `engine.step(...)`
 
 Core decision handling remains the same as the base integration.
+Failed transitions are rejected for the current request and do not leave
+resumable in-memory engine state behind.
 """
 
 import inspect
@@ -125,6 +127,12 @@ def _extract_latest_user_text(messages: list[dict[str, Any]]) -> str | None:
 
 def _snapshot_engine_state(engine: Engine) -> _EngineSnapshot:
     return {"premise": engine.premise, "policies": dict(engine.policies)}
+
+
+def _restore_engine_from_snapshot(snapshot_json: str) -> Engine:
+    engine = create_engine()
+    engine.import_json(snapshot_json)
+    return engine
 
 
 def _render_compiler_state_block(state: _EngineSnapshot) -> str:
@@ -323,7 +331,7 @@ def _render_item_label(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip().lower()
 
 
-def _near_miss_directive_clarify(value: str) -> str | None:
+def _near_miss_directive_rejection(value: str) -> str | None:
     normalized = re.sub(r"\s+", " ", value.strip())
     lower = normalized.lower()
 
@@ -927,6 +935,7 @@ class Pipe:
             return _render_show_state_summary(engine)
 
         state_before = _snapshot_engine_state(engine)
+        engine_snapshot_json = engine.export_json()
 
         preprocessd: str | None = None
         preprocess_error: str | None = None
@@ -943,7 +952,7 @@ class Pipe:
 
         logger.debug("preprocessor: preprocessd=%r", preprocessd)
         # Preserve core behavior: if preprocess yields no directive, use raw user
-        # text so the compiler still decides clarify/passthrough/update.
+        # text so the compiler still decides rejection/passthrough/update.
         compile_input = preprocessd if preprocessd is not None else latest_user_text
 
         logger.debug("preprocessor: engine_input=%r", compile_input)
@@ -955,10 +964,13 @@ class Pipe:
         else:
             kind = DecisionKind.NO_DIRECTIVE.value
         logger.debug("preprocessor: decision=%s", kind)
-        near_miss_prompt = _near_miss_directive_clarify(latest_user_text)
+        near_miss_prompt = _near_miss_directive_rejection(latest_user_text)
         state_after = _snapshot_engine_state(engine)
 
         if decision["kind"] == DecisionKind.ERROR:
+            _ENGINES_BY_CHAT_KEY[chat_key] = _restore_engine_from_snapshot(
+                engine_snapshot_json
+            )
             return self._with_trace(
                 near_miss_prompt or decision["message"] or "",
                 original_input=latest_user_text,
@@ -973,6 +985,9 @@ class Pipe:
             near_miss_prompt is not None
             and decision["kind"] == DecisionKind.NO_DIRECTIVE
         ):
+            _ENGINES_BY_CHAT_KEY[chat_key] = _restore_engine_from_snapshot(
+                engine_snapshot_json
+            )
             return self._with_trace(
                 near_miss_prompt,
                 original_input=latest_user_text,

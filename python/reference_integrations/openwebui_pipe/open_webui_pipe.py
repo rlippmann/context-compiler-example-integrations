@@ -14,6 +14,8 @@ Scope is intentionally limited:
 - Single Pipe Function for Open WebUI 0.8.x and 0.9.x.
 - In-memory per-process engine map keyed by chat key.
 - No persistence, no multi-worker coordination, no external storage.
+- Failed transitions are rejected for the current request and do not leave
+  resumable in-memory engine state behind.
 """
 
 import inspect
@@ -109,6 +111,12 @@ def _extract_latest_user_text(messages: list[dict[str, Any]]) -> str | None:
 
 def _snapshot_engine_state(engine: Engine) -> _EngineSnapshot:
     return {"premise": engine.premise, "policies": dict(engine.policies)}
+
+
+def _restore_engine_from_snapshot(snapshot_json: str) -> Engine:
+    engine = create_engine()
+    engine.import_json(snapshot_json)
+    return engine
 
 
 def _render_compiler_state_block(state: _EngineSnapshot) -> str:
@@ -322,7 +330,7 @@ def _render_item_label(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip().lower()
 
 
-def _near_miss_directive_clarify(value: str) -> str | None:
+def _near_miss_directive_rejection(value: str) -> str | None:
     normalized = re.sub(r"\s+", " ", value.strip())
     lower = normalized.lower()
 
@@ -392,7 +400,7 @@ def _is_administrative_update_input(user_input: str) -> bool:
 class Pipe:
     """Map Context Compiler decisions into Open WebUI pipe behavior.
 
-    - ``clarify`` returns plain text and skips model forwarding.
+    - failed transitions return plain-text rejection and skip model forwarding.
     - ``passthrough`` forwards with minimal mutation.
     - ``update`` returns deterministic local acknowledgement (no model call).
     """
@@ -635,7 +643,8 @@ class Pipe:
         - Bypass compiler for non-text or missing-user turns.
         - Resolve chat key and get/create per-chat engine.
         - Call ``engine.step(...)``.
-        - Map ``clarify`` / ``passthrough`` / ``update`` outcomes.
+        - Reject failed transitions without preserving resumable in-memory state.
+        - Map rejection / ``passthrough`` / ``update`` outcomes.
         """
         raw_messages = body.get("messages")
         messages = (
@@ -669,6 +678,7 @@ class Pipe:
             return _render_show_state_summary(engine)
 
         state_before = _snapshot_engine_state(engine)
+        engine_snapshot_json = engine.export_json()
         logger.debug("pipe: engine_input=%r", latest_user_text)
         decision = engine.step(latest_user_text)
         if decision["kind"] == DecisionKind.ERROR:
@@ -678,10 +688,13 @@ class Pipe:
         else:
             kind = DecisionKind.NO_DIRECTIVE.value
         logger.debug("pipe: decision=%s", kind)
-        near_miss_prompt = _near_miss_directive_clarify(latest_user_text)
+        near_miss_prompt = _near_miss_directive_rejection(latest_user_text)
         state_after = _snapshot_engine_state(engine)
 
         if decision["kind"] == DecisionKind.ERROR:
+            _ENGINES_BY_CHAT_KEY[chat_key] = _restore_engine_from_snapshot(
+                engine_snapshot_json
+            )
             return self._with_trace(
                 near_miss_prompt or decision["message"] or "",
                 original_input=latest_user_text,
@@ -695,6 +708,9 @@ class Pipe:
             near_miss_prompt is not None
             and decision["kind"] == DecisionKind.NO_DIRECTIVE
         ):
+            _ENGINES_BY_CHAT_KEY[chat_key] = _restore_engine_from_snapshot(
+                engine_snapshot_json
+            )
             return self._with_trace(
                 near_miss_prompt,
                 original_input=latest_user_text,
