@@ -11,7 +11,7 @@ Architecture:
 """
 
 import logging
-from typing import Any, TypedDict
+from typing import Any
 
 try:
     from litellm.integrations.custom_logger import CustomLogger
@@ -25,8 +25,6 @@ except ModuleNotFoundError:
 
 from context_compiler import (
     DecisionKind,
-    POLICY_PROHIBIT,
-    PolicyValue,
     create_engine,
 )
 from context_compiler_example_integrations.reference_integrations.litellm_proxy._checkpoint_support import (
@@ -38,6 +36,11 @@ from context_compiler_example_integrations.reference_integrations.litellm_proxy.
     extract_latest_user_text,
     resolve_session_context,
 )
+from context_compiler_example_integrations.reference_integrations.litellm_proxy._litellm_support import (
+    extract_request_messages,
+    render_compiled_state_contract,
+    snapshot_engine_state,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,58 +51,6 @@ _SUPPORTED_CALL_TYPES = {
     "achat_completion",
 }
 CHECKPOINT_STORE: CheckpointStore = InMemoryCheckpointStore()
-
-
-class _EngineSnapshot(TypedDict):
-    premise: str | None
-    policies: dict[str, PolicyValue]
-
-
-def _snapshot_engine_state(engine: object) -> _EngineSnapshot:
-    premise = getattr(engine, "premise", None)
-    policies = getattr(engine, "policies", {})
-    normalized_policies = (
-        dict(policies)
-        if isinstance(policies, dict)
-        else dict(policies)
-        if hasattr(policies, "items")
-        else {}
-    )
-    return {
-        "premise": premise if isinstance(premise, str) else None,
-        "policies": normalized_policies,
-    }
-
-
-def _render_compiled_state_contract(compiled_state: _EngineSnapshot) -> str:
-    prohibited = sorted(
-        key
-        for key, value in compiled_state["policies"].items()
-        if value == POLICY_PROHIBIT
-    )
-    premise = compiled_state["premise"]
-
-    lines: list[str] = ["The following constraints are authoritative."]
-    if prohibited:
-        items = ", ".join(prohibited)
-        lines.append(f"Never recommend or use prohibited items: {items}.")
-    if premise:
-        lines.append(
-            "When the answer depends on user preference/style, "
-            f"treat the current premise as: {premise}."
-        )
-    lines.append(
-        "If the user message conflicts with these constraints, follow them exactly."
-    )
-
-    return "Host policy contract:\n" + "\n".join(f"- {line}" for line in lines)
-
-
-def _extract_request_messages(data: dict[str, object]) -> list[dict[str, object]]:
-    raw_messages = data.get("messages")
-    if not isinstance(raw_messages, list):
-        return []
-    return [msg for msg in raw_messages if isinstance(msg, dict)]
 
 
 class ContextCompilerPreCallHook(CustomLogger):
@@ -115,7 +66,7 @@ class ContextCompilerPreCallHook(CustomLogger):
         if call_type not in _SUPPORTED_CALL_TYPES:
             return data
 
-        request_messages = _extract_request_messages(data)
+        request_messages = extract_request_messages(data)
         logger.debug("litellm_proxy: message_count=%d", len(request_messages))
         session = resolve_session_context(data)
         logger.debug(
@@ -164,12 +115,12 @@ class ContextCompilerPreCallHook(CustomLogger):
                 checkpoint_to_jsonable(engine.export_json()),
             )
 
-        compiled_state = _snapshot_engine_state(engine)
+        compiled_state = snapshot_engine_state(engine)
         # For long-running conversations, you can optionally compact transcripts by removing user inputs that were compiled into state. See Demo 6.  # noqa: E501
         system_message: dict[str, object] = {
             "role": "system",
             "content": "You are a helpful assistant.\n"
-            + _render_compiled_state_contract(compiled_state),
+            + render_compiled_state_contract(compiled_state),
         }
         # Prepend one compiler contract system message, then forward the original
         # request messages unchanged. Existing system messages are preserved.
