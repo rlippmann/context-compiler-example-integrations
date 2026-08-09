@@ -10,7 +10,8 @@ without Directive Drafter preprocessing.
 - The pipe forwards normal chat turns to the backend model.
 - When compiler state is non-empty, passthrough includes exactly one compiler-owned
   `[[cc_state]]` system message in the forwarded request.
-- Conflicting or ambiguous updates ask for clarification before state changes.
+- Conflicting or invalid updates are rejected for the current request and do not
+  create resumable continuation state.
 - The pipe handles exact `show state` locally. The pipe treats near matches such
   as `show state please` as normal chat input.
 
@@ -117,7 +118,7 @@ Suggested verification:
 
 - Send `use docker` and confirm you get `State updated: Use docker.` with trace showing a local turn
 - Send a normal prompt such as `what should I run?` and confirm trace shows a forwarded turn with compiler state included
-- Send `use kubectl instead of docker` and confirm Open WebUI asks for clarification instead of changing state
+- Send `use docker`, then `prohibit docker`, and confirm Open WebUI rejects the second request instead of changing state
 - Optionally send `show state` and confirm the state summary is returned locally
 
 Advanced check:
@@ -136,7 +137,7 @@ Suggested verification:
 - Send `please use docker` and confirm either:
   - the Directive Drafter converts it into a local state update, or
   - trace shows the turn followed the normal compiler path without a silent state change
-- Send `use kubectl instead of docker`, then reply `yes`, and confirm the saved clarification flow resumes locally
+- Send `please use docker`, then `prohibit docker`, and confirm the second request is rejected without creating resumable state
 - Send `use docker and prohibit peanuts` and confirm the pipe responds locally that multiple directives are not supported and must be submitted separately
 - Send a normal prompt such as `what should I run?` and confirm trace shows a forwarded turn with compiler state included
 
@@ -182,15 +183,15 @@ If you want a slightly broader manual pass:
 - prompt(s): `clear state` → `use docker` → `prohibit docker`
 - base model: generic Docker/prohibition guidance text
 - basic pipe: `'docker' is already in use. Only one policy per item is allowed. Use 'reset policies' to change it.`
-- directive-drafter pipe: same conflict clarify
-- why this matters: the app asks before applying a conflicting change.
+- directive-drafter pipe: same deterministic rejection
+- why this matters: the app rejects conflicting changes instead of creating a resumable flow.
 
 ### Case 3
 
 - prompt(s): `clear state` → `use podman instead of docker`
 - base model: generic “how to switch to Podman” tutorial
 - basic pipe: `No exact policy found for "docker". Replacement requires an exact policy match...`
-- directive-drafter pipe: same replacement clarify
+- directive-drafter pipe: same deterministic rejection
 - why this matters: the app only replaces a policy when the old item already exists.
 
 ### Case 4
@@ -198,7 +199,7 @@ If you want a slightly broader manual pass:
 - prompt(s): `clear state` → `set premise to concise replies`
 - base model: accepts conversational style phrasing
 - basic pipe: `Did you mean 'set premise concise replies'?`
-- directive-drafter pipe: same clarify (near-miss is not rewritten)
+- directive-drafter pipe: same deterministic rejection (near-miss is not rewritten)
 - why this matters: near-miss text is not silently rewritten.
 
 ### Case 5
@@ -206,7 +207,7 @@ If you want a slightly broader manual pass:
 - prompt(s): `clear state` → `change premise concise replies`
 - base model: generic “please clarify changes” response
 - basic pipe: `Did you mean 'change premise to concise replies'?`
-- directive-drafter pipe: same clarify (near-miss is passed through unchanged)
+- directive-drafter pipe: same deterministic rejection (near-miss is passed through unchanged)
 - why this matters: the app waits for explicit, valid directive text before changing state.
 
 ## Compatibility
