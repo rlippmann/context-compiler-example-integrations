@@ -206,27 +206,19 @@ def _start_proxy_runtime(
         config_path.unlink(missing_ok=True)
 
 
-def test_litellm_proxy_runtime_persists_state_without_removed_confirmation_flow(
+def test_litellm_proxy_runtime_rejects_failed_application_without_persisting_resume_state(
     litellm_proxy_runtime_basic: _ProxyRuntime,
     litellm_runtime_stub: _ThreadedStubServer,
 ) -> None:
     response = _post_chat_completion(
         port=litellm_proxy_runtime_basic.port,
-        messages=[{"role": "user", "content": "use kubectl instead of docker"}],
-        session_key="runtime-basic-confirm",
+        messages=[{"role": "user", "content": "change premise to formal tone"}],
+        session_key="runtime-basic-reject",
     )
 
-    assert response.status_code == 200
-    assert response.json()["choices"][0]["message"]["content"] == "stubbed reply"
-    assert len(litellm_runtime_stub.captured_requests) == 1
-
-    forwarded_payload = litellm_runtime_stub.captured_requests[0]
-    forwarded_messages = forwarded_payload["messages"]
-    assert isinstance(forwarded_messages, list)
-    assert len(forwarded_messages) == 2
-    assert forwarded_messages[1:] == [
-        {"role": "user", "content": "use kubectl instead of docker"}
-    ]
+    assert response.status_code == 400
+    assert "No premise is set." in response.text
+    assert litellm_runtime_stub.captured_requests == []
 
 
 def test_litellm_proxy_runtime_forwards_allowed_request_with_contract(
@@ -275,27 +267,19 @@ def test_litellm_proxy_runtime_forwards_allowed_request_with_contract(
     assert forwarded_messages[1:] == original_messages
 
 
-def test_litellm_proxy_runtime_with_directive_drafter_persists_state_without_removed_confirmation_flow(
+def test_litellm_proxy_runtime_with_directive_drafter_rejects_failed_application_without_persisting_resume_state(
     litellm_proxy_runtime_with_directive_drafter: _ProxyRuntime,
     litellm_runtime_stub: _ThreadedStubServer,
 ) -> None:
     response = _post_chat_completion(
         port=litellm_proxy_runtime_with_directive_drafter.port,
-        messages=[{"role": "user", "content": "use kubectl instead of docker"}],
-        session_key="runtime-drafter-confirm",
+        messages=[{"role": "user", "content": "change premise to formal tone"}],
+        session_key="runtime-drafter-reject",
     )
 
-    assert response.status_code == 200
-    assert response.json()["choices"][0]["message"]["content"] == "stubbed reply"
-    assert len(litellm_runtime_stub.captured_requests) == 1
-
-    forwarded_payload = litellm_runtime_stub.captured_requests[0]
-    forwarded_messages = forwarded_payload["messages"]
-    assert isinstance(forwarded_messages, list)
-    assert len(forwarded_messages) == 2
-    assert forwarded_messages[1:] == [
-        {"role": "user", "content": "use kubectl instead of docker"}
-    ]
+    assert response.status_code == 400
+    assert "No premise is set." in response.text
+    assert litellm_runtime_stub.captured_requests == []
 
 
 def test_litellm_proxy_runtime_with_directive_drafter_forwards_allowed_request_with_contract(

@@ -132,81 +132,74 @@ def test_persistent_mode_restores_checkpoint_and_isolates_sessions(monkeypatch) 
     assert "peanuts" not in str(other["messages"][0]["content"])
 
 
-def test_persistent_mode_saves_updated_authoritative_state_for_follow_up_turns(
+def test_failed_application_rejects_request_and_does_not_persist_state(
     monkeypatch,
 ) -> None:
-    module = _load_proxy_module(monkeypatch, "litellm_proxy_pending")
+    module = _load_proxy_module(monkeypatch, "litellm_proxy_failed_application")
     module.CHECKPOINT_STORE.clear()
     hook = module.ContextCompilerPreCallHook()
 
-    clarify_data = {
+    rejected_data = {
         "model": "demo",
         "context_compiler_mode": "persistent",
-        "context_compiler_session_key": "chat-clarify",
-        "messages": [{"role": "user", "content": "use kubectl instead of docker"}],
-    }
-    confirm_data = {
-        "model": "demo",
-        "context_compiler_mode": "persistent",
-        "context_compiler_session_key": "chat-clarify",
-        "messages": [
-            {"role": "user", "content": "use kubectl instead of docker"},
-            {"role": "assistant", "content": "question asked"},
-            {"role": "user", "content": "yes"},
-        ],
+        "context_compiler_session_key": "chat-failed-apply",
+        "messages": [{"role": "user", "content": "change premise to formal tone"}],
     }
 
-    first = asyncio.run(
-        hook.async_pre_call_hook(None, None, clarify_data, "completion")
-    )
-    second = asyncio.run(
-        hook.async_pre_call_hook(None, None, confirm_data, "completion")
+    result = asyncio.run(
+        hook.async_pre_call_hook(None, None, rejected_data, "completion")
     )
 
-    assert first is clarify_data
-    assert second is confirm_data
-    checkpoint = module.CHECKPOINT_STORE.load("chat-clarify")
-    assert checkpoint is not None
-    assert checkpoint["policies"] == {"kubectl": "use"}
+    assert isinstance(result, str)
+    assert "No premise is set." in result
+    assert module.CHECKPOINT_STORE.load("chat-failed-apply") is None
 
 
-def test_persistent_mode_does_not_treat_confirmation_text_as_removed_resume_flow(
-    monkeypatch,
-) -> None:
-    module = _load_proxy_module(monkeypatch, "litellm_proxy_pending_no")
+def test_failed_application_preserves_existing_checkpoint_state(monkeypatch) -> None:
+    module = _load_proxy_module(monkeypatch, "litellm_proxy_preserve_checkpoint")
     module.CHECKPOINT_STORE.clear()
     hook = module.ContextCompilerPreCallHook()
 
-    clarify_data = {
+    seed_data = {
         "model": "demo",
         "context_compiler_mode": "persistent",
-        "context_compiler_session_key": "chat-clarify-no",
-        "messages": [{"role": "user", "content": "use kubectl instead of docker"}],
+        "context_compiler_session_key": "chat-preserve-checkpoint",
+        "messages": [{"role": "user", "content": "use docker"}],
     }
-    reject_data = {
+    rejected_data = {
         "model": "demo",
         "context_compiler_mode": "persistent",
-        "context_compiler_session_key": "chat-clarify-no",
-        "messages": [
-            {"role": "user", "content": "use kubectl instead of docker"},
-            {"role": "assistant", "content": "question asked"},
-            {"role": "user", "content": "no"},
-        ],
+        "context_compiler_session_key": "chat-preserve-checkpoint",
+        "messages": [{"role": "user", "content": "prohibit docker"}],
     }
 
-    first = asyncio.run(
-        hook.async_pre_call_hook(None, None, clarify_data, "completion")
+    seed_result = asyncio.run(
+        hook.async_pre_call_hook(None, None, seed_data, "completion")
     )
-    second = asyncio.run(
-        hook.async_pre_call_hook(None, None, reject_data, "completion")
+    assert seed_result is seed_data
+
+    result = asyncio.run(
+        hook.async_pre_call_hook(None, None, rejected_data, "completion")
     )
 
-    assert first is clarify_data
-    assert second is reject_data
-    checkpoint = module.CHECKPOINT_STORE.load("chat-clarify-no")
+    assert isinstance(result, str)
+    checkpoint = module.CHECKPOINT_STORE.load("chat-preserve-checkpoint")
     assert checkpoint is not None
-    assert checkpoint["policies"] == {"kubectl": "use"}
-    assert "docker" not in str(reject_data["messages"][0]["content"])
+    assert checkpoint["policies"] == {"docker": "use"}
+
+    follow_up_data = {
+        "model": "demo",
+        "context_compiler_mode": "persistent",
+        "context_compiler_session_key": "chat-preserve-checkpoint",
+        "messages": [{"role": "user", "content": "prohibit docker"}],
+    }
+
+    follow_up_result = asyncio.run(
+        hook.async_pre_call_hook(None, None, follow_up_data, "completion")
+    )
+
+    assert isinstance(follow_up_result, str)
+    assert '"docker" is currently in use.' in follow_up_result
 
 
 def test_state_is_saved_after_update(monkeypatch) -> None:

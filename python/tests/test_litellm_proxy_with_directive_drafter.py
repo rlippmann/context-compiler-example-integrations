@@ -89,51 +89,34 @@ def test_drafter_output_applies_to_current_turn_only(monkeypatch) -> None:
     assert "peanuts" not in str(data["messages"][0]["content"])
 
 
-def test_persistent_mode_with_drafter_saves_updated_state_for_follow_up_turns(
+def test_persistent_mode_with_drafter_rejects_failed_application_without_persisting(
     monkeypatch,
 ) -> None:
-    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_pending")
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_failed_apply")
     module.CHECKPOINT_STORE.clear()
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
     drafted_inputs: list[str] = []
 
     def fake_preprocess(message: str, state: dict[str, object] | None) -> str | None:
         drafted_inputs.append(message)
-        if message == "use kubectl instead of docker":
-            return None
-        return "use docker"
+        return None
 
     monkeypatch.setattr(module, "_preprocess_last_user_message", fake_preprocess)
-    first = {
+    rejected_data = {
         "model": "demo",
         "context_compiler_mode": "persistent",
-        "context_compiler_session_key": "chat-drafter-pending",
-        "messages": [{"role": "user", "content": "use kubectl instead of docker"}],
-    }
-    second = {
-        "model": "demo",
-        "context_compiler_mode": "persistent",
-        "context_compiler_session_key": "chat-drafter-pending",
-        "messages": [
-            {"role": "user", "content": "use kubectl instead of docker"},
-            {"role": "assistant", "content": "question asked"},
-            {"role": "user", "content": "yes"},
-        ],
+        "context_compiler_session_key": "chat-drafter-failed-apply",
+        "messages": [{"role": "user", "content": "change premise to formal tone"}],
     }
 
-    first_result = asyncio.run(
-        hook.async_pre_call_hook(None, None, first, "completion")
-    )
-    second_result = asyncio.run(
-        hook.async_pre_call_hook(None, None, second, "completion")
+    result = asyncio.run(
+        hook.async_pre_call_hook(None, None, rejected_data, "completion")
     )
 
-    assert first_result is first
-    assert second_result is second
-    assert drafted_inputs == ["use kubectl instead of docker", "yes"]
-    checkpoint = module.CHECKPOINT_STORE.load("chat-drafter-pending")
-    assert checkpoint is not None
-    assert checkpoint["policies"] == {"kubectl": "use", "docker": "use"}
+    assert isinstance(result, str)
+    assert "No premise is set." in result
+    assert drafted_inputs == ["change premise to formal tone"]
+    assert module.CHECKPOINT_STORE.load("chat-drafter-failed-apply") is None
 
 
 def test_missing_session_key_fails_clearly_in_persistent_mode(monkeypatch) -> None:
@@ -193,50 +176,57 @@ def test_stateless_mode_has_no_cross_call_continuity(monkeypatch) -> None:
     assert "peanuts" not in str(second["messages"][0]["content"])
 
 
-def test_persistent_mode_with_drafter_does_not_resume_removed_confirmation_flow(
+def test_persistent_mode_with_drafter_preserves_existing_checkpoint_on_failure(
     monkeypatch,
 ) -> None:
-    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_pending_no")
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_preserve_checkpoint")
     module.CHECKPOINT_STORE.clear()
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
-    drafted_inputs: list[str] = []
 
     def fake_preprocess(message: str, state: dict[str, object] | None) -> str | None:
-        drafted_inputs.append(message)
         return None
 
     monkeypatch.setattr(module, "_preprocess_last_user_message", fake_preprocess)
-    first = {
+    seed_data = {
         "model": "demo",
         "context_compiler_mode": "persistent",
-        "context_compiler_session_key": "chat-drafter-pending-no",
-        "messages": [{"role": "user", "content": "use kubectl instead of docker"}],
+        "context_compiler_session_key": "chat-drafter-preserve-checkpoint",
+        "messages": [{"role": "user", "content": "use docker"}],
     }
-    second = {
+    rejected_data = {
         "model": "demo",
         "context_compiler_mode": "persistent",
-        "context_compiler_session_key": "chat-drafter-pending-no",
-        "messages": [
-            {"role": "user", "content": "use kubectl instead of docker"},
-            {"role": "assistant", "content": "question asked"},
-            {"role": "user", "content": "no"},
-        ],
+        "context_compiler_session_key": "chat-drafter-preserve-checkpoint",
+        "messages": [{"role": "user", "content": "prohibit docker"}],
     }
 
-    first_result = asyncio.run(
-        hook.async_pre_call_hook(None, None, first, "completion")
+    seed_result = asyncio.run(
+        hook.async_pre_call_hook(None, None, seed_data, "completion")
     )
-    second_result = asyncio.run(
-        hook.async_pre_call_hook(None, None, second, "completion")
+    assert seed_result is seed_data
+
+    result = asyncio.run(
+        hook.async_pre_call_hook(None, None, rejected_data, "completion")
     )
 
-    assert first_result is first
-    assert second_result is second
-    assert drafted_inputs == ["use kubectl instead of docker", "no"]
-    checkpoint = module.CHECKPOINT_STORE.load("chat-drafter-pending-no")
+    assert isinstance(result, str)
+    checkpoint = module.CHECKPOINT_STORE.load("chat-drafter-preserve-checkpoint")
     assert checkpoint is not None
-    assert checkpoint["policies"] == {"kubectl": "use"}
-    assert "docker" not in str(second["messages"][0]["content"])
+    assert checkpoint["policies"] == {"docker": "use"}
+
+    follow_up_data = {
+        "model": "demo",
+        "context_compiler_mode": "persistent",
+        "context_compiler_session_key": "chat-drafter-preserve-checkpoint",
+        "messages": [{"role": "user", "content": "prohibit docker"}],
+    }
+
+    follow_up_result = asyncio.run(
+        hook.async_pre_call_hook(None, None, follow_up_data, "completion")
+    )
+
+    assert isinstance(follow_up_result, str)
+    assert '"docker" is currently in use.' in follow_up_result
 
 
 def test_normal_update_explicitly_saves_checkpoint(monkeypatch) -> None:
