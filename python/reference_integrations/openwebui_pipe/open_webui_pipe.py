@@ -596,38 +596,6 @@ class Pipe:
             return normalized_error
         return response
 
-    async def _forward_update(
-        self,
-        body: dict[str, Any],
-        user_payload: dict[str, Any],
-        request: Request,
-        state: _EngineSnapshot,
-    ) -> Any:
-        """Forward with one compiler-owned state message based on current state.
-
-        The body is shallow-copied, ``model`` is overridden, and exactly one
-        compiler-owned message is inserted/replaced before forwarding.
-        """
-        payload = {**body}
-        payload["model"] = self.valves.BASE_MODEL_ID
-
-        payload["messages"] = _build_forward_messages(body.get("messages"), state=state)
-
-        user = Users.get_user_by_id(user_payload["id"])
-        if inspect.isawaitable(user):
-            user = await user
-        try:
-            response = await generate_chat_completion(request, payload, user)
-        except Exception as exc:
-            normalized_exception = self._normalize_forward_exception(exc)
-            if normalized_exception is not None:
-                return normalized_exception
-            raise
-        normalized_error = self._normalize_forward_error(response)
-        if normalized_error is not None:
-            return normalized_error
-        return response
-
     async def pipe(
         self,
         body: dict[str, Any],

@@ -255,13 +255,13 @@ def test_failed_transition_is_rejected_and_follow_up_is_a_new_request(
     assert len(forwarded) == 1
 
 
-def test_failed_transition_does_not_create_resumable_engine_state(monkeypatch) -> None:
+def test_failed_transition_does_not_change_existing_engine_state(monkeypatch) -> None:
     module = _load_module_with_stubs(
-        "owui_failed_transition_no_resume_state", monkeypatch
+        "owui_failed_transition_state_preserved", monkeypatch
     )
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    chat_id = "chat-no-resume-state"
+    chat_id = "chat-state-preserved"
 
     asyncio.run(
         pipe.pipe(
@@ -377,8 +377,8 @@ def test_near_miss_directive_is_rejected_and_skips_downstream(
     assert forwarded == []
 
 
-def test_near_miss_rejection_does_not_create_pending_state(monkeypatch) -> None:
-    module = _load_module_with_stubs("owui_near_miss_no_pending_state", monkeypatch)
+def test_near_miss_rejection_does_not_change_existing_engine_state(monkeypatch) -> None:
+    module = _load_module_with_stubs("owui_near_miss_state_preserved", monkeypatch)
     forwarded: list[dict[str, object]] = []
 
     async def _forward(
