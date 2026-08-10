@@ -179,7 +179,7 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
             "litellm_proxy: latest_user_text_present=%s", latest_user_text is not None
         )
         drafted_result: DraftResult | None = None
-        decision: dict[str, object]
+        decision: Any
 
         if latest_user_text is not None:
             drafted_result = _draft_last_user_message(latest_user_text)
@@ -195,7 +195,10 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
 
         if decision["kind"] == DecisionKind.ERROR:
             logger.debug("litellm_proxy: rejecting_failed_application=true")
-            return decision.get("message") or "Request rejected."
+            message = decision.get("message")
+            return (
+                message if isinstance(message, str) and message else "Request rejected."
+            )
 
         if session.mode == MODE_PERSISTENT and session.session_key is not None:
             CHECKPOINT_STORE.save(
