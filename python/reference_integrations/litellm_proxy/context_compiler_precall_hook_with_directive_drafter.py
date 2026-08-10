@@ -49,7 +49,6 @@ from context_compiler_example_integrations.reference_integrations.litellm_proxy.
 from context_compiler_example_integrations.reference_integrations.litellm_proxy._litellm_support import (
     extract_request_messages,
     render_compiled_state_contract,
-    snapshot_engine_state,
 )
 
 logger = logging.getLogger(__name__)
@@ -204,11 +203,10 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
                 checkpoint_to_jsonable(engine.export_json()),
             )
 
-        compiled_state = snapshot_engine_state(engine)
         system_message: dict[str, object] = {
             "role": "system",
             "content": "You are a helpful assistant.\n"
-            + render_compiled_state_contract(compiled_state),
+            + render_compiled_state_contract(engine),
         }
         logger.debug("litellm_proxy: inject_system_message=true")
         # Preserve original request messages; drafting changes only compiler input.
