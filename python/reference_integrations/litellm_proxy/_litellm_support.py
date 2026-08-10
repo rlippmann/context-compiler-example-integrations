@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from context_compiler.engine import Engine
 
-from context_compiler import POLICY_PROHIBIT, PolicyValue
+from context_compiler import POLICY_PROHIBIT
 
 
 def render_compiled_state_contract(engine: Engine) -> str:
     prohibited = sorted(
-        key
-        for key, value in engine.policies.items()
-        if value == POLICY_PROHIBIT
+        key for key, value in engine.policies.items() if value == POLICY_PROHIBIT
     )
 
     lines: list[str] = ["The following constraints are authoritative."]

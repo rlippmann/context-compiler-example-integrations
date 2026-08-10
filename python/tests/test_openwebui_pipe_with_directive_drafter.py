@@ -8,7 +8,11 @@ from types import MappingProxyType
 
 import pytest
 from context_compiler.grammar import CanonicalDirective, DirectiveKind
-from context_compiler_directive_drafter import DraftResult, NoDirective, UnknownDirective
+from context_compiler_directive_drafter import (
+    DraftResult,
+    NoDirective,
+    UnknownDirective,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_PATH = (
@@ -200,6 +204,7 @@ def test_failed_transition_is_rejected_and_follow_up_is_a_new_request(
             __chat_id__="chat-failed-transition",
         )
     )
+
     async def follow_up_no_directive(*args, **kwargs):
         return DraftResult(
             source="test",
@@ -392,7 +397,9 @@ def test_local_update_and_no_directive_passthrough_preserve_host_behavior(
     assert len(forwarded) == 1
 
 
-def test_no_directive_passthrough_does_not_change_existing_engine_state(monkeypatch) -> None:
+def test_no_directive_passthrough_does_not_change_existing_engine_state(
+    monkeypatch,
+) -> None:
     module = _load_module("owui_with_drafter_no_directive_state_preserved", monkeypatch)
     forwarded: list[dict[str, object]] = []
 

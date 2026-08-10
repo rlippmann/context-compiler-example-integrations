@@ -577,7 +577,9 @@ class Pipe:
         """Forward with model override and optional compiler-owned state injection."""
         payload = {**body}
         payload["model"] = self.valves.BASE_MODEL_ID
-        payload["messages"] = _build_forward_messages(body.get("messages"), engine=engine)
+        payload["messages"] = _build_forward_messages(
+            body.get("messages"), engine=engine
+        )
         user = Users.get_user_by_id(user_payload["id"])
         if inspect.isawaitable(user):
             user = await user
@@ -689,7 +691,9 @@ class Pipe:
                 llm_called=False,
             )
         if decision["kind"] == DecisionKind.NO_DIRECTIVE:
-            state_injected = "yes" if _has_non_empty_authoritative_state(engine) else "no"
+            state_injected = (
+                "yes" if _has_non_empty_authoritative_state(engine) else "no"
+            )
             response = await self._forward_passthrough(
                 body, __user__, __request__, engine=engine
             )
