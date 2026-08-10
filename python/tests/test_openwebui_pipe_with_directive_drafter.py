@@ -97,6 +97,7 @@ def test_canonical_draft_creates_approval_prompt_and_does_not_mutate_state(
     monkeypatch,
 ) -> None:
     module = _load_module("owui_with_drafter_before_step", monkeypatch)
+
     async def fake_draft(*args, **kwargs):
         return DraftResult(
             source="test",
@@ -213,9 +214,23 @@ def test_approval_applies_stored_directive(monkeypatch) -> None:
     assert show_state == "Premise: none\nUse: docker\nProhibit: none"
     assert compile_inputs == ["use docker"]
 
+    second_follow_up = asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "yes"}]},
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-failed-transition",
+        )
+    )
+
+    assert second_follow_up != "State updated."
+    assert compile_inputs == ["use docker"]
+
 
 def test_rejection_does_not_mutate_state(monkeypatch) -> None:
-    module = _load_module("owui_with_drafter_failed_transition_state_preserved", monkeypatch)
+    module = _load_module(
+        "owui_with_drafter_failed_transition_state_preserved", monkeypatch
+    )
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
@@ -263,8 +278,19 @@ def test_rejection_does_not_mutate_state(monkeypatch) -> None:
         )
     )
 
-    assert rejected == "Directive discarded."
+    assert rejected == "Directive discarded. No state change was applied."
     assert show_state == "Premise: none\nUse: none\nProhibit: none"
+
+    after_rejection = asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "yes"}]},
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-state-preserved",
+        )
+    )
+
+    assert after_rejection != "State updated."
 
 
 def test_pending_approval_does_not_affect_show_state(monkeypatch) -> None:
@@ -309,6 +335,165 @@ def test_pending_approval_does_not_affect_show_state(monkeypatch) -> None:
     )
 
     assert show_state == "Premise: none\nUse: none\nProhibit: none"
+
+
+def test_unrelated_follow_up_while_pending_does_not_apply_proposal(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_pending_unrelated_followup", monkeypatch)
+    compile_inputs: list[str] = []
+    forwarded: list[dict[str, object]] = []
+    real_create_engine = module.create_engine
+
+    def create_engine_with_tracking():
+        engine = real_create_engine()
+        original_step = engine.step
+
+        def tracked_step(user_input: str):
+            compile_inputs.append(user_input)
+            return original_step(user_input)
+
+        engine.step = tracked_step
+        return engine
+
+    async def forward(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
+        forwarded.append(payload)
+        return {"choices": [{"message": {"content": "downstream"}}]}
+
+    monkeypatch.setattr(module, "create_engine", create_engine_with_tracking)
+    module.generate_chat_completion = forward
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+
+    async def update_draft(*args, **kwargs):
+        return DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                text="use docker",
+                kind=DirectiveKind.USE_ITEM,
+                operands=MappingProxyType({"item": "docker"}),
+            ),
+        )
+
+    async def no_draft(*args, **kwargs):
+        return DraftResult(
+            source="test",
+            result=NoDirective(reason="reject.confident_non_directive"),
+        )
+
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
+    proposal = asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "please use docker"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-pending-unrelated-followup",
+        )
+    )
+
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
+    follow_up = asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "hello"}]},
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-pending-unrelated-followup",
+        )
+    )
+
+    assert proposal == (
+        "This is what I think the directive is:\nuse docker\nApply it? (y/n)"
+    )
+    assert follow_up == {"choices": [{"message": {"content": "downstream"}}]}
+    assert compile_inputs == []
+    assert len(forwarded) == 1
+
+
+def test_no_stale_pending_proposal_remains_after_non_approval_response(
+    monkeypatch,
+) -> None:
+    module = _load_module("owui_with_drafter_no_stale_pending", monkeypatch)
+    compile_inputs: list[str] = []
+    forwarded: list[dict[str, object]] = []
+    real_create_engine = module.create_engine
+
+    def create_engine_with_tracking():
+        engine = real_create_engine()
+        original_step = engine.step
+
+        def tracked_step(user_input: str):
+            compile_inputs.append(user_input)
+            return original_step(user_input)
+
+        engine.step = tracked_step
+        return engine
+
+    async def forward(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
+        forwarded.append(payload)
+        return {"choices": [{"message": {"content": "downstream"}}]}
+
+    monkeypatch.setattr(module, "create_engine", create_engine_with_tracking)
+    module.generate_chat_completion = forward
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+
+    async def update_draft(*args, **kwargs):
+        return DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                text="use docker",
+                kind=DirectiveKind.USE_ITEM,
+                operands=MappingProxyType({"item": "docker"}),
+            ),
+        )
+
+    async def no_draft(*args, **kwargs):
+        return DraftResult(
+            source="test",
+            result=NoDirective(reason="reject.confident_non_directive"),
+        )
+
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
+    asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "please use docker"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-no-stale-pending",
+        )
+    )
+
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
+    asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "hello"}]},
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-no-stale-pending",
+        )
+    )
+    later_yes = asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "yes"}]},
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-no-stale-pending",
+        )
+    )
+
+    assert later_yes == {"choices": [{"message": {"content": "downstream"}}]}
+    assert compile_inputs == []
+    assert len(forwarded) == 2
 
 
 def test_fallback_to_raw_input_path_preserves_host_behavior(monkeypatch) -> None:
