@@ -23,8 +23,6 @@ import json
 import logging
 import re
 from collections.abc import AsyncIterator
-from importlib.resources import as_file, files
-from importlib.resources.abc import Traversable
 from typing import Any, Literal, TypedDict, cast
 
 from fastapi import Request  # type: ignore[import-not-found]
@@ -60,16 +58,15 @@ from context_compiler import (
 from context_compiler.engine import Engine
 from context_compiler_directive_drafter import (
     DRAFT_OUTCOME_DIRECTIVE,
+    get_converter_prompt,
     parse_preprocessor_output,
     preprocess_heuristic,
-    render_prompt,
 )
 
 logger = logging.getLogger(__name__)
 
 _CC_MARKER = "[[cc_state]]"
 _ENGINES_BY_CHAT_KEY: dict[str, Engine] = {}
-_PROMPTS_DIR = files("context_compiler_directive_drafter").joinpath("prompts")
 
 
 class _EngineSnapshot(TypedDict):
@@ -88,15 +85,6 @@ def _is_directive_shaped_input(message: str) -> bool:
         or normalized.startswith("clear")
         or normalized.startswith("reset")
     )
-
-
-def _prompt_file_path(profile: str) -> Traversable:
-    # Runtime prompt selection for fallback drafting:
-    # - default: most instruction-following models
-    # - llama: models that need tighter prompt guidance
-    if profile == "llama":
-        return _PROMPTS_DIR.joinpath("llama.txt")
-    return _PROMPTS_DIR.joinpath("default.txt")
 
 
 def _resolve_chat_key(
@@ -708,19 +696,16 @@ class Pipe:
         prompt_profile: str,
         model_id: str | None,
     ) -> tuple[str | None, str | None]:
+        del state, prompt_profile
         model_id = _normalize_model_id(model_id)
         if model_id is None:
-            return None, None
-        with as_file(_prompt_file_path(prompt_profile)) as prompt_path:
-            prompt = render_prompt(prompt_path, state["premise"], state["policies"])
-        if prompt is None:
             return None, None
 
         payload: dict[str, Any] = {
             "model": model_id,
             "stream": False,
             "messages": [
-                {"role": "system", "content": prompt},
+                {"role": "system", "content": get_converter_prompt()},
                 {"role": "user", "content": message},
             ],
         }
