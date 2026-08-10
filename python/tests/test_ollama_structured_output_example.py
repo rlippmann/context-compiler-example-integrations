@@ -58,13 +58,13 @@ def test_empty_or_unknown_state_selects_no_schema() -> None:
     assert unknown_plan["format_schema"] is None
 
 
-def test_contradiction_clarify_path_selects_no_schema() -> None:
+def test_contradiction_error_path_selects_no_schema() -> None:
     engine = create_engine()
     engine.step("use python_script")
 
     plan = plan_turn("prohibit python_script", engine)
 
-    assert plan["decision_kind"] == "clarify"
+    assert plan["decision_kind"] == "error"
     assert plan["selected_schema_item"] is None
     assert plan["format_schema"] is None
 

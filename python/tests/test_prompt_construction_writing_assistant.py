@@ -138,7 +138,7 @@ def test_adversarial_user_text_does_not_override_saved_premise_or_policy() -> No
     assert "verbose" not in result["messages"][0]["content"].lower()
 
 
-def test_invalid_premise_lifecycle_produces_clarification_behavior() -> None:
+def test_invalid_premise_lifecycle_produces_error_behavior() -> None:
     engine = create_engine()
 
     result = prepare_prompt_turn(
@@ -147,18 +147,16 @@ def test_invalid_premise_lifecycle_produces_clarification_behavior() -> None:
         user_text="Please rewrite this paragraph.",
     )
 
-    assert result["decision_kind"] == "clarify"
+    assert result["decision_kind"] == "error"
     assert result["messages"] == []
     assert result["model_call_ready"] is False
-    assert result["blocked_reason"] == (
-        "clarification required before prompt construction"
-    )
+    assert result["blocked_reason"] == ("compiler rejected prompt-state change")
     assert result["prompt_to_user"] == (
         "No premise is set.\nUse 'set premise <value>' to define one."
     )
 
 
-def test_contradictory_policy_directives_produce_clarification_behavior() -> None:
+def test_contradictory_policy_directives_produce_error_behavior() -> None:
     engine = create_engine()
     engine.step(f"use {CONCISE_STYLE}")
 
@@ -168,12 +166,10 @@ def test_contradictory_policy_directives_produce_clarification_behavior() -> Non
         user_text="Please rewrite this paragraph.",
     )
 
-    assert result["decision_kind"] == "clarify"
+    assert result["decision_kind"] == "error"
     assert result["messages"] == []
     assert result["model_call_ready"] is False
-    assert result["blocked_reason"] == (
-        "clarification required before prompt construction"
-    )
+    assert result["blocked_reason"] == ("compiler rejected prompt-state change")
     assert result["prompt_to_user"] == (
         f'"{CONCISE_STYLE}" is currently in use.\n'
         "Remove or replace it before prohibiting it."

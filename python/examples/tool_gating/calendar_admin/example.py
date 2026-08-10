@@ -36,20 +36,20 @@ class CalendarToolExecutionResult(TypedDict):
 
 
 class CalendarToolTurnResult(TypedDict):
-    decision_kind: Literal["clarify", "update", "passthrough"]
+    decision_kind: Literal["error", "update", "passthrough"]
     prompt_to_user: str | None
     execution_result: CalendarToolExecutionResult
 
 
 def _decision_kind_name(
     decision: object,
-) -> Literal["clarify", "update", "passthrough"]:
+) -> Literal["error", "update", "passthrough"]:
     if not isinstance(decision, dict):
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
     if kind == DecisionKind.ERROR:
-        return "clarify"
+        return "error"
     if kind == DecisionKind.UPDATE:
         return "update"
     if kind == DecisionKind.NO_DIRECTIVE:
@@ -143,19 +143,19 @@ def handle_calendar_admin_turn(
     tool_call: CalendarToolCall,
     host: CalendarAdminHost,
 ) -> CalendarToolTurnResult:
-    """Block tool exposure on clarify and otherwise enforce current state."""
+    """Block tool exposure on compiler rejection and otherwise enforce state."""
 
     decision = engine.step(compiler_input)
 
     if decision["kind"] == DecisionKind.ERROR:
         return {
-            "decision_kind": "clarify",
+            "decision_kind": "error",
             "prompt_to_user": decision["message"],
             "execution_result": {
                 "authorization_state": "blocked",
                 "tool_visible": False,
                 "executed": False,
-                "blocked_reason": "clarification required before exposing calendar admin tools",
+                "blocked_reason": "compiler rejected calendar admin state change",
                 "tool_result": None,
                 "registry_snapshot": host.visible_tools(engine.policies),
                 "execution_log": host.execution_log.copy(),

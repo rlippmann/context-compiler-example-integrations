@@ -38,8 +38,8 @@ use expense_approval
 ```
 
 If a request introduces a contradiction such as `prohibit expense_approval`
-against an already authorized state, Context Compiler returns a clarify flow.
-The host returns a conflict response and writes no record.
+against an already authorized state, Context Compiler rejects the conflicting
+state change. The host returns a conflict response and writes no record.
 
 ## Same request, different state
 
@@ -51,7 +51,7 @@ changes.
 | --- | --- | --- | --- | --- |
 | `/compiler/expenses` | approved | absent | none | `403`, no side effect |
 | `/compiler/expenses` | approved | `use expense_approval` | none | `200`, one side effect |
-| `/compiler/expenses` | approved | `use expense_approval` | `prohibit expense_approval` | `409`, clarify, no new side effect |
+| `/compiler/expenses` | approved | `use expense_approval` | `prohibit expense_approval` | `409`, compiler rejection, no new side effect |
 
 ## Enforcement boundary
 

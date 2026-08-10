@@ -39,20 +39,20 @@ class GatewayResult(TypedDict):
 
 
 class GatewayTurnResult(TypedDict):
-    decision_kind: Literal["clarify", "update", "passthrough"]
+    decision_kind: Literal["error", "update", "passthrough"]
     prompt_to_user: str | None
     gateway_result: GatewayResult
 
 
 def _decision_kind_name(
     decision: object,
-) -> Literal["clarify", "update", "passthrough"]:
+) -> Literal["error", "update", "passthrough"]:
     if not isinstance(decision, dict):
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
     if kind == DecisionKind.ERROR:
-        return "clarify"
+        return "error"
     if kind == DecisionKind.UPDATE:
         return "update"
     if kind == DecisionKind.NO_DIRECTIVE:
@@ -165,17 +165,17 @@ def handle_gateway_turn(
     gateway: SupportGateway,
     downstream: SupportService,
 ) -> GatewayTurnResult:
-    """Block routing changes on clarify and otherwise enforce authoritative state."""
+    """Block routing changes on compiler rejection and otherwise enforce state."""
 
     decision = engine.step(compiler_input)
 
     if decision["kind"] == DecisionKind.ERROR:
         return {
-            "decision_kind": "clarify",
+            "decision_kind": "error",
             "prompt_to_user": decision["message"],
             "gateway_result": gateway.block(
                 request,
-                reason="clarification required before gateway routing",
+                reason="compiler rejected gateway state change",
             ),
         }
 

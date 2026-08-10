@@ -2,7 +2,7 @@
 
 Flow:
 1. Call engine.step(user_input)
-2. clarify -> return prompt_to_user (no model call)
+2. error -> return prompt_to_user (no model call)
 3. update -> return deterministic acknowledgment text (no model call)
 4. passthrough -> call LiteLLM with compiled state + user input
 
@@ -27,15 +27,6 @@ from context_compiler import (
     is_update,
 )
 from context_compiler.engine import Engine
-
-try:
-    from .confirmation_helper import (
-        is_confirmation_text,
-    )
-except ImportError:
-    from confirmation_helper import (
-        is_confirmation_text,
-    )
 
 from context_compiler_example_integrations.examples._shared.provider_mode import (
     print_startup_config,
@@ -203,7 +194,7 @@ def _render_item_label(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip().lower()
 
 
-def _near_miss_directive_clarify(value: str) -> str | None:
+def _near_miss_directive_error(value: str) -> str | None:
     normalized = re.sub(r"\s+", " ", value.strip())
     lower = normalized.lower()
 
@@ -283,11 +274,8 @@ def _append_trace(
     return f"{response_text}\n\n{trace_text}"
 
 
-def handle_turn(
-    user_input: str, engine: Engine, *, session_key: str | None = None
-) -> str:
+def handle_turn(user_input: str, engine: Engine) -> str:
     state_before = _snapshot_engine_state(engine)
-    del session_key
     logger.debug("litellm_basic: engine_input=%s", f"user_input len={len(user_input)}")
     decision = engine.step(user_input)
     if decision["kind"] == DecisionKind.ERROR:
@@ -297,7 +285,7 @@ def handle_turn(
     else:
         kind = DecisionKind.NO_DIRECTIVE.value
     logger.debug("litellm_basic: decision=%s", kind)
-    near_miss_prompt = _near_miss_directive_clarify(user_input)
+    near_miss_prompt = _near_miss_directive_error(user_input)
 
     if decision["kind"] == DecisionKind.ERROR:
         response_text = near_miss_prompt or decision["message"] or ""
@@ -321,10 +309,7 @@ def handle_turn(
             llm_called=False,
         )
     if is_update(decision):
-        if is_confirmation_text(user_input):
-            response_text = "State updated."
-        else:
-            response_text = _summarize_update_from_input(user_input)
+        response_text = _summarize_update_from_input(user_input)
         return _append_trace(
             response_text,
             original_input=user_input,

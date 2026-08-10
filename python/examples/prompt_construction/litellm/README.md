@@ -13,12 +13,12 @@ with LiteLLM:
 - Compiler-only flow:
   - raw user input goes straight to `engine.step(...)`
   - `update` returns a local acknowledgment
-  - `clarify` returns the compiler prompt
+  - `error` returns the compiler rejection prompt
   - `passthrough` calls LiteLLM with the compiled state contract plus the user message
 - Optional directive-drafter flow:
   - the directive drafter tries to convert natural-language intent into a canonical directive first
   - if it cannot produce a validated directive, behavior stays equivalent to the compiler-only flow
-  - pending clarification bypasses directive drafting and sends the raw reply back to `engine.step(...)`
+  - if it cannot produce a canonical directive, the host falls back to the normal request flow
 
 Model fallback output is structurally validated before handoff. This does not prove that the model interpreted the user correctly. The automated fallback path is experimental pending a separate source-aware acceptance policy and reviewed drafting workflow.
 
@@ -92,7 +92,7 @@ print(handle_turn("set premise to concise replies", engine))
 PY
 ```
 
-This near-miss input should return `clarify` instead of being rewritten.
+This near-miss input should return an `error` prompt instead of being rewritten.
 
 ## Environment configuration
 
@@ -107,13 +107,12 @@ Use these files as host-side integration references.
 - Import `handle_turn(...)` from either `basic.py` or `with_directive_drafter.py`.
 - Create and retain an engine instance in host/session state.
 - Pass each user input through `handle_turn(user_input, engine)`.
-- Optional checkpointing: pass `session_key=...`.
-  The example restores checkpoint data before the first `engine.step(...)` and
-  saves checkpoint data after `update`/`clarify`.
-- In this example, checkpoint/session storage is in-memory only.
-  State lasts only for the current process. To survive restarts, store
-  checkpoints in external storage (DB/Redis/etc.).
 - Display the returned assistant text.
+
+These prompt-construction examples do not implement pending-confirmation,
+resume, or `session_key` continuation behavior. If you need persistence across
+requests, persist and restore authoritative engine state at the host boundary as
+shown in the checkpoint examples or reference integrations.
 
 In these LiteLLM examples, `update` is rendered locally and does not call
 the downstream LLM. This makes state changes explicit. Production apps may
@@ -146,7 +145,7 @@ instead of reinjecting a compiled contract, use
 In both prompt-construction examples in this directory:
 
 - `passthrough`: call the model with normal input.
-- `clarify`: show `prompt_to_user`; do not treat state as changed.
+- `error`: show `prompt_to_user`; do not treat state as changed.
 - `update`: state changed; use updated state for the next model call.
 
 ## Related schema-selection decision flow
@@ -154,7 +153,7 @@ In both prompt-construction examples in this directory:
 In the related schema-selection example:
 
 - `passthrough`: let the host decide whether to send `response_format`.
-- `clarify`: show `prompt_to_user`; do not call LiteLLM.
+- `error`: show `prompt_to_user`; do not call LiteLLM.
 - `update`: state changed; the next host request may use a different `response_format`.
 
 ## Example checks
@@ -166,18 +165,18 @@ In the related schema-selection example:
     `Current premise: ...` and `Items marked use: concise_style.`
 - Near-miss passthrough (`with_directive_drafter.py`):
   - `set premise to concise replies` is not rewritten by the directive drafter and is passed through unchanged.
-  - Engine returns clarify (`Did you mean 'set premise concise replies'?`).
+  - Engine returns an error prompt (`Did you mean 'set premise concise replies'?`).
 - Compound directives (`with_directive_drafter.py`):
-  - `use docker and prohibit peanuts` returns a local clarify asking for separate directives.
+  - `use docker and prohibit peanuts` returns a local error asking for separate directives.
   - No authoritative state is mutated and no downstream model call is made for that turn.
 - Lifecycle enforcement (both):
-  - `change premise to formal tone` with no premise -> clarify (`set premise ...` first).
+  - `change premise to formal tone` with no premise -> error (`set premise ...` first).
 - Conflict behavior (both):
-  - `use docker` then `prohibit docker` -> conflict clarify.
+  - `use docker` then `prohibit docker` -> conflict error.
 - Replacement precondition (both):
-  - `use podman instead of docker` without prior `use docker` -> replacement clarify.
+  - `use podman instead of docker` without prior `use docker` -> replacement error.
 - Directive-adjacent abstain (`with_directive_drafter.py`):
-  - `change premise concise replies` is classified as `unknown`, not rewritten, and handled by engine clarify.
+  - `change premise concise replies` is classified as `unknown`, not rewritten, and handled by an engine error prompt.
 - Host-side request shaping (`python/examples/schema_selection/litellm_response_format/response_format.py`):
   - `use compact_summary` -> host selects compact-summary `response_format`.
   - `use action_plan` -> host selects action-plan `response_format`.

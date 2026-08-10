@@ -114,7 +114,7 @@ def test_compiler_endpoint_changes_outcome_only_when_authoritative_state_differs
     assert authorized_response.json()["side_effect_count"] == 1
     assert len(_read_jsonl(artifact_path)) == 1
 
-    clarify_response = client.post(
+    reject_response = client.post(
         "/compiler/expenses",
         json={
             **base_request,
@@ -127,14 +127,14 @@ def test_compiler_endpoint_changes_outcome_only_when_authoritative_state_differs
         },
     )
 
-    assert clarify_response.status_code == 409
-    clarify_detail = clarify_response.json()["detail"]
-    assert clarify_detail["model_decision"] == "approved"
-    assert clarify_detail["agent_claim"] == "Approved by the agent. Reimburse it."
-    assert clarify_detail["decision_kind"] == "clarify"
-    assert clarify_detail["authorization_state"] == "blocked"
-    assert clarify_detail["executed"] is False
-    assert "currently in use" in clarify_detail["prompt_to_user"]
+    assert reject_response.status_code == 409
+    reject_detail = reject_response.json()["detail"]
+    assert reject_detail["model_decision"] == "approved"
+    assert reject_detail["agent_claim"] == "Approved by the agent. Reimburse it."
+    assert reject_detail["decision_kind"] == "error"
+    assert reject_detail["authorization_state"] == "blocked"
+    assert reject_detail["executed"] is False
+    assert "currently in use" in reject_detail["prompt_to_user"]
     assert len(_read_jsonl(artifact_path)) == 1
 
 
@@ -222,7 +222,7 @@ def test_compiler_path_with_contradictory_directive_returns_conflict_and_writes_
     detail = response.json()["detail"]
     assert detail["model_decision"] == "approved"
     assert detail["agent_claim"] == "Approved by the agent. Reimburse it."
-    assert detail["decision_kind"] == "clarify"
+    assert detail["decision_kind"] == "error"
     assert detail["authorization_state"] == "blocked"
     assert detail["executed"] is False
     assert "currently in use" in detail["prompt_to_user"]

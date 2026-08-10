@@ -45,7 +45,7 @@ class PromptMessage(TypedDict):
 
 
 class PromptConstructionResult(TypedDict):
-    decision_kind: Literal["clarify", "update", "passthrough"]
+    decision_kind: Literal["error", "update", "passthrough"]
     prompt_to_user: str | None
     model_call_ready: bool
     llm_call_performed: bool
@@ -57,13 +57,13 @@ class PromptConstructionResult(TypedDict):
 
 def _decision_kind_name(
     decision: object,
-) -> Literal["clarify", "update", "passthrough"]:
+) -> Literal["error", "update", "passthrough"]:
     if not isinstance(decision, dict):
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
     if kind == DecisionKind.ERROR:
-        return "clarify"
+        return "error"
     if kind == DecisionKind.UPDATE:
         return "update"
     if kind == DecisionKind.NO_DIRECTIVE:
@@ -131,14 +131,14 @@ def prepare_prompt_turn(
 
     if decision["kind"] == DecisionKind.ERROR:
         return {
-            "decision_kind": "clarify",
+            "decision_kind": "error",
             "prompt_to_user": decision["message"],
             "model_call_ready": False,
             "llm_call_performed": False,
             "messages": [],
             "applied_premise": None,
             "applied_style_labels": [],
-            "blocked_reason": "clarification required before prompt construction",
+            "blocked_reason": "compiler rejected prompt-state change",
         }
 
     messages, premise, style_labels = build_prompt_messages(

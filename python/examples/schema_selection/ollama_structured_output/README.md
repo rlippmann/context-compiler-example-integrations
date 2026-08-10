@@ -39,7 +39,7 @@ this host selects `python_script` schema and does not request `shell_command` sc
 Tests verify schema selection behavior only:
 
 - compiler state -> selected schema (or no schema)
-- contradiction handling stays in compiler `clarify`
+- contradiction handling stays in compiler rejection/error handling
 
 Tests do not assert exact model wording.
 

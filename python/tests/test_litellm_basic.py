@@ -112,31 +112,7 @@ def test_saved_premise_and_policy_appear_in_litellm_system_contract(
     assert "Items marked use: concise_style." in system_prompt
 
 
-def test_session_key_does_not_restore_removed_confirmation_continuation(
-    basic_module, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    llm_calls: list[object] = []
-    monkeypatch.setattr(
-        basic_module,
-        "_call_litellm",
-        lambda messages: llm_calls.append(messages) or "downstream reply",
-    )
-
-    first_engine = create_engine()
-    first = basic_module.handle_turn(
-        "use podman instead of docker", first_engine, session_key="session-1"
-    )
-    second_engine = create_engine()
-    follow_up = basic_module.handle_turn("yes", second_engine, session_key="session-1")
-
-    assert first == "State updated: Use podman."
-    assert follow_up == "downstream reply"
-    assert len(llm_calls) == 1
-    assert dict(first_engine.policies) == {"podman": "use"}
-    assert dict(second_engine.policies) == {}
-
-
-def test_near_miss_directive_returns_clarify_text_and_skips_downstream(
+def test_near_miss_directive_returns_error_text_and_skips_downstream(
     basic_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     llm_calls: list[object] = []
@@ -152,7 +128,7 @@ def test_near_miss_directive_returns_clarify_text_and_skips_downstream(
     assert llm_calls == []
 
 
-def test_confirmation_text_without_pending_flow_uses_normal_turn_handling(
+def test_confirmation_like_text_uses_normal_turn_handling(
     basic_module, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     llm_calls: list[object] = []
@@ -164,7 +140,7 @@ def test_confirmation_text_without_pending_flow_uses_normal_turn_handling(
 
     engine = create_engine()
     first = basic_module.handle_turn("use podman instead of docker", engine)
-    retry = basic_module.handle_turn("yess", engine)
+    retry = basic_module.handle_turn("yes", engine)
 
     assert first == "State updated: Use podman."
     assert retry == "downstream reply"

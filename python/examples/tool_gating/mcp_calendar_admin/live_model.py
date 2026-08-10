@@ -38,7 +38,7 @@ class SideEffectRecord(TypedDict):
 
 
 class LiveModelResult(TypedDict):
-    decision_kind: Literal["clarify", "update", "passthrough"] | None
+    decision_kind: Literal["error", "update", "passthrough"] | None
     prompt_to_user: str | None
     exposed_tool_names: list[str]
     hidden_tool_names: list[str]
@@ -116,13 +116,13 @@ def _load_authoritative_state(
 
 def _decision_kind_name(
     decision: object,
-) -> Literal["clarify", "update", "passthrough"]:
+) -> Literal["error", "update", "passthrough"]:
     if not isinstance(decision, dict):
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
     if kind == DecisionKind.ERROR:
-        return "clarify"
+        return "error"
     if kind == DecisionKind.UPDATE:
         return "update"
     if kind == DecisionKind.NO_DIRECTIVE:
@@ -305,7 +305,7 @@ def run_live_model_turn(
                 sort_keys=True,
             )
         )
-    decision_kind: Literal["clarify", "update", "passthrough"] | None = None
+    decision_kind: Literal["error", "update", "passthrough"] | None = None
     prompt_to_user: str | None = None
     effective_policies = dict(engine.policies)
 
@@ -326,9 +326,7 @@ def run_live_model_turn(
                 in exposed_tool_names,
                 "model_selected_tool_name": None,
                 "executed": False,
-                "blocked_reason": (
-                    "clarification required before exposing calendar admin MCP tools"
-                ),
+                "blocked_reason": ("compiler rejected calendar admin MCP state change"),
                 "tool_result": None,
                 "execution_log": host.execution_log.copy(),
                 "side_effect_path": str(side_effect_store.artifact_path),
