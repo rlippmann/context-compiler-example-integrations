@@ -81,7 +81,9 @@ def test_extract_drafted_text_observes_draft_result_behavior() -> None:
 
     assert module._extract_drafted_text(drafted_result) == "use docker"
 
-    no_directive_result = DraftResult(source="test", result=NoDirective("not a directive"))
+    no_directive_result = DraftResult(
+        source="test", result=NoDirective("not a directive")
+    )
 
     assert module._extract_drafted_text(no_directive_result) is None
 
