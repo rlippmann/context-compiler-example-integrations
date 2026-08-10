@@ -39,7 +39,7 @@ class RetrievalResult(TypedDict):
 
 
 class RetrievalTurnResult(TypedDict):
-    decision_kind: Literal["clarify", "update", "passthrough"]
+    decision_kind: Literal["error", "update", "passthrough"]
     prompt_to_user: str | None
     retrieval_result: RetrievalResult
 
@@ -127,13 +127,13 @@ def example_documents() -> list[PolicyDocument]:
 
 def _decision_kind_name(
     decision: object,
-) -> Literal["clarify", "update", "passthrough"]:
+) -> Literal["error", "update", "passthrough"]:
     if not isinstance(decision, dict):
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
     if kind == DecisionKind.ERROR:
-        return "clarify"
+        return "error"
     if kind == DecisionKind.UPDATE:
         return "update"
     if kind == DecisionKind.NO_DIRECTIVE:
@@ -238,13 +238,13 @@ def handle_retrieval_turn(
 
     if decision["kind"] == DecisionKind.ERROR:
         return {
-            "decision_kind": "clarify",
+            "decision_kind": "error",
             "prompt_to_user": decision["message"],
             "retrieval_result": {
                 "query": query,
                 "eligible_document_ids": [],
                 "returned_document_ids": [],
-                "blocked_reason": "clarification required before retrieval policy changes",
+                "blocked_reason": "compiler rejected retrieval policy change",
             },
         }
 

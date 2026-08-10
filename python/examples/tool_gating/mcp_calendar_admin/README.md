@@ -63,7 +63,7 @@ Outcome matrix:
 - `use calendar_admin`: protected tool is exposed; if the model selects it, the
   host executes it and writes one side effect
 - contradiction with `prohibit calendar_admin`: Context Compiler returns
-  clarify/conflict and blocks protected execution before tool execution
+  a compiler rejection/conflict and blocks protected execution before tool execution
 
 ### Validation
 

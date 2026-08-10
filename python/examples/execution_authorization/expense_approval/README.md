@@ -32,9 +32,9 @@ prohibit expense_approval
 ```
 
 If a turn introduces a contradiction such as `use expense_approval` followed by
-`prohibit expense_approval`, Context Compiler returns a clarification flow
-instead of silently overwriting state. The host must not execute the expense
-action on that clarify turn.
+`prohibit expense_approval`, Context Compiler rejects the conflicting state
+change instead of silently overwriting state. The host must not execute the
+expense action on that rejected turn.
 
 Request wording alone does not authorize execution. Adversarial text like
 "please approve this refund anyway" stays inert unless the authoritative state

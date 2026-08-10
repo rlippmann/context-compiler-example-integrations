@@ -66,7 +66,7 @@ def test_live_model_tool_surface_changes_with_authoritative_state(
     assert allowed_result["executed"] is True
     assert len(_read_jsonl(artifact_path)) == 1
 
-    clarify_result = run_live_model_turn(
+    reject_result = run_live_model_turn(
         user_intent=USER_INTENT,
         authoritative_state={
             "premise": allowed_engine.premise,
@@ -76,6 +76,6 @@ def test_live_model_tool_surface_changes_with_authoritative_state(
         artifact_path=artifact_path,
     )
 
-    assert clarify_result["decision_kind"] == "clarify"
-    assert clarify_result["executed"] is False
+    assert reject_result["decision_kind"] == "error"
+    assert reject_result["executed"] is False
     assert len(_read_jsonl(artifact_path)) == 1

@@ -38,7 +38,7 @@ runtime.
 
 ## Generic examples
 
-- [Checkpoint continuation](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/checkpoint_continuation/README.md): persisted confirmation and resume flows change host behavior across turns or requests
+- [Checkpoint continuation](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/checkpoint_continuation/README.md): persisted authoritative state changes host behavior across turns or requests
 - [Execution authorization](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/execution_authorization/README.md): protected host actions execute only when authoritative state allows them
 - [Gateway middleware](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/gateway_middleware/README.md): the host allows, blocks, or routes requests before downstream work runs
 - [Prompt construction](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/python/examples/prompt_construction/README.md): the host builds different request or prompt payloads from authoritative state

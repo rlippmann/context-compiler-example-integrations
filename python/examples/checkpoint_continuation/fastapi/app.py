@@ -22,7 +22,7 @@ class BookingResponse(TypedDict):
 
 
 class ChangeTripResponse(TypedDict):
-    decision_kind: Literal["clarify", "update", "passthrough"]
+    decision_kind: Literal["error", "update", "passthrough"]
     message_to_user: str | None
     persisted_state_json: str
     selected_itinerary: str | None
@@ -136,9 +136,9 @@ def create_app(
         engine_persistence_store.save(request.booking_id, state_json)
 
         selected_itinerary = select_itinerary_from_policies(engine.policies)
-        decision_kind: Literal["clarify", "update", "passthrough"]
+        decision_kind: Literal["error", "update", "passthrough"]
         if decision["kind"] == DecisionKind.ERROR:
-            decision_kind = "clarify"
+            decision_kind = "error"
         elif decision["kind"] == DecisionKind.UPDATE:
             decision_kind = "update"
         else:

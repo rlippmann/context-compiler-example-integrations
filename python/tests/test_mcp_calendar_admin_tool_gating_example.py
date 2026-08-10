@@ -151,9 +151,7 @@ def test_runtime_behavior_changes_only_when_authoritative_state_allows_mcp_tool(
     assert allowed_result["executed"] is True
 
 
-def test_conflicting_use_then_prohibit_requires_clarification_and_blocks_mcp_tool() -> (
-    None
-):
+def test_conflicting_use_then_prohibit_returns_error_and_blocks_mcp_tool() -> None:
     engine = create_engine()
     engine.step("use calendar_admin")
     host = CalendarAdminMcpHost()
@@ -171,7 +169,7 @@ def test_conflicting_use_then_prohibit_requires_clarification_and_blocks_mcp_too
         host=host,
     )
 
-    assert turn_result["decision_kind"] == "clarify"
+    assert turn_result["decision_kind"] == "error"
     assert turn_result["execution_result"]["authorization_state"] == "blocked"
     assert turn_result["execution_result"]["tool_visible"] is False
     assert [
@@ -187,7 +185,7 @@ def test_conflicting_use_then_prohibit_requires_clarification_and_blocks_mcp_too
     )
 
 
-def test_conflicting_prohibit_then_use_requires_clarification_and_keeps_mcp_tool_hidden() -> (
+def test_conflicting_prohibit_then_use_returns_error_and_keeps_mcp_tool_hidden() -> (
     None
 ):
     engine = prohibited_engine()
@@ -206,7 +204,7 @@ def test_conflicting_prohibit_then_use_requires_clarification_and_keeps_mcp_tool
         host=host,
     )
 
-    assert turn_result["decision_kind"] == "clarify"
+    assert turn_result["decision_kind"] == "error"
     assert turn_result["execution_result"]["authorization_state"] == "blocked"
     assert turn_result["execution_result"]["tool_visible"] is False
     assert turn_result["execution_result"]["exposed_tools"]["hidden_tool_names"] == [

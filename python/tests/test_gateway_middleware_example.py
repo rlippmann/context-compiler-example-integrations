@@ -149,7 +149,7 @@ def test_conflicting_use_then_prohibit_requires_clarification_and_blocks() -> No
         downstream=downstream,
     )
 
-    assert turn_result["decision_kind"] == "clarify"
+    assert turn_result["decision_kind"] == "error"
     assert turn_result["gateway_result"]["gateway_decision"] == "blocked"
     assert turn_result["gateway_result"]["downstream_called"] is False
     assert turn_result["gateway_result"]["gateway_log"] == ["blocked:support-105"]
@@ -178,7 +178,7 @@ def test_conflicting_prohibit_then_use_requires_clarification_and_blocks() -> No
         downstream=downstream,
     )
 
-    assert turn_result["decision_kind"] == "clarify"
+    assert turn_result["decision_kind"] == "error"
     assert turn_result["gateway_result"]["gateway_decision"] == "blocked"
     assert turn_result["gateway_result"]["downstream_called"] is False
     assert turn_result["gateway_result"]["gateway_log"] == ["blocked:support-106"]

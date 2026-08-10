@@ -54,7 +54,7 @@ _SCHEMA_BY_ITEM: dict[str, dict[str, Any]] = {
 
 class TurnPlan(TypedDict):
     decision_kind: str
-    clarify_prompt: str | None
+    error_prompt: str | None
     selected_schema_item: str | None
     format_schema: dict[str, Any] | None
 
@@ -80,8 +80,8 @@ def plan_turn(user_input: str, engine: Engine) -> TurnPlan:
     decision = engine.step(user_input)
     if decision["kind"] == DecisionKind.ERROR:
         return {
-            "decision_kind": "clarify",
-            "clarify_prompt": decision["message"],
+            "decision_kind": "error",
+            "error_prompt": decision["message"],
             "selected_schema_item": None,
             "format_schema": None,
         }
@@ -90,7 +90,7 @@ def plan_turn(user_input: str, engine: Engine) -> TurnPlan:
 
     return {
         "decision_kind": str(decision["kind"].value),
-        "clarify_prompt": None,
+        "error_prompt": None,
         "selected_schema_item": selected_item,
         "format_schema": format_schema,
     }

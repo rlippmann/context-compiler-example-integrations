@@ -161,7 +161,7 @@ def test_conflicting_use_then_prohibit_requires_clarification_and_keeps_tool_hid
         host=host,
     )
 
-    assert turn_result["decision_kind"] == "clarify"
+    assert turn_result["decision_kind"] == "error"
     assert turn_result["execution_result"]["authorization_state"] == "blocked"
     assert turn_result["execution_result"]["tool_visible"] is False
     assert turn_result["execution_result"]["executed"] is False
@@ -193,7 +193,7 @@ def test_conflicting_prohibit_then_use_requires_clarification_and_keeps_tool_hid
         host=host,
     )
 
-    assert turn_result["decision_kind"] == "clarify"
+    assert turn_result["decision_kind"] == "error"
     assert turn_result["execution_result"]["authorization_state"] == "blocked"
     assert turn_result["execution_result"]["tool_visible"] is False
     assert turn_result["execution_result"]["executed"] is False

@@ -48,7 +48,7 @@ class SideEffectRecord(TypedDict):
 
 class ExpenseMutationResponse(TypedDict):
     path: Literal["baseline", "compiler"]
-    decision_kind: Literal["clarify", "update", "passthrough"] | None
+    decision_kind: Literal["error", "update", "passthrough"] | None
     model_decision: str
     model_message: str
     agent_claim: str | None
@@ -63,13 +63,13 @@ class ExpenseMutationResponse(TypedDict):
 
 def _decision_kind_name(
     decision: object,
-) -> Literal["clarify", "update", "passthrough"]:
+) -> Literal["error", "update", "passthrough"]:
     if not isinstance(decision, dict):
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
     if kind == DecisionKind.ERROR:
-        return "clarify"
+        return "error"
     if kind == DecisionKind.UPDATE:
         return "update"
     if kind == DecisionKind.NO_DIRECTIVE:
@@ -147,7 +147,7 @@ def _blocked_response(
     side_effect_store: ExpenseSideEffectStore,
     blocked_reason: str,
     prompt_to_user: str | None,
-    decision_kind: Literal["clarify", "update", "passthrough"] | None,
+    decision_kind: Literal["error", "update", "passthrough"] | None,
     request_agent_claim: str | None,
 ) -> ExpenseMutationResponse:
     return {
@@ -172,7 +172,7 @@ def _authorized_response(
     model_claim: ModelApproval,
     side_effect_store: ExpenseSideEffectStore,
     submission: dict[str, str | int],
-    decision_kind: Literal["clarify", "update", "passthrough"] | None,
+    decision_kind: Literal["error", "update", "passthrough"] | None,
     request_agent_claim: str | None,
 ) -> ExpenseMutationResponse:
     return {
@@ -269,7 +269,7 @@ def create_app(
                     sort_keys=True,
                 )
             )
-        decision_kind: Literal["clarify", "update", "passthrough"] | None = None
+        decision_kind: Literal["error", "update", "passthrough"] | None = None
         prompt_to_user: str | None = None
         authoritative_policies = dict(engine.policies)
 
@@ -284,9 +284,7 @@ def create_app(
                         path_name="compiler",
                         model_claim=model_claim,
                         side_effect_store=side_effect_store,
-                        blocked_reason=(
-                            "clarification required before expense execution"
-                        ),
+                        blocked_reason="compiler rejected expense state change",
                         prompt_to_user=prompt_to_user,
                         decision_kind=decision_kind,
                         request_agent_claim=request.agent_claim,

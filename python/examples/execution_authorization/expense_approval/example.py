@@ -37,20 +37,20 @@ class ExpenseExecutionResult(TypedDict):
 
 
 class ExpenseTurnResult(TypedDict):
-    decision_kind: Literal["clarify", "update", "passthrough"]
+    decision_kind: Literal["error", "update", "passthrough"]
     prompt_to_user: str | None
     execution_result: ExpenseExecutionResult
 
 
 def _decision_kind_name(
     decision: object,
-) -> Literal["clarify", "update", "passthrough"]:
+) -> Literal["error", "update", "passthrough"]:
     if not isinstance(decision, dict):
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
     if kind == DecisionKind.ERROR:
-        return "clarify"
+        return "error"
     if kind == DecisionKind.UPDATE:
         return "update"
     if kind == DecisionKind.NO_DIRECTIVE:
@@ -117,18 +117,18 @@ def handle_expense_turn(
     request: ExpenseRequest,
     host: ExpenseHost,
 ) -> ExpenseTurnResult:
-    """Block execution on clarify and otherwise enforce current authoritative state."""
+    """Block execution on compiler rejection and otherwise enforce state."""
 
     decision = engine.step(compiler_input)
 
     if decision["kind"] == DecisionKind.ERROR:
         return {
-            "decision_kind": "clarify",
+            "decision_kind": "error",
             "prompt_to_user": decision["message"],
             "execution_result": {
                 "authorization_state": "blocked",
                 "executed": False,
-                "blocked_reason": "clarification required before expense execution",
+                "blocked_reason": "compiler rejected expense state change",
                 "submission": None,
                 "execution_log": host.execution_log.copy(),
             },

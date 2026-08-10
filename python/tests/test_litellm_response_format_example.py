@@ -112,13 +112,13 @@ def test_prohibit_compact_summary_selects_no_response_format() -> None:
     assert plan["response_format"] is None
 
 
-def test_contradiction_clarify_path_selects_no_schema() -> None:
+def test_contradiction_error_path_selects_no_schema() -> None:
     engine = create_engine()
     engine.step("use compact_summary")
 
     plan = plan_turn("prohibit compact_summary", engine)
 
-    assert plan["decision_kind"] == "clarify"
+    assert plan["decision_kind"] == "error"
     assert plan["selected_response_format_item"] is None
     assert plan["response_format"] is None
 

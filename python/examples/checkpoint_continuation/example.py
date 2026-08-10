@@ -15,7 +15,7 @@ class BookingRecord(TypedDict):
 
 class BookingChangeRuntimeResult(TypedDict):
     compiler_input: str
-    decision_kind: Literal["clarify", "update", "passthrough"]
+    decision_kind: Literal["error", "update", "passthrough"]
     message_to_user: str | None
     persisted_state_json: str
     selected_itinerary: str | None
@@ -66,13 +66,13 @@ def select_itinerary_from_policies(policies: Mapping[str, PolicyValue]) -> str |
 
 def _decision_kind_name(
     decision: object,
-) -> Literal["clarify", "update", "passthrough"]:
+) -> Literal["error", "update", "passthrough"]:
     if not isinstance(decision, dict):
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
     if kind == DecisionKind.ERROR:
-        return "clarify"
+        return "error"
     if kind == DecisionKind.UPDATE:
         return "update"
     if kind == DecisionKind.NO_DIRECTIVE:

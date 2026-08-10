@@ -131,7 +131,7 @@ def test_contradiction_blocks_before_model_tool_execution(tmp_path: Path) -> Non
         model_tool_selector=_unexpected_selector,
     )
 
-    assert result["decision_kind"] == "clarify"
+    assert result["decision_kind"] == "error"
     assert result["executed"] is False
     assert "currently in use" in (result["prompt_to_user"] or "")
     assert model_called is False

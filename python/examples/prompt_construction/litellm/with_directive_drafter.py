@@ -5,7 +5,7 @@ Flow:
 2. Ask DirectiveDrafter to draft one directive, using LiteLLM only as fallback
 3. Observe the returned DraftResult and extract drafted directive text when present
 4. Pass drafted directive text, or the original input, to engine.step(...)
-5. If the compiler returns an error or near-miss clarify, return that text locally
+5. If the compiler returns an error or near-miss rejection, return that text locally
 6. If the compiler applies an update, return a deterministic acknowledgment locally
 7. Otherwise call LiteLLM with compiled state + user input
 

@@ -116,7 +116,7 @@ def test_retrieval_behavior_changes_when_authoritative_state_changes() -> None:
     ]
 
 
-def test_contradictory_directives_clarify_instead_of_silent_overwrite() -> None:
+def test_contradictory_directives_return_error_instead_of_silent_overwrite() -> None:
     engine = create_engine()
     engine.step(f"use {EMPLOYEE_ACCESS}")
     retriever = ChromaHRPolicyRetriever.build()
@@ -128,10 +128,10 @@ def test_contradictory_directives_clarify_instead_of_silent_overwrite() -> None:
         retriever=retriever,
     )
 
-    assert result["decision_kind"] == "clarify"
+    assert result["decision_kind"] == "error"
     assert result["retrieval_result"]["returned_document_ids"] == []
     assert result["retrieval_result"]["blocked_reason"] == (
-        "clarification required before retrieval policy changes"
+        "compiler rejected retrieval policy change"
     )
     assert result["prompt_to_user"] == (
         f'"{EMPLOYEE_ACCESS}" is currently in use.\n'

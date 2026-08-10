@@ -41,13 +41,13 @@ class McpToolExecutionResult(TypedDict):
 
 
 class McpToolTurnResult(TypedDict):
-    decision_kind: Literal["clarify", "update", "passthrough"]
+    decision_kind: Literal["error", "update", "passthrough"]
     prompt_to_user: str | None
     execution_result: McpToolExecutionResult
 
 
 class McpDecisionResult(TypedDict):
-    decision_kind: Literal["clarify", "update", "passthrough"]
+    decision_kind: Literal["error", "update", "passthrough"]
     prompt_to_user: str | None
     exposed_tools: ExposedMcpTools
     execution_result: NotRequired[McpToolExecutionResult]
@@ -55,13 +55,13 @@ class McpDecisionResult(TypedDict):
 
 def _decision_kind_name(
     decision: object,
-) -> Literal["clarify", "update", "passthrough"]:
+) -> Literal["error", "update", "passthrough"]:
     if not isinstance(decision, dict):
         raise ValueError("unexpected decision shape")
 
     kind = decision.get("kind")
     if kind == DecisionKind.ERROR:
-        return "clarify"
+        return "error"
     if kind == DecisionKind.UPDATE:
         return "update"
     if kind == DecisionKind.NO_DIRECTIVE:
@@ -166,19 +166,19 @@ def handle_mcp_tool_turn(
     tool_call: McpToolCall,
     host: CalendarAdminMcpHost,
 ) -> McpToolTurnResult:
-    """Block MCP tool exposure on clarify and otherwise enforce current state."""
+    """Block MCP tool exposure on compiler rejection and otherwise enforce state."""
 
     decision = engine.step(compiler_input)
 
     if decision["kind"] == DecisionKind.ERROR:
         return {
-            "decision_kind": "clarify",
+            "decision_kind": "error",
             "prompt_to_user": decision["message"],
             "execution_result": {
                 "authorization_state": "blocked",
                 "tool_visible": False,
                 "executed": False,
-                "blocked_reason": "clarification required before exposing calendar admin MCP tools",
+                "blocked_reason": "compiler rejected calendar admin MCP state change",
                 "tool_result": None,
                 "exposed_tools": host.exposed_mcp_tools(engine.policies),
                 "execution_log": host.execution_log.copy(),
@@ -208,7 +208,7 @@ def describe_exposed_mcp_tools(
 
     if decision["kind"] == DecisionKind.ERROR:
         return {
-            "decision_kind": "clarify",
+            "decision_kind": "error",
             "prompt_to_user": decision["message"],
             "exposed_tools": host.exposed_mcp_tools(engine.policies),
         }

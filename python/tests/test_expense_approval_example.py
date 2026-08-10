@@ -128,9 +128,7 @@ def test_runtime_behavior_changes_only_when_authoritative_state_allows_execution
     assert allowed_result["execution_log"] == ["submitted:expense-104"]
 
 
-def test_conflicting_use_then_prohibit_requires_clarification_and_does_not_execute() -> (
-    None
-):
+def test_conflicting_use_then_prohibit_returns_error_and_does_not_execute() -> None:
     engine = create_engine()
     engine.step("use expense_approval")
     host = ExpenseHost()
@@ -147,7 +145,7 @@ def test_conflicting_use_then_prohibit_requires_clarification_and_does_not_execu
         host=host,
     )
 
-    assert turn_result["decision_kind"] == "clarify"
+    assert turn_result["decision_kind"] == "error"
     assert turn_result["execution_result"]["authorization_state"] == "blocked"
     assert turn_result["execution_result"]["executed"] is False
     assert turn_result["execution_result"]["execution_log"] == []
@@ -157,9 +155,7 @@ def test_conflicting_use_then_prohibit_requires_clarification_and_does_not_execu
     )
 
 
-def test_conflicting_prohibit_then_use_requires_clarification_and_does_not_execute() -> (
-    None
-):
+def test_conflicting_prohibit_then_use_returns_error_and_does_not_execute() -> None:
     engine = prohibited_engine()
     host = ExpenseHost()
 
@@ -175,7 +171,7 @@ def test_conflicting_prohibit_then_use_requires_clarification_and_does_not_execu
         host=host,
     )
 
-    assert turn_result["decision_kind"] == "clarify"
+    assert turn_result["decision_kind"] == "error"
     assert turn_result["execution_result"]["authorization_state"] == "blocked"
     assert turn_result["execution_result"]["executed"] is False
     assert turn_result["execution_result"]["execution_log"] == []
