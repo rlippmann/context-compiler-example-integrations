@@ -134,7 +134,7 @@ def test_directive_drafting_runs_before_compiler_step(monkeypatch) -> None:
         )
     )
 
-    assert result == "State updated: Use docker."
+    assert result == "State updated."
     assert compile_inputs == ["use docker"]
 
 
@@ -205,7 +205,7 @@ def test_failed_transition_is_rejected_and_follow_up_is_a_new_request(
         )
     )
 
-    assert seed == "State updated: Use docker."
+    assert seed == "State updated."
     assert rejected == (
         '"docker" is currently in use.\nRemove or replace it before prohibiting it.'
     )
@@ -315,7 +315,7 @@ def test_fallback_to_raw_input_path_preserves_host_behavior(monkeypatch) -> None
     assert forwarded[0]["messages"] == [{"role": "user", "content": "hello"}]
 
 
-def test_local_update_and_rejection_responses_skip_downstream_model(
+def test_local_update_and_no_directive_passthrough_preserve_host_behavior(
     monkeypatch,
 ) -> None:
     module = _load_module("owui_with_drafter_local", monkeypatch)
@@ -362,7 +362,7 @@ def test_local_update_and_rejection_responses_skip_downstream_model(
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
-    rejection = asyncio.run(
+    passthrough = asyncio.run(
         pipe.pipe(
             {
                 "model": "pipe-model",
@@ -376,13 +376,13 @@ def test_local_update_and_rejection_responses_skip_downstream_model(
         )
     )
 
-    assert update == "State updated: Use docker."
-    assert rejection == "Invalid premise syntax.\nUse 'set premise <value>'."
-    assert forwarded == []
+    assert update == "State updated."
+    assert passthrough == {"choices": [{"message": {"content": "downstream"}}]}
+    assert len(forwarded) == 1
 
 
-def test_near_miss_rejection_does_not_change_existing_engine_state(monkeypatch) -> None:
-    module = _load_module("owui_with_drafter_near_miss_state_preserved", monkeypatch)
+def test_no_directive_passthrough_does_not_change_existing_engine_state(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_no_directive_state_preserved", monkeypatch)
     forwarded: list[dict[str, object]] = []
 
     async def forward(
@@ -405,7 +405,7 @@ def test_near_miss_rejection_does_not_change_existing_engine_state(monkeypatch) 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
     chat_id = "chat-near-miss-followup"
 
-    rejected = asyncio.run(
+    passthrough = asyncio.run(
         pipe.pipe(
             {
                 "model": "pipe-model",
@@ -438,10 +438,10 @@ def test_near_miss_rejection_does_not_change_existing_engine_state(monkeypatch) 
         )
     )
 
-    assert rejected == "Invalid premise syntax.\nUse 'set premise <value>'."
+    assert passthrough == {"choices": [{"message": {"content": "downstream"}}]}
     assert follow_up == {"choices": [{"message": {"content": "downstream"}}]}
     assert show_state == "Premise: none\nUse: none\nProhibit: none"
-    assert len(forwarded) == 1
+    assert len(forwarded) == 2
 
 
 def test_compound_directives_fall_through_to_normal_forwarding(monkeypatch) -> None:

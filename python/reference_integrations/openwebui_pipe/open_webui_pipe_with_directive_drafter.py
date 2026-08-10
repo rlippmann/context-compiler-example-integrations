@@ -77,19 +77,6 @@ class _EngineSnapshot(TypedDict):
     policies: dict[str, PolicyValue]
 
 
-def _is_directive_shaped_input(message: str) -> bool:
-    normalized = re.sub(r"\s+", " ", message.strip()).lower()
-    return (
-        normalized.startswith("use")
-        or normalized.startswith("prohibit")
-        or normalized.startswith("remove policy")
-        or normalized.startswith("set premise")
-        or normalized.startswith("change premise")
-        or normalized.startswith("clear")
-        or normalized.startswith("reset")
-    )
-
-
 def _resolve_chat_key(
     user: dict[str, Any],
     chat_id: str | None,
@@ -317,73 +304,6 @@ def _strip_existing_trace_from_chunk(chunk: object) -> object:
 
 def _render_item_label(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip().lower()
-
-
-def _near_miss_directive_rejection(value: str) -> str | None:
-    normalized = re.sub(r"\s+", " ", value.strip())
-    lower = normalized.lower()
-
-    if lower in {"reset premise", "reset premises", "clear premises"}:
-        return "Unknown directive.\nUse 'clear premise' or 'reset policies'."
-    if lower.startswith("set premise to "):
-        return "Invalid premise syntax.\nUse 'set premise <value>'."
-    if lower.startswith("change premise ") and not lower.startswith(
-        "change premise to "
-    ):
-        return "Invalid premise syntax.\nUse 'change premise to <value>'."
-    return None
-
-
-def _summarize_update_from_input(user_input: str) -> str:
-    normalized = re.sub(r"\s+", " ", user_input.strip())
-    lower = normalized.lower()
-
-    if lower == "clear state":
-        return "State cleared."
-    if lower == "clear premise":
-        return "Premise cleared."
-    if lower == "reset policies":
-        return "Policies reset."
-
-    replacement_match = re.match(
-        r"^use\s+(.+?)\s+instead\s+of\s+(.+)$", normalized, flags=re.IGNORECASE
-    )
-    if replacement_match is not None:
-        item = _render_item_label(replacement_match.group(1).rstrip(" .!?"))
-        if item:
-            return f"State updated: Use {item}."
-
-    use_match = re.match(r"^use\s+(.+)$", normalized, flags=re.IGNORECASE)
-    if use_match is not None:
-        item = _render_item_label(use_match.group(1).rstrip(" .!?"))
-        if item:
-            return f"State updated: Use {item}."
-
-    prohibit_match = re.match(r"^prohibit\s+(.+)$", normalized, flags=re.IGNORECASE)
-    if prohibit_match is not None:
-        item = _render_item_label(prohibit_match.group(1).rstrip(" .!?"))
-        if item:
-            return f"State updated: Prohibit {item}."
-
-    remove_policy_match = re.match(
-        r"^remove\s+policy\s+(.+)$", normalized, flags=re.IGNORECASE
-    )
-    if remove_policy_match is not None:
-        item = _render_item_label(remove_policy_match.group(1).rstrip(" .!?"))
-        if item:
-            return f"State updated: Removed policy {item}."
-
-    return "State updated."
-
-
-def _is_administrative_update_input(user_input: str) -> bool:
-    normalized = re.sub(r"\s+", " ", user_input.strip()).lower()
-    return (
-        normalized == "clear state"
-        or normalized == "clear premise"
-        or normalized == "reset policies"
-        or normalized.startswith("remove policy ")
-    )
 
 
 def _extract_completion_content(response: object) -> str | None:
@@ -945,7 +865,6 @@ class Pipe:
         else:
             kind = DecisionKind.NO_DIRECTIVE.value
         logger.debug("preprocessor: decision=%s", kind)
-        near_miss_prompt = _near_miss_directive_rejection(latest_user_text)
         state_after = _snapshot_engine_state(engine)
 
         if decision["kind"] == DecisionKind.ERROR:
@@ -953,30 +872,10 @@ class Pipe:
                 engine_snapshot_json
             )
             return self._with_trace(
-                near_miss_prompt or decision["message"] or "",
+                decision["message"] or "",
                 original_input=latest_user_text,
                 compiler_input=compile_input,
                 decision=decision,
-                state_before=state_before,
-                state_after=state_after,
-                preprocessor_output=preprocessd,
-                llm_called=False,
-            )
-        if (
-            near_miss_prompt is not None
-            and decision["kind"] == DecisionKind.NO_DIRECTIVE
-        ):
-            _ENGINES_BY_CHAT_KEY[chat_key] = _restore_engine_from_snapshot(
-                engine_snapshot_json
-            )
-            return self._with_trace(
-                near_miss_prompt,
-                original_input=latest_user_text,
-                compiler_input=compile_input,
-                decision={
-                    "kind": DecisionKind.ERROR.value,
-                    "message": near_miss_prompt,
-                },
                 state_before=state_before,
                 state_after=state_after,
                 preprocessor_output=preprocessd,
@@ -1004,7 +903,7 @@ class Pipe:
             )
         if is_update(decision):
             return self._with_trace(
-                _summarize_update_from_input(compile_input),
+                "State updated.",
                 original_input=latest_user_text,
                 compiler_input=compile_input,
                 decision=decision,
