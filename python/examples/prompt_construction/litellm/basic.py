@@ -139,14 +139,14 @@ def _build_trace_text(
     return "\n".join(lines)
 
 
-def _render_compiled_state_contract(compiled_state: _EngineSnapshot) -> str:
-    premise = compiled_state["premise"]
+def _render_compiled_state_contract(engine: Engine) -> str:
+    premise = engine.premise
     use_items = sorted(
-        key for key, value in compiled_state["policies"].items() if value == POLICY_USE
+        key for key, value in engine.policies.items() if value == POLICY_USE
     )
     prohibit_items = sorted(
         key
-        for key, value in compiled_state["policies"].items()
+        for key, value in engine.policies.items()
         if value == POLICY_PROHIBIT
     )
 
@@ -162,14 +162,12 @@ def _render_compiled_state_contract(compiled_state: _EngineSnapshot) -> str:
     return "Host policy contract:\n" + "\n".join(f"- {line}" for line in lines)
 
 
-def _build_messages(
-    user_input: str, compiled_state: _EngineSnapshot
-) -> list[dict[str, str]]:
+def _build_messages(user_input: str, engine: Engine) -> list[dict[str, str]]:
     return [
         {
             "role": "system",
             "content": "You are a helpful assistant.\n"
-            + _render_compiled_state_contract(compiled_state),
+            + _render_compiled_state_contract(engine),
         },
         {"role": "user", "content": user_input},
     ]
@@ -339,7 +337,7 @@ def handle_turn(
             llm_called=False,
         )
 
-    messages = _build_messages(user_input, _snapshot_engine_state(engine))
+    messages = _build_messages(user_input, engine)
     response_text = _call_litellm(messages)
     return _append_trace(
         response_text,
