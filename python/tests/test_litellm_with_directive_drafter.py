@@ -39,13 +39,51 @@ def test_directive_shaped_or_natural_language_input_is_drafted_before_engine_ste
         DirectiveDrafter(fallback=lambda _message: "use docker"),
     )
 
-    result = module.handle_turn("please use docker", engine)
+    result = module.handle_turn(
+        "please use docker", engine, approval_handler=lambda _directive: True
+    )
 
     assert result == "State updated."
     assert compile_inputs == ["use docker"]
 
 
-def test_unknown_or_unsafe_drafting_falls_back_to_raw_input(monkeypatch) -> None:
+def test_rejected_canonical_directive_does_not_call_engine_step_or_mutate_state(
+    monkeypatch,
+) -> None:
+    engine = create_engine()
+    compile_inputs: list[str] = []
+    real_step = engine.step
+
+    def step_with_capture(user_input: str):
+        compile_inputs.append(user_input)
+        return real_step(user_input)
+
+    monkeypatch.setattr(engine, "step", step_with_capture)
+    monkeypatch.setattr(
+        module,
+        "_DIRECTIVE_DRAFTER",
+        DirectiveDrafter(fallback=lambda _message: "use docker"),
+    )
+    llm_calls: list[list[dict[str, str]]] = []
+
+    def should_not_call(messages: list[dict[str, str]]) -> str:
+        llm_calls.append(messages)
+        return "should not be called"
+
+    monkeypatch.setattr(module, "_call_litellm", should_not_call)
+
+    result = module.handle_turn(
+        "please use docker", engine, approval_handler=lambda _directive: False
+    )
+
+    assert compile_inputs == []
+    assert result == "Directive rejected. No state change applied."
+    assert llm_calls == []
+    assert engine.policies == {}
+    assert engine.premise is None
+
+
+def test_no_directive_keeps_normal_flow(monkeypatch) -> None:
     engine = create_engine()
     compile_inputs: list[str] = []
     llm_calls: list[list[dict[str, str]]] = []
@@ -69,6 +107,36 @@ def test_unknown_or_unsafe_drafting_falls_back_to_raw_input(monkeypatch) -> None
     monkeypatch.setattr(module, "_call_litellm", downstream)
 
     result = module.handle_turn("hello there", engine)
+
+    assert compile_inputs == []
+    assert result == "stubbed reply"
+    assert len(llm_calls) == 1
+
+
+def test_unknown_directive_keeps_normal_flow(monkeypatch) -> None:
+    engine = create_engine()
+    compile_inputs: list[str] = []
+    llm_calls: list[list[dict[str, str]]] = []
+    real_step = engine.step
+
+    def step_with_capture(user_input: str):
+        compile_inputs.append(user_input)
+        return real_step(user_input)
+
+    monkeypatch.setattr(engine, "step", step_with_capture)
+    monkeypatch.setattr(
+        module,
+        "_DIRECTIVE_DRAFTER",
+        DirectiveDrafter(fallback=lambda _message: "use docker and prohibit peanuts"),
+    )
+
+    def downstream(messages: list[dict[str, str]]) -> str:
+        llm_calls.append(messages)
+        return "stubbed reply"
+
+    monkeypatch.setattr(module, "_call_litellm", downstream)
+
+    result = module.handle_turn("please use docker", engine)
 
     assert compile_inputs == []
     assert result == "stubbed reply"
@@ -124,7 +192,9 @@ def test_local_update_responses_skip_downstream_litellm_call(
     )
 
     update_engine = create_engine()
-    update = module.handle_turn("please use docker", update_engine)
+    update = module.handle_turn(
+        "please use docker", update_engine, approval_handler=lambda _directive: True
+    )
 
     monkeypatch.setattr(
         module,

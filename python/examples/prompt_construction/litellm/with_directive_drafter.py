@@ -56,6 +56,9 @@ class _LiteLLMCallKwargs(TypedDict, total=False):
     api_base: str
 
 
+ApprovalHandler = Callable[[str], bool]
+
+
 def _extract_response_content(response: object) -> str | None:
     if isinstance(response, Mapping):
         choices = response.get("choices")
@@ -293,7 +296,18 @@ def _append_trace(
     return f"{response_text}\n\n{trace_text}"
 
 
-def handle_turn(user_input: str, engine: Engine) -> str:
+def _default_approval_handler(directive_text: str) -> bool:
+    print("This is what I think the directive is:")
+    print(directive_text)
+    response = input("Apply it? (y/n)\n")
+    return response.strip().lower() == "y"
+
+
+def handle_turn(
+    user_input: str,
+    engine: Engine,
+    approval_handler: ApprovalHandler = _default_approval_handler,
+) -> str:
     state_before = (engine.premise, dict(engine.policies))
     preprocessd = _preprocess_user_input(user_input)
     if preprocessd is None:
@@ -312,6 +326,18 @@ def handle_turn(user_input: str, engine: Engine) -> str:
 
     compile_input = preprocessd
     logger.debug("preprocessor: engine_input=directive")
+    approved = approval_handler(compile_input)
+    if not approved:
+        return _append_trace(
+            "Directive rejected. No state change applied.",
+            original_input=user_input,
+            compiler_input=compile_input,
+            preprocessor_output=preprocessd,
+            decision={"kind": DecisionKind.NO_DIRECTIVE.value, "message": None},
+            state_before=state_before,
+            state_after=(engine.premise, dict(engine.policies)),
+            llm_called=False,
+        )
 
     decision = engine.step(compile_input)
     if decision["kind"] == DecisionKind.ERROR:
