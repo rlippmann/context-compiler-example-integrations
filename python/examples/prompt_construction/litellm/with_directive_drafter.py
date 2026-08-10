@@ -30,9 +30,12 @@ from context_compiler import (
     is_update,
 )
 from context_compiler.engine import Engine
+from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
     DraftResult,
     DirectiveDrafter,
+    NoDirective,
+    UnknownDirective,
     get_converter_prompt,
 )
 
@@ -255,9 +258,13 @@ def _preprocess_user_input(message: str) -> str | None:
 
 
 def _extract_drafted_text(drafted_result: DraftResult) -> str | None:
-    draft_text = getattr(drafted_result.result, "text", None)
-    if isinstance(draft_text, str):
-        return draft_text
+    result = drafted_result.result
+    if isinstance(result, CanonicalDirective):
+        return result.text
+    if isinstance(result, NoDirective):
+        return None
+    if isinstance(result, UnknownDirective):
+        return None
     return None
 
 
