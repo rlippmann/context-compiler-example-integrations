@@ -22,7 +22,6 @@ import inspect
 import json
 import logging
 import re
-import threading
 from collections.abc import AsyncIterator
 from typing import Any, Literal, TypedDict, cast
 
@@ -348,27 +347,6 @@ def _is_truthy_bool(value: object) -> bool:
     return False
 
 
-def _run_coroutine_blocking(awaitable: object) -> Any:
-    result: dict[str, Any] = {}
-    error: list[BaseException] = []
-
-    def _runner() -> None:
-        import asyncio
-
-        try:
-            result["value"] = asyncio.run(cast(Any, awaitable))
-        except BaseException as exc:  # pragma: no cover - exercised via caller tests
-            error.append(exc)
-
-    thread = threading.Thread(target=_runner, daemon=True)
-    thread.start()
-    thread.join()
-
-    if error:
-        raise error[0]
-    return result.get("value")
-
-
 class Pipe:
     """Map Context Compiler decisions into Open WebUI pipe behavior.
 
@@ -677,24 +655,19 @@ class Pipe:
         user_payload: dict[str, Any],
         model_id: str | None,
     ) -> DraftResult:
-        def fallback(candidate_message: str) -> str | None:
-            return cast(
-                str | None,
-                _run_coroutine_blocking(
-                    self._llm_fallback_candidate(
-                        candidate_message,
-                        request=request,
-                        user_payload=user_payload,
-                        model_id=model_id,
-                    )
-                ),
+        async def fallback(candidate_message: str) -> str | None:
+            return await self._llm_fallback_candidate(
+                candidate_message,
+                request=request,
+                user_payload=user_payload,
+                model_id=model_id,
             )
 
         drafter = DirectiveDrafter(
-            fallback=fallback,
-            fallback_source="openwebui_fallback",
+            async_fallback=fallback,
+            async_fallback_source="openwebui_fallback",
         )
-        return drafter.draft_directive(message)
+        return await drafter.async_draft_directive(message)
 
     def _extract_drafted_text(self, drafted_result: DraftResult) -> str | None:
         if isinstance(drafted_result.result, CanonicalDirective):
