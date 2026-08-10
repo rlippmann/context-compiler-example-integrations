@@ -112,7 +112,7 @@ def test_persistent_mode_with_drafter_rejects_failed_application_without_persist
         drafted_inputs.append(message)
         return module.DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=decompose_directive("change premise to formal tone"),
         )
 
     monkeypatch.setattr(module, "_draft_last_user_message", fake_draft)
@@ -207,13 +207,13 @@ def test_persistent_mode_with_drafter_preserves_existing_checkpoint_on_failure(
     module.CHECKPOINT_STORE.clear()
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
 
-    def fake_draft(message: str) -> object:
+    def seed_draft(message: str) -> object:
         return module.DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=decompose_directive("use docker"),
         )
 
-    monkeypatch.setattr(module, "_draft_last_user_message", fake_draft)
+    monkeypatch.setattr(module, "_draft_last_user_message", seed_draft)
     seed_data = {
         "model": "demo",
         "context_compiler_mode": "persistent",
@@ -231,6 +231,14 @@ def test_persistent_mode_with_drafter_preserves_existing_checkpoint_on_failure(
         hook.async_pre_call_hook(None, None, seed_data, "completion")
     )
     assert seed_result is seed_data
+
+    def reject_draft(message: str) -> object:
+        return module.DraftResult(
+            source="test",
+            result=decompose_directive("prohibit docker"),
+        )
+
+    monkeypatch.setattr(module, "_draft_last_user_message", reject_draft)
 
     result = asyncio.run(
         hook.async_pre_call_hook(None, None, rejected_data, "completion")

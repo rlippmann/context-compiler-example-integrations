@@ -808,9 +808,6 @@ class Pipe:
             return _render_show_state_summary(engine)
 
         state_before = _snapshot_engine_state(engine)
-        engine_snapshot_json = engine.export_json()
-
-        preprocessd: str | None = None
         preprocess_error: str | None = None
         drafted_result, preprocess_error = await self._preprocess_user_input(
             latest_user_text,
@@ -822,13 +819,30 @@ class Pipe:
         if preprocess_error is not None:
             return preprocess_error
 
-        preprocessd = self._extract_drafted_text(drafted_result)
         logger.debug("preprocessor: drafted_result=%r", drafted_result)
-        logger.debug("preprocessor: preprocessd=%r", preprocessd)
-        # Preserve core behavior: if preprocess yields no directive, use raw user
-        # text so the compiler still decides rejection/passthrough/update.
-        compile_input = preprocessd if preprocessd is not None else latest_user_text
+        if not isinstance(drafted_result.result, CanonicalDirective):
+            state_injected = "yes" if _has_non_empty_authoritative_state(engine) else "no"
+            response = await self._forward_passthrough(
+                body,
+                __user__,
+                __request__,
+                base_model_id=base_model_id,
+                engine=engine,
+            )
+            return self._with_trace(
+                response,
+                original_input=latest_user_text,
+                compiler_input=latest_user_text,
+                decision={"kind": DecisionKind.NO_DIRECTIVE.value, "message": None},
+                state_before=state_before,
+                state_after=state_before,
+                preprocessor_output=None,
+                llm_called=base_model_id is not None,
+                state_injected=state_injected,
+            )
 
+        engine_snapshot_json = engine.export_json()
+        compile_input = drafted_result.result.text
         logger.debug("preprocessor: engine_input=%r", compile_input)
         decision = engine.step(compile_input)
         if decision["kind"] == DecisionKind.ERROR:
@@ -851,7 +865,7 @@ class Pipe:
                 decision=decision,
                 state_before=state_before,
                 state_after=state_after,
-                preprocessor_output=preprocessd,
+                preprocessor_output=compile_input,
                 llm_called=False,
             )
         if decision["kind"] == DecisionKind.NO_DIRECTIVE:
@@ -870,7 +884,7 @@ class Pipe:
                 decision=decision,
                 state_before=state_before,
                 state_after=state_after,
-                preprocessor_output=preprocessd,
+                preprocessor_output=compile_input,
                 llm_called=base_model_id is not None,
                 state_injected=state_injected,
             )
@@ -882,7 +896,7 @@ class Pipe:
                 decision=decision,
                 state_before=state_before,
                 state_after=state_after,
-                preprocessor_output=preprocessd,
+                preprocessor_output=compile_input,
                 llm_called=False,
             )
 
@@ -901,7 +915,7 @@ class Pipe:
             decision=decision,
             state_before=state_before,
             state_after=state_after,
-            preprocessor_output=preprocessd,
+            preprocessor_output=compile_input,
             llm_called=base_model_id is not None,
             state_injected=state_injected,
         )
