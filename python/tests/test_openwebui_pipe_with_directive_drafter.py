@@ -89,27 +89,14 @@ def _load_module(module_name: str, monkeypatch: pytest.MonkeyPatch):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module._ENGINES_BY_CHAT_KEY.clear()
+    module._PENDING_PROPOSALS_BY_CHAT_KEY.clear()
     return module
 
 
-def test_directive_drafting_runs_before_compiler_step(monkeypatch) -> None:
+def test_canonical_draft_creates_approval_prompt_and_does_not_mutate_state(
+    monkeypatch,
+) -> None:
     module = _load_module("owui_with_drafter_before_step", monkeypatch)
-    compile_inputs: list[str] = []
-    real_create_engine = module.create_engine
-
-    def create_engine_with_tracking():
-        engine = real_create_engine()
-        original_step = engine.step
-
-        def tracked_step(user_input: str):
-            compile_inputs.append(user_input)
-            return original_step(user_input)
-
-        engine.step = tracked_step
-        return engine
-
-    monkeypatch.setattr(module, "create_engine", create_engine_with_tracking)
-
     async def fake_draft(*args, **kwargs):
         return DraftResult(
             source="test",
@@ -125,6 +112,7 @@ def test_directive_drafting_runs_before_compiler_step(monkeypatch) -> None:
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    chat_id = "chat-before-step"
 
     result = asyncio.run(
         pipe.pipe(
@@ -134,27 +122,44 @@ def test_directive_drafting_runs_before_compiler_step(monkeypatch) -> None:
             },
             __user__={"id": "u1"},
             __request__=object(),
-            __chat_id__="chat-before-step",
+            __chat_id__=chat_id,
+        )
+    )
+    show_state = asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "show state"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
         )
     )
 
-    assert result == "State updated."
-    assert compile_inputs == ["use docker"]
+    assert result == (
+        "This is what I think the directive is:\nuse docker\nApply it? (y/n)"
+    )
+    assert show_state == "Premise: none\nUse: none\nProhibit: none"
 
 
-def test_failed_transition_is_rejected_and_follow_up_is_a_new_request(
-    monkeypatch,
-) -> None:
+def test_approval_applies_stored_directive(monkeypatch) -> None:
     module = _load_module("owui_with_drafter_failed_transition_followup", monkeypatch)
-    forwarded: list[dict[str, object]] = []
+    compile_inputs: list[str] = []
+    real_create_engine = module.create_engine
 
-    async def forward(
-        _: object, payload: dict[str, object], __: object
-    ) -> dict[str, object]:
-        forwarded.append(payload)
-        return {"choices": [{"message": {"content": "downstream"}}]}
+    def create_engine_with_tracking():
+        engine = real_create_engine()
+        original_step = engine.step
 
-    module.generate_chat_completion = forward
+        def tracked_step(user_input: str):
+            compile_inputs.append(user_input)
+            return original_step(user_input)
+
+        engine.step = tracked_step
+        return engine
+
+    monkeypatch.setattr(module, "create_engine", create_engine_with_tracking)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
@@ -181,23 +186,19 @@ def test_failed_transition_is_rejected_and_follow_up_is_a_new_request(
             __chat_id__="chat-failed-transition",
         )
     )
-
-    async def no_draft(*args, **kwargs):
-        return DraftResult(
-            source="test",
-            result=CanonicalDirective(
-                text="prohibit docker",
-                kind=DirectiveKind.PROHIBIT_ITEM,
-                operands=MappingProxyType({"item": "docker"}),
-            ),
+    follow_up = asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "y"}]},
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-failed-transition",
         )
-
-    monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
-    rejected = asyncio.run(
+    )
+    show_state = asyncio.run(
         pipe.pipe(
             {
                 "model": "pipe-model",
-                "messages": [{"role": "user", "content": "prohibit docker"}],
+                "messages": [{"role": "user", "content": "show state"}],
             },
             __user__={"id": "u1"},
             __request__=object(),
@@ -205,34 +206,16 @@ def test_failed_transition_is_rejected_and_follow_up_is_a_new_request(
         )
     )
 
-    async def follow_up_no_directive(*args, **kwargs):
-        return DraftResult(
-            source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
-        )
-
-    monkeypatch.setattr(module.Pipe, "_draft_user_input", follow_up_no_directive)
-    follow_up = asyncio.run(
-        pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "yes"}]},
-            __user__={"id": "u1"},
-            __request__=object(),
-            __chat_id__="chat-failed-transition",
-        )
+    assert seed == (
+        "This is what I think the directive is:\nuse docker\nApply it? (y/n)"
     )
-
-    assert seed == "State updated."
-    assert rejected == (
-        '"docker" is currently in use.\nRemove or replace it before prohibiting it.'
-    )
-    assert follow_up == {"choices": [{"message": {"content": "downstream"}}]}
-    assert len(forwarded) == 1
+    assert follow_up == "State updated."
+    assert show_state == "Premise: none\nUse: docker\nProhibit: none"
+    assert compile_inputs == ["use docker"]
 
 
-def test_failed_transition_does_not_change_existing_engine_state(monkeypatch) -> None:
-    module = _load_module(
-        "owui_with_drafter_failed_transition_state_preserved", monkeypatch
-    )
+def test_rejection_does_not_mutate_state(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_failed_transition_state_preserved", monkeypatch)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
@@ -247,12 +230,6 @@ def test_failed_transition_does_not_change_existing_engine_state(monkeypatch) ->
             ),
         )
 
-    async def no_draft(*args, **kwargs):
-        return DraftResult(
-            source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
-        )
-
     monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
     asyncio.run(
         pipe.pipe(
@@ -265,14 +242,9 @@ def test_failed_transition_does_not_change_existing_engine_state(monkeypatch) ->
             __chat_id__="chat-state-preserved",
         )
     )
-
-    monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
-    asyncio.run(
+    rejected = asyncio.run(
         pipe.pipe(
-            {
-                "model": "pipe-model",
-                "messages": [{"role": "user", "content": "prohibit docker"}],
-            },
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "n"}]},
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-state-preserved",
@@ -291,7 +263,52 @@ def test_failed_transition_does_not_change_existing_engine_state(monkeypatch) ->
         )
     )
 
-    assert show_state == "Premise: none\nUse: docker\nProhibit: none"
+    assert rejected == "Directive discarded."
+    assert show_state == "Premise: none\nUse: none\nProhibit: none"
+
+
+def test_pending_approval_does_not_affect_show_state(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_pending_show_state", monkeypatch)
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+
+    async def update_draft(*args, **kwargs):
+        return DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                text="use docker",
+                kind=DirectiveKind.USE_ITEM,
+                operands=MappingProxyType({"item": "docker"}),
+            ),
+        )
+
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
+    asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "please use docker"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-pending-show-state",
+        )
+    )
+
+    show_state = asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "show state"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-pending-show-state",
+        )
+    )
+
+    assert show_state == "Premise: none\nUse: none\nProhibit: none"
 
 
 def test_fallback_to_raw_input_path_preserves_host_behavior(monkeypatch) -> None:
@@ -359,7 +376,7 @@ def test_local_update_and_no_directive_passthrough_preserve_host_behavior(
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
-    update = asyncio.run(
+    proposal = asyncio.run(
         pipe.pipe(
             {
                 "model": "pipe-model",
@@ -392,7 +409,9 @@ def test_local_update_and_no_directive_passthrough_preserve_host_behavior(
         )
     )
 
-    assert update == "State updated."
+    assert proposal == (
+        "This is what I think the directive is:\nuse docker\nApply it? (y/n)"
+    )
     assert passthrough == {"choices": [{"message": {"content": "downstream"}}]}
     assert len(forwarded) == 1
 
@@ -540,6 +559,14 @@ def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exis
                 "model": "pipe-model",
                 "messages": [{"role": "user", "content": "please use docker"}],
             },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+    asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "y"}]},
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__=chat_id,
