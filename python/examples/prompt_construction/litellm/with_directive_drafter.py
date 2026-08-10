@@ -2,11 +2,12 @@
 
 Flow:
 1. Extract user input
-2. Ask DirectiveDrafter to draft one directive
-3. Pass drafted directive text (or original input) to engine.step(...)
-4. clarify -> return prompt_to_user (no model call)
-5. update -> return deterministic acknowledgment text (no model call)
-6. passthrough -> call LiteLLM with compiled state + user input
+2. Ask DirectiveDrafter to draft one directive, using LiteLLM only as fallback
+3. Observe the returned DraftResult and extract drafted directive text when present
+4. Pass drafted directive text, or the original input, to engine.step(...)
+5. If the compiler returns an error or near-miss clarify, return that text locally
+6. If the compiler applies an update, return a deterministic acknowledgment locally
+7. Otherwise call LiteLLM with compiled state + user input
 
 Intended host usage:
 - collect user input
@@ -31,18 +32,10 @@ from context_compiler import (
 )
 from context_compiler.engine import Engine
 from context_compiler_directive_drafter import (
+    DraftResult,
     DirectiveDrafter,
     get_converter_prompt,
 )
-
-try:
-    from .confirmation_helper import (
-        is_confirmation_text,
-    )
-except ImportError:
-    from confirmation_helper import (
-        is_confirmation_text,
-    )
 
 from context_compiler_example_integrations.examples._shared.provider_mode import (
     print_startup_config,
@@ -261,13 +254,18 @@ def _preprocess_user_input(message: str) -> str | None:
     try:
         drafted_result = _DIRECTIVE_DRAFTER.draft_directive(message)
         logger.debug("preprocessor: drafted_result=%r", drafted_result)
-        draft_text = getattr(drafted_result.result, "text", None)
-        if isinstance(draft_text, str):
-            return draft_text
+        return _extract_drafted_text(drafted_result)
     except Exception:
         # Safe no-op fallback: if drafter path fails, preserve basic behavior.
         logger.debug("preprocessor: drafter_exception", exc_info=True)
         return None
+    return None
+
+
+def _extract_drafted_text(drafted_result: DraftResult) -> str | None:
+    draft_text = getattr(drafted_result.result, "text", None)
+    if isinstance(draft_text, str):
+        return draft_text
     return None
 
 
@@ -357,11 +355,8 @@ def _append_trace(
     return f"{response_text}\n\n{trace_text}"
 
 
-def handle_turn(
-    user_input: str, engine: Engine, *, session_key: str | None = None
-) -> str:
+def handle_turn(user_input: str, engine: Engine) -> str:
     state_before = _snapshot_engine_state(engine)
-    del session_key
     preprocessd: str | None = None
     preprocessd = _preprocess_user_input(user_input)
     compile_input = preprocessd if preprocessd else user_input
@@ -404,10 +399,7 @@ def handle_turn(
             llm_called=False,
         )
     if is_update(decision):
-        if is_confirmation_text(user_input):
-            response_text = "State updated."
-        else:
-            response_text = _summarize_update_from_input(compile_input)
+        response_text = _summarize_update_from_input(compile_input)
         return _append_trace(
             response_text,
             original_input=user_input,
