@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from context_compiler.grammar import CanonicalDirective
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_PATH = (
@@ -44,11 +45,14 @@ def test_drafter_runs_only_for_current_turn(monkeypatch) -> None:
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
     drafted_calls: list[tuple[str, dict[str, object]]] = []
 
-    def fake_preprocess(message: str, state: dict[str, object] | None) -> str | None:
-        drafted_calls.append((message, {} if state is None else dict(state)))
-        return None
+    def fake_draft(message: str) -> object:
+        drafted_calls.append((message, {}))
+        return module.DraftResult(
+            source="test",
+            result=module.NoDirective(reason="reject.confident_non_directive"),
+        )
 
-    monkeypatch.setattr(module, "_preprocess_last_user_message", fake_preprocess)
+    monkeypatch.setattr(module, "_draft_last_user_message", fake_draft)
     data = {
         "model": "demo",
         "context_compiler_mode": "stateless",
@@ -62,7 +66,7 @@ def test_drafter_runs_only_for_current_turn(monkeypatch) -> None:
     result = asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
 
     assert result is data
-    assert drafted_calls == [("please use docker", {"premise": None, "policies": {}})]
+    assert drafted_calls == [("please use docker", {})]
 
 
 def test_drafter_output_applies_to_current_turn_only(monkeypatch) -> None:
@@ -70,8 +74,15 @@ def test_drafter_output_applies_to_current_turn_only(monkeypatch) -> None:
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
     monkeypatch.setattr(
         module,
-        "_preprocess_last_user_message",
-        lambda message, state: "prohibit docker",
+        "_draft_last_user_message",
+        lambda message: module.DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                kind="set_policy",
+                operands=("docker", "prohibit"),
+                text="prohibit docker",
+            ),
+        ),
     )
     data = {
         "model": "demo",
@@ -97,11 +108,14 @@ def test_persistent_mode_with_drafter_rejects_failed_application_without_persist
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
     drafted_inputs: list[str] = []
 
-    def fake_preprocess(message: str, state: dict[str, object] | None) -> str | None:
+    def fake_draft(message: str) -> object:
         drafted_inputs.append(message)
-        return None
+        return module.DraftResult(
+            source="test",
+            result=module.NoDirective(reason="reject.confident_non_directive"),
+        )
 
-    monkeypatch.setattr(module, "_preprocess_last_user_message", fake_preprocess)
+    monkeypatch.setattr(module, "_draft_last_user_message", fake_draft)
     rejected_data = {
         "model": "demo",
         "context_compiler_mode": "persistent",
@@ -138,7 +152,12 @@ def test_default_mode_is_stateless_and_requires_no_session_key(monkeypatch) -> N
     module = _load_module(monkeypatch, "litellm_proxy_with_drafter_default_stateless")
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
     monkeypatch.setattr(
-        module, "_preprocess_last_user_message", lambda message, state: None
+        module,
+        "_draft_last_user_message",
+        lambda message: module.DraftResult(
+            source="test",
+            result=module.NoDirective(reason="reject.confident_non_directive"),
+        ),
     )
     data = {
         "model": "demo",
@@ -154,7 +173,12 @@ def test_stateless_mode_has_no_cross_call_continuity(monkeypatch) -> None:
     module = _load_module(monkeypatch, "litellm_proxy_with_drafter_stateless")
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
     monkeypatch.setattr(
-        module, "_preprocess_last_user_message", lambda message, state: None
+        module,
+        "_draft_last_user_message",
+        lambda message: module.DraftResult(
+            source="test",
+            result=module.NoDirective(reason="reject.confident_non_directive"),
+        ),
     )
     first = {
         "model": "demo",
@@ -183,10 +207,13 @@ def test_persistent_mode_with_drafter_preserves_existing_checkpoint_on_failure(
     module.CHECKPOINT_STORE.clear()
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
 
-    def fake_preprocess(message: str, state: dict[str, object] | None) -> str | None:
-        return None
+    def fake_draft(message: str) -> object:
+        return module.DraftResult(
+            source="test",
+            result=module.NoDirective(reason="reject.confident_non_directive"),
+        )
 
-    monkeypatch.setattr(module, "_preprocess_last_user_message", fake_preprocess)
+    monkeypatch.setattr(module, "_draft_last_user_message", fake_draft)
     seed_data = {
         "model": "demo",
         "context_compiler_mode": "persistent",
@@ -235,8 +262,15 @@ def test_normal_update_explicitly_saves_checkpoint(monkeypatch) -> None:
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
     monkeypatch.setattr(
         module,
-        "_preprocess_last_user_message",
-        lambda message, state: "prohibit peanuts",
+        "_draft_last_user_message",
+        lambda message: module.DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                kind="set_policy",
+                operands=("peanuts", "prohibit"),
+                text="prohibit peanuts",
+            ),
+        ),
     )
     data = {
         "model": "demo",
@@ -261,14 +295,16 @@ def test_restore_happens_before_drafting(monkeypatch) -> None:
         "chat-restore-first",
         {"premise": None, "policies": {"peanuts": "prohibit"}, "version": 2},
     )
-    seen_states: list[dict[str, object]] = []
+    seen_messages: list[str] = []
 
-    def fake_preprocess(message: str, state: dict[str, object] | None) -> str | None:
-        assert state is not None
-        seen_states.append(dict(state))
-        return None
+    def fake_draft(message: str) -> object:
+        seen_messages.append(message)
+        return module.DraftResult(
+            source="test",
+            result=module.NoDirective(reason="reject.confident_non_directive"),
+        )
 
-    monkeypatch.setattr(module, "_preprocess_last_user_message", fake_preprocess)
+    monkeypatch.setattr(module, "_draft_last_user_message", fake_draft)
     data = {
         "model": "demo",
         "context_compiler_mode": "persistent",
@@ -278,7 +314,7 @@ def test_restore_happens_before_drafting(monkeypatch) -> None:
 
     asyncio.run(hook.async_pre_call_hook(None, None, data, "completion"))
 
-    assert seen_states == [{"premise": None, "policies": {"peanuts": "prohibit"}}]
+    assert seen_messages == ["please use docker"]
 
 
 def test_corrupt_checkpoint_fails_clearly(monkeypatch) -> None:
@@ -307,7 +343,16 @@ def test_forwarded_messages_keep_original_user_prompt_text(monkeypatch) -> None:
         {"role": "user", "content": "please use docker"},
     ]
     monkeypatch.setattr(
-        module, "_preprocess_last_user_message", lambda message, state: "use docker"
+        module,
+        "_draft_last_user_message",
+        lambda message: module.DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                kind="set_policy",
+                operands=("docker", "use"),
+                text="use docker",
+            ),
+        ),
     )
     data = {
         "model": "demo",
@@ -329,8 +374,11 @@ def test_compound_directives_fall_through_to_normal_forwarding_when_not_applied(
     hook = module.ContextCompilerPreCallHookWithPreprocessor()
     monkeypatch.setattr(
         module,
-        "_preprocess_last_user_message",
-        lambda _message, _state: "use docker and prohibit peanuts",
+        "_draft_last_user_message",
+        lambda _message: module.DraftResult(
+            source="test",
+            result=module.UnknownDirective(reason="reject.multi_candidate_directive"),
+        ),
     )
     data = {
         "model": "demo",
@@ -347,6 +395,55 @@ def test_compound_directives_fall_through_to_normal_forwarding_when_not_applied(
     checkpoint = module.CHECKPOINT_STORE.load("chat-compound")
     assert checkpoint is not None
     assert checkpoint["policies"] == {}
+
+
+def test_fallback_returns_structured_canonical_draft(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_fallback_directive")
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy")
+    monkeypatch.setenv("MODEL", "openai/demo-model")
+    monkeypatch.setattr(
+        module,
+        "_get_litellm_completion",
+        lambda: lambda **_: {"choices": [{"message": {"content": "use docker"}}]},
+    )
+
+    result = module._llm_fallback_draft("please use docker")
+
+    assert isinstance(result.result, CanonicalDirective)
+    assert result.result.text == "use docker"
+    assert result.source == "litellm_fallback"
+
+
+def test_fallback_returns_structured_no_directive(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_fallback_none")
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy")
+    monkeypatch.setenv("MODEL", "openai/demo-model")
+    monkeypatch.setattr(
+        module,
+        "_get_litellm_completion",
+        lambda: lambda **_: {"choices": [{"message": {"content": "<NO_DIRECTIVE>"}}]},
+    )
+
+    result = module._llm_fallback_draft("hello there")
+
+    assert isinstance(result.result, module.NoDirective)
+    assert result.source == "litellm_fallback"
+
+
+def test_fallback_returns_structured_unknown_directive(monkeypatch) -> None:
+    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_fallback_unknown")
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy")
+    monkeypatch.setenv("MODEL", "openai/demo-model")
+    monkeypatch.setattr(
+        module,
+        "_get_litellm_completion",
+        lambda: lambda **_: {"choices": [{"message": {"content": "clear everything"}}]},
+    )
+
+    result = module._llm_fallback_draft("clear everything")
+
+    assert isinstance(result.result, module.UnknownDirective)
+    assert result.source == "litellm_fallback"
 
 
 def test_no_removed_replay_api_remains(monkeypatch) -> None:
