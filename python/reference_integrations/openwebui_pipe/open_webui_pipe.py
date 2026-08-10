@@ -119,7 +119,7 @@ def _restore_engine_from_snapshot(snapshot_json: str) -> Engine:
     return engine
 
 
-def _render_compiler_state_block(state: _EngineSnapshot) -> str:
+def _render_compiler_state_block(engine: Engine) -> str:
     """Render deterministic compiler-owned state block text.
 
     The first line is ``[[cc_state]]``. Optional lines follow for ``Premise``,
@@ -128,18 +128,17 @@ def _render_compiler_state_block(state: _EngineSnapshot) -> str:
     """
     lines: list[str] = [_CC_MARKER]
 
-    premise = state["premise"]
-    if premise is not None:
-        lines.append(f"Premise: {premise}")
+    if engine.premise is not None:
+        lines.append(f"Premise: {engine.premise}")
 
     use_items = sorted(
-        key for key, value in state["policies"].items() if value == POLICY_USE
+        key for key, value in engine.policies.items() if value == POLICY_USE
     )
     if use_items:
         lines.append("Use: " + ", ".join(use_items))
 
     prohibit_items = sorted(
-        key for key, value in state["policies"].items() if value == POLICY_PROHIBIT
+        key for key, value in engine.policies.items() if value == POLICY_PROHIBIT
     )
     if prohibit_items:
         lines.append("Prohibit: " + ", ".join(prohibit_items))
@@ -148,18 +147,16 @@ def _render_compiler_state_block(state: _EngineSnapshot) -> str:
 
 
 def _render_show_state_summary(engine: Engine) -> str:
-    snapshot = _snapshot_engine_state(engine)
-    premise = snapshot["premise"]
     use_items = sorted(
-        key for key, value in snapshot["policies"].items() if value == POLICY_USE
+        key for key, value in engine.policies.items() if value == POLICY_USE
     )
     prohibit_items = sorted(
-        key for key, value in snapshot["policies"].items() if value == POLICY_PROHIBIT
+        key for key, value in engine.policies.items() if value == POLICY_PROHIBIT
     )
 
     use_text = ", ".join(use_items) if use_items else "none"
     prohibit_text = ", ".join(prohibit_items) if prohibit_items else "none"
-    premise_text = premise if premise is not None else "none"
+    premise_text = engine.premise if engine.premise is not None else "none"
 
     return f"Premise: {premise_text}\nUse: {use_text}\nProhibit: {prohibit_text}"
 
@@ -223,10 +220,10 @@ def _normalize_state(value: object) -> _EngineSnapshot:
     }
 
 
-def _has_non_empty_authoritative_state(state: _EngineSnapshot) -> bool:
-    if state["premise"] is not None:
+def _has_non_empty_authoritative_state(engine: Engine) -> bool:
+    if engine.premise is not None:
         return True
-    return bool(state["policies"])
+    return bool(engine.policies)
 
 
 def _render_state_summary_line(state: object) -> str:
@@ -298,7 +295,7 @@ def _strip_trace_blocks_from_messages(
 def _build_forward_messages(
     raw_messages: object,
     *,
-    state: _EngineSnapshot | None = None,
+    engine: Engine | None = None,
 ) -> list[dict[str, Any]]:
     """Build forwarded messages with trace stripping and optional state injection."""
     messages = (
@@ -308,10 +305,10 @@ def _build_forward_messages(
         if isinstance(raw_messages, list)
         else []
     )
-    if state is not None and _has_non_empty_authoritative_state(state):
+    if engine is not None and _has_non_empty_authoritative_state(engine):
         return _replace_compiler_system_message(
             messages,
-            _render_compiler_state_block(state),
+            _render_compiler_state_block(engine),
         )
     return messages
 
@@ -575,12 +572,12 @@ class Pipe:
         user_payload: dict[str, Any],
         request: Request,
         *,
-        state: _EngineSnapshot | None = None,
+        engine: Engine | None = None,
     ) -> Any:
         """Forward with model override and optional compiler-owned state injection."""
         payload = {**body}
         payload["model"] = self.valves.BASE_MODEL_ID
-        payload["messages"] = _build_forward_messages(body.get("messages"), state=state)
+        payload["messages"] = _build_forward_messages(body.get("messages"), engine=engine)
         user = Users.get_user_by_id(user_payload["id"])
         if inspect.isawaitable(user):
             user = await user
@@ -692,12 +689,9 @@ class Pipe:
                 llm_called=False,
             )
         if decision["kind"] == DecisionKind.NO_DIRECTIVE:
-            compiled_state = _normalize_state(state_after)
-            state_injected = (
-                "yes" if _has_non_empty_authoritative_state(compiled_state) else "no"
-            )
+            state_injected = "yes" if _has_non_empty_authoritative_state(engine) else "no"
             response = await self._forward_passthrough(
-                body, __user__, __request__, state=compiled_state
+                body, __user__, __request__, engine=engine
             )
             return self._with_trace(
                 response,
@@ -720,12 +714,9 @@ class Pipe:
                 llm_called=False,
             )
 
-        compiled_state = _normalize_state(state_after)
-        state_injected = (
-            "yes" if _has_non_empty_authoritative_state(compiled_state) else "no"
-        )
+        state_injected = "yes" if _has_non_empty_authoritative_state(engine) else "no"
         response = await self._forward_passthrough(
-            body, __user__, __request__, state=compiled_state
+            body, __user__, __request__, engine=engine
         )
         return self._with_trace(
             response,
