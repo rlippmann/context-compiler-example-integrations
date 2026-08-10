@@ -38,25 +38,6 @@ def test_directive_shaped_or_natural_language_input_is_drafted_before_engine_ste
     assert compile_inputs == ["use docker"]
 
 
-def test_follow_up_confirmation_is_not_treated_as_pending_resume(monkeypatch) -> None:
-    engine = create_engine()
-    first = module.handle_turn("use docker instead of kubectl", engine)
-    assert first == "State updated: Use docker."
-
-    llm_calls: list[list[dict[str, str]]] = []
-
-    def downstream(messages: list[dict[str, str]]) -> str:
-        llm_calls.append(messages)
-        return "stubbed reply"
-
-    monkeypatch.setattr(module, "_call_litellm", downstream)
-
-    second = module.handle_turn("yes", engine)
-
-    assert second == "stubbed reply"
-    assert llm_calls
-
-
 def test_unknown_or_unsafe_drafting_falls_back_to_raw_input(monkeypatch) -> None:
     engine = create_engine()
     compile_inputs: list[str] = []
@@ -85,6 +66,19 @@ def test_unknown_or_unsafe_drafting_falls_back_to_raw_input(monkeypatch) -> None
     assert compile_inputs == ["hello there"]
     assert result == "stubbed reply"
     assert len(llm_calls) == 1
+
+
+def test_extract_drafted_text_observes_draft_result_behavior() -> None:
+    drafter = DirectiveDrafter(fallback=lambda _message: "use docker")
+    drafted_result = drafter.draft_directive("please use docker")
+
+    assert module._extract_drafted_text(drafted_result) == "use docker"
+
+    no_directive_result = DirectiveDrafter(
+        fallback=lambda _message: None
+    ).draft_directive("hello there")
+
+    assert module._extract_drafted_text(no_directive_result) is None
 
 
 def test_local_update_and_clarify_responses_skip_downstream_litellm_call(
@@ -314,54 +308,10 @@ def test_compound_directives_fall_through_when_not_applied(monkeypatch) -> None:
     assert downstream_calls == 1
 
 
-def test_confirmation_follow_up_does_not_resume_removed_checkpoint_flow(
-    monkeypatch,
-) -> None:
-    first_engine = create_engine()
-    clarify = module.handle_turn(
-        "use kubectl instead of docker",
-        first_engine,
-        session_key="resume-with-drafter",
-    )
-    llm_calls = 0
-
-    def downstream(_messages: list[dict[str, str]]) -> str:
-        nonlocal llm_calls
-        llm_calls += 1
-        return "downstream reply"
-
-    monkeypatch.setattr(module, "_call_litellm", downstream)
-    resumed_engine = create_engine()
-    resumed = module.handle_turn(
-        "yes", resumed_engine, session_key="resume-with-drafter"
-    )
-
-    assert clarify == "State updated: Use kubectl."
-    assert resumed == "downstream reply"
-    assert llm_calls == 1
-    assert dict(first_engine.policies) == {"kubectl": "use"}
-    assert dict(resumed_engine.policies) == {}
-
-
-def test_session_key_no_longer_restores_or_persists_checkpoint_state(
-    monkeypatch,
-) -> None:
+def test_handle_turn_has_no_session_or_resume_behavior(monkeypatch) -> None:
     monkeypatch.setattr(module, "_call_litellm", lambda _messages: "ok")
     monkeypatch.setattr(module, "_preprocess_user_input", lambda _text: None)
 
-    first_engine = create_engine()
-    assert module.handle_turn("hello", first_engine, session_key="s1") == "ok"
+    engine = create_engine()
 
-    update_engine = create_engine()
-    assert (
-        module.handle_turn("use docker", update_engine, session_key="s1")
-        == "State updated: Use docker."
-    )
-
-    clarify_engine = create_engine()
-    assert (
-        module.handle_turn(
-            "use kubectl instead of docker", clarify_engine, session_key="s1"
-        )
-        == "State updated: Use kubectl."
-    )
+    assert module.handle_turn("hello", engine) == "ok"
