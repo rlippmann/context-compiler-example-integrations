@@ -1,8 +1,10 @@
-from types import SimpleNamespace
+from types import MappingProxyType
 from typing import Any
 
 import pytest
 from context_compiler import create_engine
+from context_compiler.grammar import CanonicalDirective, DirectiveKind
+from context_compiler_directive_drafter import DraftResult, NoDirective
 
 from context_compiler_example_integrations.examples.prompt_construction.litellm import (
     with_directive_drafter as module,
@@ -27,17 +29,16 @@ def test_directive_shaped_or_natural_language_input_is_drafted_before_engine_ste
 
     monkeypatch.setattr(engine, "step", step_with_capture)
     monkeypatch.setattr(
-        module,
-        "preprocess_heuristic",
-        lambda message: {
-            "outcome": module.DRAFT_OUTCOME_DIRECTIVE,
-            "directive": "use docker",
-        },
-    )
-    monkeypatch.setattr(
-        module,
-        "parse_preprocessor_output",
-        lambda value, **kwargs: SimpleNamespace(text=value),
+        module._DIRECTIVE_DRAFTER,
+        "draft_directive",
+        lambda message: DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                text="use docker",
+                kind=DirectiveKind.USE_ITEM,
+                operands=MappingProxyType({"item": "docker"}),
+            ),
+        ),
     )
 
     result = module.handle_turn("please use docker", engine)
@@ -77,11 +78,10 @@ def test_unknown_or_unsafe_drafting_falls_back_to_raw_input(monkeypatch) -> None
 
     monkeypatch.setattr(engine, "step", step_with_capture)
     monkeypatch.setattr(
-        module,
-        "preprocess_heuristic",
-        lambda message: {"outcome": "no_directive", "directive": None},
+        module._DIRECTIVE_DRAFTER,
+        "draft_directive",
+        lambda message: DraftResult(source="test", result=NoDirective("not a directive")),
     )
-    monkeypatch.setattr(module, "_llm_fallback_preprocess", lambda message, state: None)
 
     def downstream(messages: list[dict[str, str]]) -> str:
         llm_calls.append(messages)
@@ -107,28 +107,26 @@ def test_local_update_and_clarify_responses_skip_downstream_litellm_call(
 
     monkeypatch.setattr(module, "_call_litellm", should_not_call)
     monkeypatch.setattr(
-        module,
-        "preprocess_heuristic",
-        lambda message: {
-            "outcome": module.DRAFT_OUTCOME_DIRECTIVE,
-            "directive": "use docker",
-        },
-    )
-    monkeypatch.setattr(
-        module,
-        "parse_preprocessor_output",
-        lambda value, **kwargs: SimpleNamespace(text=value),
+        module._DIRECTIVE_DRAFTER,
+        "draft_directive",
+        lambda message: DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                text="use docker",
+                kind=DirectiveKind.USE_ITEM,
+                operands=MappingProxyType({"item": "docker"}),
+            ),
+        ),
     )
 
     update_engine = create_engine()
     update = module.handle_turn("please use docker", update_engine)
 
     monkeypatch.setattr(
-        module,
-        "preprocess_heuristic",
-        lambda message: {"outcome": "no_directive", "directive": None},
+        module._DIRECTIVE_DRAFTER,
+        "draft_directive",
+        lambda message: DraftResult(source="test", result=NoDirective("not a directive")),
     )
-    monkeypatch.setattr(module, "_llm_fallback_preprocess", lambda message, state: None)
     clarify_engine = create_engine()
     clarify = module.handle_turn("set premise to concise replies", clarify_engine)
 
@@ -235,18 +233,8 @@ def test_preprocessor_model_defaults_to_model(monkeypatch) -> None:
     monkeypatch.delenv("PREPROCESSOR_MODEL", raising=False)
     monkeypatch.setattr(module, "_get_litellm_completion", lambda: completion)
     monkeypatch.setattr(module, "get_converter_prompt", lambda: "prompt")
-    monkeypatch.setattr(
-        module,
-        "parse_preprocessor_output",
-        lambda value, **_kwargs: SimpleNamespace(text=value),
-    )
 
-    assert (
-        module._llm_fallback_preprocess(
-            "please use docker", {"premise": None, "policies": {}}
-        )
-        == "use docker"
-    )
+    assert module._llm_fallback_candidate("please use docker") == "use docker"
     assert seen["model"] == "openai/main-model"
 
 
@@ -262,18 +250,8 @@ def test_preprocessor_model_override_wins(monkeypatch) -> None:
     monkeypatch.setenv("PREPROCESSOR_MODEL", "openai/preprocessor-model")
     monkeypatch.setattr(module, "_get_litellm_completion", lambda: completion)
     monkeypatch.setattr(module, "get_converter_prompt", lambda: "prompt")
-    monkeypatch.setattr(
-        module,
-        "parse_preprocessor_output",
-        lambda value, **_kwargs: SimpleNamespace(text=value),
-    )
 
-    assert (
-        module._llm_fallback_preprocess(
-            "please use docker", {"premise": None, "policies": {}}
-        )
-        == "use docker"
-    )
+    assert module._llm_fallback_candidate("please use docker") == "use docker"
     assert seen["model"] == "openai/preprocessor-model"
 
 
@@ -295,44 +273,37 @@ def test_fallback_accepts_structurally_valid_output_without_source_awareness(
     monkeypatch.setattr(module, "get_converter_prompt", lambda: "prompt")
 
     assert (
-        module._llm_fallback_preprocess(
-            "set premise to concise replies", {"premise": None, "policies": {}}
-        )
+        module._llm_fallback_candidate("set premise to concise replies")
         == "set premise concise replies"
     )
 
 
-def test_directive_shaped_malformed_inputs_skip_fallback_and_use_normal_turn_flow(
+def test_directive_shaped_malformed_inputs_can_fall_through_to_normal_turn_flow(
     monkeypatch,
 ) -> None:
     fallback_calls = 0
-    downstream_calls = 0
 
-    monkeypatch.setattr(
-        module,
-        "preprocess_heuristic",
-        lambda _text: {"outcome": "no_directive", "directive": None},
-    )
-
-    def fallback(_message: str, _state: dict[str, object]) -> None:
+    def fallback(_message: str) -> str | None:
         nonlocal fallback_calls
         fallback_calls += 1
-        raise AssertionError("fallback should not run")
+        return None
 
-    def downstream(_messages: list[dict[str, str]]) -> str:
-        nonlocal downstream_calls
-        downstream_calls += 1
-        raise AssertionError("downstream should not run")
-
-    monkeypatch.setattr(module, "_llm_fallback_preprocess", fallback)
+    monkeypatch.setattr(module, "_llm_fallback_candidate", fallback)
+    monkeypatch.setattr(
+        module,
+        "_DIRECTIVE_DRAFTER",
+        module.DirectiveDrafter(
+            fallback=module._llm_fallback_candidate,
+            fallback_source="litellm_fallback",
+        ),
+    )
     monkeypatch.setattr(module, "_call_litellm", lambda _messages: "downstream reply")
 
     assert (
         module.handle_turn("use docker instead of", create_engine())
         == "downstream reply"
     )
-    assert fallback_calls == 0
-    assert downstream_calls == 0
+    assert fallback_calls == 1
 
 
 def test_compound_directives_fall_through_when_not_applied(monkeypatch) -> None:

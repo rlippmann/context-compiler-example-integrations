@@ -31,11 +31,10 @@ from context_compiler import (
     is_update,
 )
 from context_compiler.engine import Engine
+from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
-    DRAFT_OUTCOME_DIRECTIVE,
+    DirectiveDrafter,
     get_converter_prompt,
-    parse_preprocessor_output,
-    preprocess_heuristic,
 )
 
 try:
@@ -59,19 +58,6 @@ SHOW_CONTEXT_COMPILER_TRACE = False
 class _EngineSnapshot(TypedDict):
     premise: str | None
     policies: dict[str, PolicyValue]
-
-
-def _is_directive_shaped_input(message: str) -> bool:
-    normalized = re.sub(r"\s+", " ", message.strip()).lower()
-    return (
-        normalized.startswith("use")
-        or normalized.startswith("prohibit")
-        or normalized.startswith("remove policy")
-        or normalized.startswith("set premise")
-        or normalized.startswith("change premise")
-        or normalized.startswith("clear")
-        or normalized.startswith("reset")
-    )
 
 
 class _LiteLLMCallKwargs(TypedDict, total=False):
@@ -107,6 +93,12 @@ def _extract_response_content(response: object) -> str | None:
 
 def _snapshot_engine_state(engine: Engine) -> _EngineSnapshot:
     return {"premise": engine.premise, "policies": dict(engine.policies)}
+
+
+_DIRECTIVE_DRAFTER = DirectiveDrafter(
+    fallback=lambda message: _llm_fallback_candidate(message),
+    fallback_source="litellm_fallback",
+)
 
 
 def _render_state_lines(state: object) -> list[str]:
@@ -232,9 +224,7 @@ def _call_litellm(messages: list[dict[str, str]]) -> str:
     return content
 
 
-def _llm_fallback_preprocess(message: str, state: _EngineSnapshot) -> str | None:
-    del state
-
+def _llm_fallback_candidate(message: str) -> str | None:
     try:
         completion = _get_litellm_completion()
     except ModuleNotFoundError:
@@ -264,44 +254,23 @@ def _llm_fallback_preprocess(message: str, state: _EngineSnapshot) -> str | None
 
     try:
         response = completion(**kwargs)
-        raw_output = _extract_response_content(response)
+        return _extract_response_content(response)
     except Exception:
         return None
-
-    parsed = parse_preprocessor_output(raw_output)
-    if parsed is None:
-        return None
-    return parsed.text
 
 
 def _preprocess_user_input(message: str, state: _EngineSnapshot) -> str | None:
-    # Heuristic first (fast + high precision), then optional LLM fallback.
+    del state
     try:
-        heuristic_result = preprocess_heuristic(message)
-        logger.debug("preprocessor: heuristic_outcome=%s", heuristic_result["outcome"])
-        if (
-            heuristic_result["outcome"] == DRAFT_OUTCOME_DIRECTIVE
-            and heuristic_result["directive"]
-        ):
-            parsed = parse_preprocessor_output(heuristic_result["directive"])
-            logger.debug(
-                "preprocessor: heuristic_directive=%r", heuristic_result["directive"]
-            )
-            if parsed is not None:
-                return parsed.text
+        drafted_result = _DIRECTIVE_DRAFTER.draft_directive(message)
+        logger.debug("preprocessor: drafted_result=%r", drafted_result)
+        if isinstance(drafted_result.result, CanonicalDirective):
+            return drafted_result.result.text
     except Exception:
-        logger.debug("preprocessor: heuristic_exception", exc_info=True)
-
-    if _is_directive_shaped_input(message):
+        # Safe no-op fallback: if drafter path fails, preserve basic behavior.
+        logger.debug("preprocessor: drafter_exception", exc_info=True)
         return None
-
-    try:
-        fallback_directive = _llm_fallback_preprocess(message, state)
-        logger.debug("preprocessor: fallback_directive=%r", fallback_directive)
-        return fallback_directive
-    except Exception:
-        # Safe no-op fallback: if preprocessor path fails, preserve basic behavior.
-        return None
+    return None
 
 
 def _render_item_label(value: str) -> str:
