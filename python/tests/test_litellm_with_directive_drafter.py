@@ -34,7 +34,7 @@ def test_directive_shaped_or_natural_language_input_is_drafted_before_engine_ste
 
     result = module.handle_turn("please use docker", engine)
 
-    assert result == "State updated: Use docker."
+    assert result == "State updated."
     assert compile_inputs == ["use docker"]
 
 
@@ -81,7 +81,7 @@ def test_extract_drafted_text_observes_draft_result_behavior() -> None:
     assert module._extract_drafted_text(no_directive_result) is None
 
 
-def test_local_update_and_clarify_responses_skip_downstream_litellm_call(
+def test_local_update_responses_skip_downstream_litellm_call(
     monkeypatch,
 ) -> None:
     llm_calls: list[object] = []
@@ -105,12 +105,32 @@ def test_local_update_and_clarify_responses_skip_downstream_litellm_call(
         "_DIRECTIVE_DRAFTER",
         DirectiveDrafter(fallback=lambda _message: None),
     )
+
+    assert update == "State updated."
+    assert llm_calls == []
+
+
+def test_malformed_directive_like_input_falls_through_to_downstream_litellm(
+    monkeypatch,
+) -> None:
+    llm_calls: list[object] = []
+
+    def downstream(messages: list[dict[str, str]]) -> str:
+        llm_calls.append(messages)
+        return "downstream reply"
+
+    monkeypatch.setattr(module, "_call_litellm", downstream)
+    monkeypatch.setattr(
+        module,
+        "_DIRECTIVE_DRAFTER",
+        DirectiveDrafter(fallback=lambda _message: None),
+    )
+
     clarify_engine = create_engine()
     clarify = module.handle_turn("set premise to concise replies", clarify_engine)
 
-    assert update == "State updated: Use docker."
-    assert clarify == "Invalid premise syntax.\nUse 'set premise <value>'."
-    assert llm_calls == []
+    assert clarify == "downstream reply"
+    assert llm_calls
 
 
 def test_call_litellm_requires_api_key_in_openai_mode(monkeypatch) -> None:
