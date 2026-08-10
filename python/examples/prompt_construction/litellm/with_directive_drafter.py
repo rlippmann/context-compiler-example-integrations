@@ -2,12 +2,11 @@
 
 Flow:
 1. Extract user input
-2. Run heuristic directive drafter
-3. If no directive, run LLM fallback directive drafter using prompt files
-4. Pass directive (or original input) to engine.step(...)
-5. clarify -> return prompt_to_user (no model call)
-6. update -> return deterministic acknowledgment text (no model call)
-7. passthrough -> call LiteLLM with compiled state + user input
+2. Ask DirectiveDrafter to draft one directive
+3. Pass drafted directive text (or original input) to engine.step(...)
+4. clarify -> return prompt_to_user (no model call)
+5. update -> return deterministic acknowledgment text (no model call)
+6. passthrough -> call LiteLLM with compiled state + user input
 
 Intended host usage:
 - collect user input
@@ -31,7 +30,6 @@ from context_compiler import (
     is_update,
 )
 from context_compiler.engine import Engine
-from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
     DirectiveDrafter,
     get_converter_prompt,
@@ -259,13 +257,13 @@ def _llm_fallback_candidate(message: str) -> str | None:
         return None
 
 
-def _preprocess_user_input(message: str, state: _EngineSnapshot) -> str | None:
-    del state
+def _preprocess_user_input(message: str) -> str | None:
     try:
         drafted_result = _DIRECTIVE_DRAFTER.draft_directive(message)
         logger.debug("preprocessor: drafted_result=%r", drafted_result)
-        if isinstance(drafted_result.result, CanonicalDirective):
-            return drafted_result.result.text
+        draft_text = getattr(drafted_result.result, "text", None)
+        if isinstance(draft_text, str):
+            return draft_text
     except Exception:
         # Safe no-op fallback: if drafter path fails, preserve basic behavior.
         logger.debug("preprocessor: drafter_exception", exc_info=True)
@@ -365,7 +363,7 @@ def handle_turn(
     state_before = _snapshot_engine_state(engine)
     del session_key
     preprocessd: str | None = None
-    preprocessd = _preprocess_user_input(user_input, _snapshot_engine_state(engine))
+    preprocessd = _preprocess_user_input(user_input)
     compile_input = preprocessd if preprocessd else user_input
     logger.debug(
         "preprocessor: engine_input=%s",

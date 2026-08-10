@@ -1,10 +1,8 @@
-from types import MappingProxyType
 from typing import Any
 
 import pytest
 from context_compiler import create_engine
-from context_compiler.grammar import CanonicalDirective, DirectiveKind
-from context_compiler_directive_drafter import DraftResult, NoDirective
+from context_compiler_directive_drafter import DirectiveDrafter
 
 from context_compiler_example_integrations.examples.prompt_construction.litellm import (
     with_directive_drafter as module,
@@ -29,16 +27,9 @@ def test_directive_shaped_or_natural_language_input_is_drafted_before_engine_ste
 
     monkeypatch.setattr(engine, "step", step_with_capture)
     monkeypatch.setattr(
-        module._DIRECTIVE_DRAFTER,
-        "draft_directive",
-        lambda message: DraftResult(
-            source="test",
-            result=CanonicalDirective(
-                text="use docker",
-                kind=DirectiveKind.USE_ITEM,
-                operands=MappingProxyType({"item": "docker"}),
-            ),
-        ),
+        module,
+        "_DIRECTIVE_DRAFTER",
+        DirectiveDrafter(fallback=lambda _message: "use docker"),
     )
 
     result = module.handle_turn("please use docker", engine)
@@ -78,9 +69,9 @@ def test_unknown_or_unsafe_drafting_falls_back_to_raw_input(monkeypatch) -> None
 
     monkeypatch.setattr(engine, "step", step_with_capture)
     monkeypatch.setattr(
-        module._DIRECTIVE_DRAFTER,
-        "draft_directive",
-        lambda message: DraftResult(source="test", result=NoDirective("not a directive")),
+        module,
+        "_DIRECTIVE_DRAFTER",
+        DirectiveDrafter(fallback=lambda _message: None),
     )
 
     def downstream(messages: list[dict[str, str]]) -> str:
@@ -107,25 +98,18 @@ def test_local_update_and_clarify_responses_skip_downstream_litellm_call(
 
     monkeypatch.setattr(module, "_call_litellm", should_not_call)
     monkeypatch.setattr(
-        module._DIRECTIVE_DRAFTER,
-        "draft_directive",
-        lambda message: DraftResult(
-            source="test",
-            result=CanonicalDirective(
-                text="use docker",
-                kind=DirectiveKind.USE_ITEM,
-                operands=MappingProxyType({"item": "docker"}),
-            ),
-        ),
+        module,
+        "_DIRECTIVE_DRAFTER",
+        DirectiveDrafter(fallback=lambda _message: "use docker"),
     )
 
     update_engine = create_engine()
     update = module.handle_turn("please use docker", update_engine)
 
     monkeypatch.setattr(
-        module._DIRECTIVE_DRAFTER,
-        "draft_directive",
-        lambda message: DraftResult(source="test", result=NoDirective("not a directive")),
+        module,
+        "_DIRECTIVE_DRAFTER",
+        DirectiveDrafter(fallback=lambda _message: None),
     )
     clarify_engine = create_engine()
     clarify = module.handle_turn("set premise to concise replies", clarify_engine)
@@ -292,7 +276,7 @@ def test_directive_shaped_malformed_inputs_can_fall_through_to_normal_turn_flow(
     monkeypatch.setattr(
         module,
         "_DIRECTIVE_DRAFTER",
-        module.DirectiveDrafter(
+        DirectiveDrafter(
             fallback=module._llm_fallback_candidate,
             fallback_source="litellm_fallback",
         ),
@@ -317,8 +301,8 @@ def test_compound_directives_fall_through_when_not_applied(monkeypatch) -> None:
     monkeypatch.setattr(module, "_call_litellm", downstream)
     monkeypatch.setattr(
         module,
-        "_preprocess_user_input",
-        lambda _message, _state: "use docker and prohibit peanuts",
+        "_DIRECTIVE_DRAFTER",
+        DirectiveDrafter(fallback=lambda _message: "use docker and prohibit peanuts"),
     )
 
     result = module.handle_turn(
@@ -363,7 +347,7 @@ def test_session_key_no_longer_restores_or_persists_checkpoint_state(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(module, "_call_litellm", lambda _messages: "ok")
-    monkeypatch.setattr(module, "_preprocess_user_input", lambda _text, _state: None)
+    monkeypatch.setattr(module, "_preprocess_user_input", lambda _text: None)
 
     first_engine = create_engine()
     assert module.handle_turn("hello", first_engine, session_key="s1") == "ok"
