@@ -87,11 +87,7 @@ def _is_explicit_rejection(message: str) -> bool:
 
 
 def _render_proposal_prompt(directive_text: str) -> str:
-    return (
-        "This is what I think the directive is:\n"
-        f"{directive_text}\n"
-        "Apply it? (y/n)"
-    )
+    return f"This is what I think the directive is:\n{directive_text}\nApply it? (y/n)"
 
 
 def _resolve_chat_key(
@@ -916,7 +912,8 @@ class Pipe:
                 )
             if _is_explicit_rejection(latest_user_text):
                 del _PENDING_PROPOSALS_BY_CHAT_KEY[chat_key]
-                return "Directive discarded."
+                return "Directive discarded. No state change was applied."
+            del _PENDING_PROPOSALS_BY_CHAT_KEY[chat_key]
 
         state_before = _snapshot_engine_state(engine)
         preprocess_error: str | None = None
