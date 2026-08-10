@@ -179,17 +179,16 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
         logger.debug(
             "litellm_proxy: latest_user_text_present=%s", latest_user_text is not None
         )
-        engine_input = latest_user_text
         drafted_result: DraftResult | None = None
+        decision: dict[str, object]
 
         if latest_user_text is not None:
             drafted_result = _draft_last_user_message(latest_user_text)
             logger.debug("litellm_proxy: drafted_result=%r", drafted_result)
             if isinstance(drafted_result.result, CanonicalDirective):
-                engine_input = drafted_result.result.text
-
-        if engine_input is not None:
-            decision = engine.step(engine_input)
+                decision = engine.step(drafted_result.result.text)
+            else:
+                decision = {"kind": DecisionKind.NO_DIRECTIVE, "message": None}
         else:
             decision = {"kind": DecisionKind.NO_DIRECTIVE, "message": None}
 

@@ -181,7 +181,11 @@ def test_failed_transition_is_rejected_and_follow_up_is_a_new_request(
     async def no_draft(*args, **kwargs):
         return DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=CanonicalDirective(
+                text="prohibit docker",
+                kind=DirectiveKind.PROHIBIT_ITEM,
+                operands=MappingProxyType({"item": "docker"}),
+            ),
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
@@ -196,6 +200,13 @@ def test_failed_transition_is_rejected_and_follow_up_is_a_new_request(
             __chat_id__="chat-failed-transition",
         )
     )
+    async def follow_up_no_directive(*args, **kwargs):
+        return DraftResult(
+            source="test",
+            result=NoDirective(reason="reject.confident_non_directive"),
+        )
+
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", follow_up_no_directive)
     follow_up = asyncio.run(
         pipe.pipe(
             {"model": "pipe-model", "messages": [{"role": "user", "content": "yes"}]},

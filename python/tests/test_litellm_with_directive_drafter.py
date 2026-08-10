@@ -70,7 +70,7 @@ def test_unknown_or_unsafe_drafting_falls_back_to_raw_input(monkeypatch) -> None
 
     result = module.handle_turn("hello there", engine)
 
-    assert compile_inputs == ["hello there"]
+    assert compile_inputs == []
     assert result == "stubbed reply"
     assert len(llm_calls) == 1
 

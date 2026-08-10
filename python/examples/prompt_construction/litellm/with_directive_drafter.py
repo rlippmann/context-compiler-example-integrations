@@ -295,13 +295,23 @@ def _append_trace(
 
 def handle_turn(user_input: str, engine: Engine) -> str:
     state_before = (engine.premise, dict(engine.policies))
-    preprocessd: str | None = None
     preprocessd = _preprocess_user_input(user_input)
-    compile_input = preprocessd if preprocessd else user_input
-    logger.debug(
-        "preprocessor: engine_input=%s",
-        "directive" if preprocessd else f"user_input len={len(user_input)}",
-    )
+    if preprocessd is None:
+        messages = _build_messages(user_input, engine)
+        response_text = _call_litellm(messages)
+        return _append_trace(
+            response_text,
+            original_input=user_input,
+            compiler_input=user_input,
+            preprocessor_output=None,
+            decision={"kind": DecisionKind.NO_DIRECTIVE.value, "message": None},
+            state_before=state_before,
+            state_after=(engine.premise, dict(engine.policies)),
+            llm_called=True,
+        )
+
+    compile_input = preprocessd
+    logger.debug("preprocessor: engine_input=directive")
 
     decision = engine.step(compile_input)
     if decision["kind"] == DecisionKind.ERROR:
