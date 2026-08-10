@@ -11,7 +11,8 @@ This example extends `open_webui_pipe.py` by inserting a directive-drafting step
 
 1. Run heuristic directive drafter (fast, high-precision cases)
 2. Fall back to Open WebUI-native model completion when needed
-3. Pass resulting directive (or original input) to `engine.step(...)`
+3. Present drafted canonical directives for host-side approval before
+   calling `engine.step(...)`
 
 Core decision handling remains the same as the base integration.
 Failed transitions are rejected for the current request and do not leave
@@ -69,11 +70,28 @@ logger = logging.getLogger(__name__)
 
 _CC_MARKER = "[[cc_state]]"
 _ENGINES_BY_CHAT_KEY: dict[str, Engine] = {}
+_PENDING_PROPOSALS_BY_CHAT_KEY: dict[str, str] = {}
 
 
 class _EngineSnapshot(TypedDict):
     premise: str | None
     policies: dict[str, PolicyValue]
+
+
+def _is_explicit_approval(message: str) -> bool:
+    return message.strip().lower() in {"y", "yes"}
+
+
+def _is_explicit_rejection(message: str) -> bool:
+    return message.strip().lower() in {"n", "no"}
+
+
+def _render_proposal_prompt(directive_text: str) -> str:
+    return (
+        "This is what I think the directive is:\n"
+        f"{directive_text}\n"
+        "Apply it? (y/n)"
+    )
 
 
 def _resolve_chat_key(
@@ -809,6 +827,97 @@ class Pipe:
         if latest_user_text.strip().lower() == "show state":
             return _render_show_state_summary(engine)
 
+        pending_proposal = _PENDING_PROPOSALS_BY_CHAT_KEY.get(chat_key)
+        if pending_proposal is not None:
+            if _is_explicit_approval(latest_user_text):
+                del _PENDING_PROPOSALS_BY_CHAT_KEY[chat_key]
+                state_before = _snapshot_engine_state(engine)
+                engine_snapshot_json = engine.export_json()
+                compile_input = pending_proposal
+                logger.debug("preprocessor: approved_pending_input=%r", compile_input)
+                decision = engine.step(compile_input)
+                if decision["kind"] == DecisionKind.ERROR:
+                    kind = DecisionKind.ERROR.value
+                elif is_update(decision):
+                    kind = DECISION_UPDATE
+                else:
+                    kind = DecisionKind.NO_DIRECTIVE.value
+                logger.debug("preprocessor: decision=%s", kind)
+                state_after = _snapshot_engine_state(engine)
+
+                if decision["kind"] == DecisionKind.ERROR:
+                    _ENGINES_BY_CHAT_KEY[chat_key] = _restore_engine_from_snapshot(
+                        engine_snapshot_json
+                    )
+                    return self._with_trace(
+                        decision["message"] or "",
+                        original_input=latest_user_text,
+                        compiler_input=compile_input,
+                        decision=decision,
+                        state_before=state_before,
+                        state_after=state_after,
+                        preprocessor_output=compile_input,
+                        llm_called=False,
+                    )
+                if decision["kind"] == DecisionKind.NO_DIRECTIVE:
+                    state_injected = (
+                        "yes" if _has_non_empty_authoritative_state(engine) else "no"
+                    )
+                    response = await self._forward_passthrough(
+                        body,
+                        __user__,
+                        __request__,
+                        base_model_id=base_model_id,
+                        engine=engine,
+                    )
+                    return self._with_trace(
+                        response,
+                        original_input=latest_user_text,
+                        compiler_input=compile_input,
+                        decision=decision,
+                        state_before=state_before,
+                        state_after=state_after,
+                        preprocessor_output=compile_input,
+                        llm_called=base_model_id is not None,
+                        state_injected=state_injected,
+                    )
+                if is_update(decision):
+                    return self._with_trace(
+                        "State updated.",
+                        original_input=latest_user_text,
+                        compiler_input=compile_input,
+                        decision=decision,
+                        state_before=state_before,
+                        state_after=state_after,
+                        preprocessor_output=compile_input,
+                        llm_called=False,
+                    )
+
+                state_injected = (
+                    "yes" if _has_non_empty_authoritative_state(engine) else "no"
+                )
+                response = await self._forward_passthrough(
+                    body,
+                    __user__,
+                    __request__,
+                    base_model_id=base_model_id,
+                    engine=engine,
+                )
+                return self._with_trace(
+                    response,
+                    original_input=latest_user_text,
+                    compiler_input=compile_input,
+                    decision=decision,
+                    state_before=state_before,
+                    state_after=state_after,
+                    preprocessor_output=compile_input,
+                    llm_called=base_model_id is not None,
+                    state_injected=state_injected,
+                )
+            if _is_explicit_rejection(latest_user_text):
+                del _PENDING_PROPOSALS_BY_CHAT_KEY[chat_key]
+                return "Directive discarded."
+
         state_before = _snapshot_engine_state(engine)
         preprocess_error: str | None = None
         drafted_result, preprocess_error = await self._preprocess_user_input(
@@ -845,83 +954,6 @@ class Pipe:
                 state_injected=state_injected,
             )
 
-        engine_snapshot_json = engine.export_json()
         compile_input = drafted_result.result.text
-        logger.debug("preprocessor: engine_input=%r", compile_input)
-        decision = engine.step(compile_input)
-        if decision["kind"] == DecisionKind.ERROR:
-            kind = DecisionKind.ERROR.value
-        elif is_update(decision):
-            kind = DECISION_UPDATE
-        else:
-            kind = DecisionKind.NO_DIRECTIVE.value
-        logger.debug("preprocessor: decision=%s", kind)
-        state_after = _snapshot_engine_state(engine)
-
-        if decision["kind"] == DecisionKind.ERROR:
-            _ENGINES_BY_CHAT_KEY[chat_key] = _restore_engine_from_snapshot(
-                engine_snapshot_json
-            )
-            return self._with_trace(
-                decision["message"] or "",
-                original_input=latest_user_text,
-                compiler_input=compile_input,
-                decision=decision,
-                state_before=state_before,
-                state_after=state_after,
-                preprocessor_output=compile_input,
-                llm_called=False,
-            )
-        if decision["kind"] == DecisionKind.NO_DIRECTIVE:
-            state_injected = (
-                "yes" if _has_non_empty_authoritative_state(engine) else "no"
-            )
-            response = await self._forward_passthrough(
-                body,
-                __user__,
-                __request__,
-                base_model_id=base_model_id,
-                engine=engine,
-            )
-            return self._with_trace(
-                response,
-                original_input=latest_user_text,
-                compiler_input=compile_input,
-                decision=decision,
-                state_before=state_before,
-                state_after=state_after,
-                preprocessor_output=compile_input,
-                llm_called=base_model_id is not None,
-                state_injected=state_injected,
-            )
-        if is_update(decision):
-            return self._with_trace(
-                "State updated.",
-                original_input=latest_user_text,
-                compiler_input=compile_input,
-                decision=decision,
-                state_before=state_before,
-                state_after=state_after,
-                preprocessor_output=compile_input,
-                llm_called=False,
-            )
-
-        state_injected = "yes" if _has_non_empty_authoritative_state(engine) else "no"
-        response = await self._forward_passthrough(
-            body,
-            __user__,
-            __request__,
-            base_model_id=base_model_id,
-            engine=engine,
-        )
-        return self._with_trace(
-            response,
-            original_input=latest_user_text,
-            compiler_input=compile_input,
-            decision=decision,
-            state_before=state_before,
-            state_after=state_after,
-            preprocessor_output=compile_input,
-            llm_called=base_model_id is not None,
-            state_injected=state_injected,
-        )
+        _PENDING_PROPOSALS_BY_CHAT_KEY[chat_key] = compile_input
+        return _render_proposal_prompt(compile_input)
