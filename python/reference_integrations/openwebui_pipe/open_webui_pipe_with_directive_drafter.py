@@ -718,7 +718,9 @@ class Pipe:
             )
         payload = {**body}
         payload["model"] = base_model_id
-        payload["messages"] = _build_forward_messages(body.get("messages"), engine=engine)
+        payload["messages"] = _build_forward_messages(
+            body.get("messages"), engine=engine
+        )
         user = Users.get_user_by_id(user_payload["id"])
         if inspect.isawaitable(user):
             user = await user
@@ -821,7 +823,9 @@ class Pipe:
 
         logger.debug("preprocessor: drafted_result=%r", drafted_result)
         if not isinstance(drafted_result.result, CanonicalDirective):
-            state_injected = "yes" if _has_non_empty_authoritative_state(engine) else "no"
+            state_injected = (
+                "yes" if _has_non_empty_authoritative_state(engine) else "no"
+            )
             response = await self._forward_passthrough(
                 body,
                 __user__,
@@ -869,7 +873,9 @@ class Pipe:
                 llm_called=False,
             )
         if decision["kind"] == DecisionKind.NO_DIRECTIVE:
-            state_injected = "yes" if _has_non_empty_authoritative_state(engine) else "no"
+            state_injected = (
+                "yes" if _has_non_empty_authoritative_state(engine) else "no"
+            )
             response = await self._forward_passthrough(
                 body,
                 __user__,

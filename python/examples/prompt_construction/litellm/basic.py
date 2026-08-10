@@ -145,9 +145,7 @@ def _render_compiled_state_contract(engine: Engine) -> str:
         key for key, value in engine.policies.items() if value == POLICY_USE
     )
     prohibit_items = sorted(
-        key
-        for key, value in engine.policies.items()
-        if value == POLICY_PROHIBIT
+        key for key, value in engine.policies.items() if value == POLICY_PROHIBIT
     )
 
     lines: list[str] = ["The following constraints are authoritative."]
