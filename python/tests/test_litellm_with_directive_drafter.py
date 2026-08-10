@@ -1,8 +1,15 @@
+from types import MappingProxyType
 from typing import Any
 
 import pytest
 from context_compiler import create_engine
-from context_compiler_directive_drafter import DirectiveDrafter
+from context_compiler.grammar import CanonicalDirective, DirectiveKind
+from context_compiler_directive_drafter import (
+    DirectiveDrafter,
+    DraftResult,
+    NoDirective,
+    UnknownDirective,
+)
 
 from context_compiler_example_integrations.examples.prompt_construction.litellm import (
     with_directive_drafter as module,
@@ -74,11 +81,28 @@ def test_extract_drafted_text_observes_draft_result_behavior() -> None:
 
     assert module._extract_drafted_text(drafted_result) == "use docker"
 
-    no_directive_result = DirectiveDrafter(
-        fallback=lambda _message: None
-    ).draft_directive("hello there")
+    no_directive_result = DraftResult(source="test", result=NoDirective("not a directive"))
 
     assert module._extract_drafted_text(no_directive_result) is None
+
+    unknown_directive_result = DraftResult(
+        source="test", result=UnknownDirective("unresolved")
+    )
+
+    assert module._extract_drafted_text(unknown_directive_result) is None
+
+
+def test_extract_drafted_text_only_applies_canonical_directive() -> None:
+    drafted_result = DraftResult(
+        source="test",
+        result=CanonicalDirective(
+            text="use docker",
+            kind=DirectiveKind.USE_ITEM,
+            operands=MappingProxyType({"item": "docker"}),
+        ),
+    )
+
+    assert module._extract_drafted_text(drafted_result) == "use docker"
 
 
 def test_local_update_responses_skip_downstream_litellm_call(
