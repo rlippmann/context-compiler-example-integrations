@@ -15,8 +15,6 @@ import logging
 import os
 from collections.abc import Callable, Mapping, Sequence
 from importlib import import_module
-from importlib.resources import as_file, files
-from importlib.resources.abc import Traversable
 from typing import Any, cast
 
 try:
@@ -33,11 +31,16 @@ from context_compiler import (
     DecisionKind,
     create_engine,
 )
+from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
     DRAFT_OUTCOME_DIRECTIVE,
+    DRAFT_OUTCOME_NO_DIRECTIVE,
+    DirectiveDrafter,
+    DraftResult,
+    NoDirective,
+    UnknownDirective,
     parse_preprocessor_output,
-    preprocess_heuristic,
-    render_prompt,
+    validate_preprocessor_output,
 )
 from context_compiler_example_integrations.reference_integrations.litellm_proxy._checkpoint_support import (
     MODE_PERSISTENT,
@@ -49,7 +52,6 @@ from context_compiler_example_integrations.reference_integrations.litellm_proxy.
     resolve_session_context,
 )
 from context_compiler_example_integrations.reference_integrations.litellm_proxy._litellm_support import (
-    EngineSnapshot,
     extract_request_messages,
     render_compiled_state_contract,
     snapshot_engine_state,
@@ -64,8 +66,16 @@ _SUPPORTED_CALL_TYPES = {
     "achat_completion",
 }
 
-_PROMPTS_DIR = files("context_compiler_directive_drafter").joinpath("prompts")
 CHECKPOINT_STORE: CheckpointStore = InMemoryCheckpointStore()
+_FALLBACK_SYSTEM_PROMPT = (
+    "Convert the latest user message into exactly one valid Context Compiler "
+    "directive, or output <NO_DIRECTIVE>. Use only these directive forms: "
+    "set premise <value>, change premise to <value>, use <item>, prohibit "
+    "<item>, remove policy <item>, use <new item> instead of <old item>, "
+    "clear premise, reset policies, clear state. If the message is ambiguous, "
+    "not a direct instruction to change compiler state, or could imply more "
+    "than one instruction, output <NO_DIRECTIVE>. Do not explain."
+)
 
 
 def _extract_response_content(response: object) -> str | None:
@@ -91,43 +101,40 @@ def _extract_response_content(response: object) -> str | None:
     return None
 
 
-def _prompt_file_path() -> Traversable:
-    profile = os.getenv("PREPROCESSOR_PROMPT_PROFILE", "default").strip().lower()
-    if profile == "llama":
-        return _PROMPTS_DIR.joinpath("llama.txt")
-    return _PROMPTS_DIR.joinpath("default.txt")
-
-
 def _get_litellm_completion() -> Callable[..., object]:
     litellm_module = import_module("litellm")
     return cast(Callable[..., object], litellm_module.completion)
 
 
-def _llm_fallback_preprocess(message: str, state: EngineSnapshot) -> str | None:
-    with as_file(_prompt_file_path()) as prompt_path:
-        prompt = render_prompt(prompt_path, state["premise"], state["policies"])
-    if prompt is None:
-        return None
-
+def _llm_fallback_draft(message: str) -> DraftResult:
     preprocessor_model = os.getenv("PREPROCESSOR_MODEL", "").strip()
     if not preprocessor_model:
         preprocessor_model = os.getenv("MODEL", "").strip()
     if not preprocessor_model:
-        return None
+        return DraftResult(
+            source="litellm_fallback",
+            result=UnknownDirective(reason="fallback_model_unconfigured"),
+        )
 
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        return None
+        return DraftResult(
+            source="litellm_fallback",
+            result=UnknownDirective(reason="fallback_api_key_missing"),
+        )
 
     try:
         completion = _get_litellm_completion()
     except ModuleNotFoundError:
-        return None
+        return DraftResult(
+            source="litellm_fallback",
+            result=UnknownDirective(reason="fallback_litellm_unavailable"),
+        )
 
     kwargs: dict[str, object] = {
         "model": preprocessor_model,
         "messages": [
-            {"role": "system", "content": prompt},
+            {"role": "system", "content": _FALLBACK_SYSTEM_PROMPT},
             {"role": "user", "content": message},
         ],
         "api_key": api_key,
@@ -141,37 +148,34 @@ def _llm_fallback_preprocess(message: str, state: EngineSnapshot) -> str | None:
         response = completion(**kwargs)
         raw_output = _extract_response_content(response)
     except Exception:
-        return None
+        return DraftResult(
+            source="litellm_fallback",
+            result=UnknownDirective(reason="fallback_completion_failed"),
+        )
 
-    parsed = parse_preprocessor_output(raw_output)
-    if parsed is None:
-        return None
-    return parsed.text
+    validated = validate_preprocessor_output(raw_output)
+    if validated["classification"] == DRAFT_OUTCOME_DIRECTIVE:
+        parsed = parse_preprocessor_output(raw_output)
+        if parsed is not None:
+            return DraftResult(source="litellm_fallback", result=parsed)
+        return DraftResult(
+            source="litellm_fallback",
+            result=UnknownDirective(reason="invalid_canonical_directive"),
+        )
+    if validated["classification"] == DRAFT_OUTCOME_NO_DIRECTIVE:
+        return DraftResult(
+            source="litellm_fallback",
+            result=NoDirective(reason="fallback_confident_non_directive"),
+        )
+    return DraftResult(
+        source="litellm_fallback",
+        result=UnknownDirective(reason="fallback_unresolved"),
+    )
 
 
-def _preprocess_last_user_message(
-    message: str, state: EngineSnapshot | None
-) -> str | None:
-    try:
-        heuristic_result = preprocess_heuristic(message)
-        if (
-            heuristic_result["outcome"] == DRAFT_OUTCOME_DIRECTIVE
-            and heuristic_result["directive"]
-        ):
-            parsed = parse_preprocessor_output(heuristic_result["directive"])
-            if parsed is not None:
-                return parsed.text
-    except Exception:
-        logger.debug("litellm_proxy: heuristic_exception", exc_info=True)
-
-    if state is None:
-        return None
-
-    try:
-        return _llm_fallback_preprocess(message, state)
-    except Exception:
-        logger.debug("litellm_proxy: fallback_exception", exc_info=True)
-        return None
+def _draft_last_user_message(message: str) -> DraftResult:
+    drafter = DirectiveDrafter(fallback=_llm_fallback_draft)
+    return drafter.draft_directive(message)
 
 
 class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
@@ -219,15 +223,13 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
             "litellm_proxy: latest_user_text_present=%s", latest_user_text is not None
         )
         engine_input = latest_user_text
-        drafted_input: str | None = None
+        drafted_result: DraftResult | None = None
 
         if latest_user_text is not None:
-            drafted_input = _preprocess_last_user_message(
-                latest_user_text, snapshot_engine_state(engine)
-            )
-            logger.debug("litellm_proxy: drafted_input=%r", drafted_input)
-            if drafted_input is not None:
-                engine_input = drafted_input
+            drafted_result = _draft_last_user_message(latest_user_text)
+            logger.debug("litellm_proxy: drafted_result=%r", drafted_result)
+            if isinstance(drafted_result.result, CanonicalDirective):
+                engine_input = drafted_result.result.text
 
         if engine_input is not None:
             decision = engine.step(engine_input)
