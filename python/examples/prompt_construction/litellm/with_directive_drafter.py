@@ -46,11 +46,6 @@ logger = logging.getLogger(__name__)
 SHOW_CONTEXT_COMPILER_TRACE = False
 
 
-class _EngineSnapshot(TypedDict):
-    premise: str | None
-    policies: dict[str, PolicyValue]
-
-
 class _LiteLLMCallKwargs(TypedDict, total=False):
     model: str
     messages: list[dict[str, str]]
@@ -82,22 +77,13 @@ def _extract_response_content(response: object) -> str | None:
     return None
 
 
-def _snapshot_engine_state(engine: Engine) -> _EngineSnapshot:
-    return {"premise": engine.premise, "policies": dict(engine.policies)}
-
-
 _DIRECTIVE_DRAFTER = DirectiveDrafter(
     fallback=lambda message: _llm_fallback_candidate(message),
     fallback_source="litellm_fallback",
 )
 
 
-def _render_state_lines(state: object) -> list[str]:
-    if not isinstance(state, dict):
-        return ["- unavailable"]
-    raw_policies = state.get("policies")
-    policies = raw_policies if isinstance(raw_policies, dict) else {}
-    premise = state.get("premise")
+def _render_state_lines(premise: str | None, policies: Mapping[str, PolicyValue]) -> list[str]:
     use_items = sorted(
         key
         for key, value in policies.items()
@@ -123,8 +109,10 @@ def _build_trace_text(
     compiler_input: str,
     preprocessor_output: str | None,
     decision: object,
-    state_before: object,
-    state_after: object,
+    premise_before: str | None,
+    policies_before: Mapping[str, PolicyValue],
+    premise_after: str | None,
+    policies_after: Mapping[str, PolicyValue],
     llm_called: bool,
 ) -> str:
     kind = decision.get("kind", "unknown") if isinstance(decision, dict) else "unknown"
@@ -136,14 +124,19 @@ def _build_trace_text(
         f"- decision: {kind}",
         f"- llm_called: {'yes' if llm_called else 'no'}",
     ]
-    if isinstance(state_before, dict) and isinstance(state_after, dict):
-        lines.append(
-            f"- state_changed: {'yes' if state_before != state_after else 'no'}"
+    lines.append(
+        "- state_changed: "
+        + (
+            "yes"
+            if premise_before != premise_after
+            or dict(policies_before) != dict(policies_after)
+            else "no"
         )
+    )
     lines.append("state_before:")
-    lines.extend(_render_state_lines(state_before))
+    lines.extend(_render_state_lines(premise_before, policies_before))
     lines.append("state_after:")
-    lines.extend(_render_state_lines(state_after))
+    lines.extend(_render_state_lines(premise_after, policies_after))
     return "\n".join(lines)
 
 
@@ -152,14 +145,14 @@ def _get_litellm_completion() -> Callable[..., object]:
     return cast(Callable[..., object], litellm_module.completion)
 
 
-def _render_compiled_state_contract(compiled_state: _EngineSnapshot) -> str:
-    premise = compiled_state["premise"]
+def _render_compiled_state_contract(engine: Engine) -> str:
+    premise = engine.premise
     use_items = sorted(
-        key for key, value in compiled_state["policies"].items() if value == POLICY_USE
+        key for key, value in engine.policies.items() if value == POLICY_USE
     )
     prohibit_items = sorted(
         key
-        for key, value in compiled_state["policies"].items()
+        for key, value in engine.policies.items()
         if value == POLICY_PROHIBIT
     )
 
@@ -176,13 +169,13 @@ def _render_compiled_state_contract(compiled_state: _EngineSnapshot) -> str:
 
 
 def _build_messages(
-    user_input: str, compiled_state: _EngineSnapshot
+    user_input: str, engine: Engine
 ) -> list[dict[str, str]]:
     return [
         {
             "role": "system",
             "content": "You are a helpful assistant.\n"
-            + _render_compiled_state_contract(compiled_state),
+            + _render_compiled_state_contract(engine),
         },
         {"role": "user", "content": user_input},
     ]
@@ -337,8 +330,8 @@ def _append_trace(
     compiler_input: str,
     preprocessor_output: str | None,
     decision: object,
-    state_before: object,
-    state_after: object,
+    state_before: tuple[str | None, dict[str, PolicyValue]],
+    state_after: tuple[str | None, dict[str, PolicyValue]],
     llm_called: bool,
 ) -> str:
     if not SHOW_CONTEXT_COMPILER_TRACE:
@@ -348,15 +341,17 @@ def _append_trace(
         compiler_input=compiler_input,
         preprocessor_output=preprocessor_output,
         decision=decision,
-        state_before=state_before,
-        state_after=state_after,
+        premise_before=state_before[0],
+        policies_before=state_before[1],
+        premise_after=state_after[0],
+        policies_after=state_after[1],
         llm_called=llm_called,
     )
     return f"{response_text}\n\n{trace_text}"
 
 
 def handle_turn(user_input: str, engine: Engine) -> str:
-    state_before = _snapshot_engine_state(engine)
+    state_before = (engine.premise, dict(engine.policies))
     preprocessd: str | None = None
     preprocessd = _preprocess_user_input(user_input)
     compile_input = preprocessd if preprocessd else user_input
@@ -384,7 +379,7 @@ def handle_turn(user_input: str, engine: Engine) -> str:
             preprocessor_output=preprocessd,
             decision=decision,
             state_before=state_before,
-            state_after=_snapshot_engine_state(engine),
+            state_after=(engine.premise, dict(engine.policies)),
             llm_called=False,
         )
     if near_miss_prompt is not None and decision["kind"] == DecisionKind.NO_DIRECTIVE:
@@ -395,7 +390,7 @@ def handle_turn(user_input: str, engine: Engine) -> str:
             preprocessor_output=preprocessd,
             decision={"kind": DecisionKind.ERROR, "message": near_miss_prompt},
             state_before=state_before,
-            state_after=_snapshot_engine_state(engine),
+            state_after=(engine.premise, dict(engine.policies)),
             llm_called=False,
         )
     if is_update(decision):
@@ -407,10 +402,10 @@ def handle_turn(user_input: str, engine: Engine) -> str:
             preprocessor_output=preprocessd,
             decision=decision,
             state_before=state_before,
-            state_after=_snapshot_engine_state(engine),
+            state_after=(engine.premise, dict(engine.policies)),
             llm_called=False,
         )
-    messages = _build_messages(user_input, _snapshot_engine_state(engine))
+    messages = _build_messages(user_input, engine)
     response_text = _call_litellm(messages)
     return _append_trace(
         response_text,
@@ -419,6 +414,6 @@ def handle_turn(user_input: str, engine: Engine) -> str:
         preprocessor_output=preprocessd,
         decision=decision,
         state_before=state_before,
-        state_after=_snapshot_engine_state(engine),
+        state_after=(engine.premise, dict(engine.policies)),
         llm_called=True,
     )
