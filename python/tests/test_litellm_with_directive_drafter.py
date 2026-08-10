@@ -82,11 +82,12 @@ def test_unknown_or_unsafe_drafting_falls_back_to_raw_input(monkeypatch) -> None
         lambda message: {"outcome": "no_directive", "directive": None},
     )
     monkeypatch.setattr(module, "_llm_fallback_preprocess", lambda message, state: None)
-    monkeypatch.setattr(
-        module,
-        "_call_litellm",
-        lambda messages: llm_calls.append(messages) or "stubbed reply",
-    )
+
+    def downstream(messages: list[dict[str, str]]) -> str:
+        llm_calls.append(messages)
+        return "stubbed reply"
+
+    monkeypatch.setattr(module, "_call_litellm", downstream)
 
     result = module.handle_turn("hello there", engine)
 
@@ -99,11 +100,12 @@ def test_local_update_and_clarify_responses_skip_downstream_litellm_call(
     monkeypatch,
 ) -> None:
     llm_calls: list[object] = []
-    monkeypatch.setattr(
-        module,
-        "_call_litellm",
-        lambda messages: llm_calls.append(messages) or "should not be called",
-    )
+
+    def should_not_call(messages: list[dict[str, str]]) -> str:
+        llm_calls.append(messages)
+        return "should not be called"
+
+    monkeypatch.setattr(module, "_call_litellm", should_not_call)
     monkeypatch.setattr(
         module,
         "preprocess_heuristic",
@@ -232,7 +234,7 @@ def test_preprocessor_model_defaults_to_model(monkeypatch) -> None:
     monkeypatch.setenv("MODEL", "openai/main-model")
     monkeypatch.delenv("PREPROCESSOR_MODEL", raising=False)
     monkeypatch.setattr(module, "_get_litellm_completion", lambda: completion)
-    monkeypatch.setattr(module, "render_prompt", lambda *_: "prompt")
+    monkeypatch.setattr(module, "get_converter_prompt", lambda: "prompt")
     monkeypatch.setattr(
         module,
         "parse_preprocessor_output",
@@ -259,7 +261,7 @@ def test_preprocessor_model_override_wins(monkeypatch) -> None:
     monkeypatch.setenv("MODEL", "openai/main-model")
     monkeypatch.setenv("PREPROCESSOR_MODEL", "openai/preprocessor-model")
     monkeypatch.setattr(module, "_get_litellm_completion", lambda: completion)
-    monkeypatch.setattr(module, "render_prompt", lambda *_: "prompt")
+    monkeypatch.setattr(module, "get_converter_prompt", lambda: "prompt")
     monkeypatch.setattr(
         module,
         "parse_preprocessor_output",
@@ -290,7 +292,7 @@ def test_fallback_accepts_structurally_valid_output_without_source_awareness(
             }
         ),
     )
-    monkeypatch.setattr(module, "render_prompt", lambda *_: "prompt")
+    monkeypatch.setattr(module, "get_converter_prompt", lambda: "prompt")
 
     assert (
         module._llm_fallback_preprocess(

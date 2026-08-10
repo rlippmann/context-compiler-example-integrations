@@ -20,8 +20,6 @@ import os
 import re
 from collections.abc import Callable, Mapping, Sequence
 from importlib import import_module
-from importlib.resources import as_file, files
-from importlib.resources.abc import Traversable
 from typing import TypedDict, cast
 
 from context_compiler import (
@@ -35,9 +33,9 @@ from context_compiler import (
 from context_compiler.engine import Engine
 from context_compiler_directive_drafter import (
     DRAFT_OUTCOME_DIRECTIVE,
+    get_converter_prompt,
     parse_preprocessor_output,
     preprocess_heuristic,
-    render_prompt,
 )
 
 try:
@@ -55,8 +53,6 @@ from context_compiler_example_integrations.examples._shared.provider_mode import
 )
 
 logger = logging.getLogger(__name__)
-
-_PROMPTS_DIR = files("context_compiler_directive_drafter").joinpath("prompts")
 SHOW_CONTEXT_COMPILER_TRACE = False
 
 
@@ -236,18 +232,8 @@ def _call_litellm(messages: list[dict[str, str]]) -> str:
     return content
 
 
-def _prompt_file_path() -> Traversable:
-    profile = os.getenv("PREPROCESSOR_PROMPT_PROFILE", "default").strip().lower()
-    if profile == "llama":
-        return _PROMPTS_DIR.joinpath("llama.txt")
-    return _PROMPTS_DIR.joinpath("default.txt")
-
-
 def _llm_fallback_preprocess(message: str, state: _EngineSnapshot) -> str | None:
-    with as_file(_prompt_file_path()) as prompt_path:
-        prompt = render_prompt(prompt_path, state["premise"], state["policies"])
-    if prompt is None:
-        return None
+    del state
 
     try:
         completion = _get_litellm_completion()
@@ -267,7 +253,7 @@ def _llm_fallback_preprocess(message: str, state: _EngineSnapshot) -> str | None
     kwargs: _LiteLLMCallKwargs = {
         "model": preprocessor_model,
         "messages": [
-            {"role": "system", "content": prompt},
+            {"role": "system", "content": get_converter_prompt()},
             {"role": "user", "content": message},
         ],
         "temperature": 0,
