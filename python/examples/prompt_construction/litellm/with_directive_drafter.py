@@ -85,7 +85,9 @@ _DIRECTIVE_DRAFTER = DirectiveDrafter(
 )
 
 
-def _render_state_lines(premise: str | None, policies: Mapping[str, PolicyValue]) -> list[str]:
+def _render_state_lines(
+    premise: str | None, policies: Mapping[str, PolicyValue]
+) -> list[str]:
     use_items = sorted(
         key
         for key, value in policies.items()
@@ -153,9 +155,7 @@ def _render_compiled_state_contract(engine: Engine) -> str:
         key for key, value in engine.policies.items() if value == POLICY_USE
     )
     prohibit_items = sorted(
-        key
-        for key, value in engine.policies.items()
-        if value == POLICY_PROHIBIT
+        key for key, value in engine.policies.items() if value == POLICY_PROHIBIT
     )
 
     lines: list[str] = ["The following constraints are authoritative."]
@@ -170,9 +170,7 @@ def _render_compiled_state_contract(engine: Engine) -> str:
     return "Host policy contract:\n" + "\n".join(f"- {line}" for line in lines)
 
 
-def _build_messages(
-    user_input: str, engine: Engine
-) -> list[dict[str, str]]:
+def _build_messages(user_input: str, engine: Engine) -> list[dict[str, str]]:
     return [
         {
             "role": "system",
