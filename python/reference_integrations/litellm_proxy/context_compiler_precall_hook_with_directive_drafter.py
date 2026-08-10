@@ -33,14 +33,9 @@ from context_compiler import (
 )
 from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
-    DRAFT_OUTCOME_DIRECTIVE,
-    DRAFT_OUTCOME_NO_DIRECTIVE,
     DirectiveDrafter,
     DraftResult,
-    NoDirective,
-    UnknownDirective,
-    parse_preprocessor_output,
-    validate_preprocessor_output,
+    get_converter_prompt,
 )
 from context_compiler_example_integrations.reference_integrations.litellm_proxy._checkpoint_support import (
     MODE_PERSISTENT,
@@ -67,15 +62,6 @@ _SUPPORTED_CALL_TYPES = {
 }
 
 CHECKPOINT_STORE: CheckpointStore = InMemoryCheckpointStore()
-_FALLBACK_SYSTEM_PROMPT = (
-    "Convert the latest user message into exactly one valid Context Compiler "
-    "directive, or output <NO_DIRECTIVE>. Use only these directive forms: "
-    "set premise <value>, change premise to <value>, use <item>, prohibit "
-    "<item>, remove policy <item>, use <new item> instead of <old item>, "
-    "clear premise, reset policies, clear state. If the message is ambiguous, "
-    "not a direct instruction to change compiler state, or could imply more "
-    "than one instruction, output <NO_DIRECTIVE>. Do not explain."
-)
 
 
 def _extract_response_content(response: object) -> str | None:
@@ -106,35 +92,26 @@ def _get_litellm_completion() -> Callable[..., object]:
     return cast(Callable[..., object], litellm_module.completion)
 
 
-def _llm_fallback_draft(message: str) -> DraftResult:
+def _llm_fallback_candidate(message: str) -> str | None:
     preprocessor_model = os.getenv("PREPROCESSOR_MODEL", "").strip()
     if not preprocessor_model:
         preprocessor_model = os.getenv("MODEL", "").strip()
     if not preprocessor_model:
-        return DraftResult(
-            source="litellm_fallback",
-            result=UnknownDirective(reason="fallback_model_unconfigured"),
-        )
+        return None
 
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        return DraftResult(
-            source="litellm_fallback",
-            result=UnknownDirective(reason="fallback_api_key_missing"),
-        )
+        return None
 
     try:
         completion = _get_litellm_completion()
     except ModuleNotFoundError:
-        return DraftResult(
-            source="litellm_fallback",
-            result=UnknownDirective(reason="fallback_litellm_unavailable"),
-        )
+        return None
 
     kwargs: dict[str, object] = {
         "model": preprocessor_model,
         "messages": [
-            {"role": "system", "content": _FALLBACK_SYSTEM_PROMPT},
+            {"role": "system", "content": get_converter_prompt()},
             {"role": "user", "content": message},
         ],
         "api_key": api_key,
@@ -146,35 +123,15 @@ def _llm_fallback_draft(message: str) -> DraftResult:
 
     try:
         response = completion(**kwargs)
-        raw_output = _extract_response_content(response)
+        return _extract_response_content(response)
     except Exception:
-        return DraftResult(
-            source="litellm_fallback",
-            result=UnknownDirective(reason="fallback_completion_failed"),
-        )
-
-    validated = validate_preprocessor_output(raw_output)
-    if validated["classification"] == DRAFT_OUTCOME_DIRECTIVE:
-        parsed = parse_preprocessor_output(raw_output)
-        if parsed is not None:
-            return DraftResult(source="litellm_fallback", result=parsed)
-        return DraftResult(
-            source="litellm_fallback",
-            result=UnknownDirective(reason="invalid_canonical_directive"),
-        )
-    if validated["classification"] == DRAFT_OUTCOME_NO_DIRECTIVE:
-        return DraftResult(
-            source="litellm_fallback",
-            result=NoDirective(reason="fallback_confident_non_directive"),
-        )
-    return DraftResult(
-        source="litellm_fallback",
-        result=UnknownDirective(reason="fallback_unresolved"),
-    )
+        return None
 
 
 def _draft_last_user_message(message: str) -> DraftResult:
-    drafter = DirectiveDrafter(fallback=_llm_fallback_draft)
+    drafter = DirectiveDrafter(
+        fallback=_llm_fallback_candidate, fallback_source="litellm_fallback"
+    )
     return drafter.draft_directive(message)
 
 
