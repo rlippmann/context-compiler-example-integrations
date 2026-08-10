@@ -4,8 +4,11 @@ import importlib.util
 import sys
 import types
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
+from context_compiler.grammar import CanonicalDirective, DirectiveKind
+from context_compiler_directive_drafter import DraftResult, NoDirective, UnknownDirective
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_PATH = (
@@ -103,10 +106,17 @@ def test_directive_drafting_runs_before_compiler_step(monkeypatch) -> None:
 
     monkeypatch.setattr(module, "create_engine", create_engine_with_tracking)
 
-    async def fake_preprocess(*args, **kwargs):
-        return "use docker", None
+    async def fake_draft(*args, **kwargs):
+        return DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                text="use docker",
+                kind=DirectiveKind.USE_ITEM,
+                operands=MappingProxyType({"item": "docker"}),
+            ),
+        )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", fake_preprocess)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", fake_draft)
 
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
@@ -146,9 +156,16 @@ def test_failed_transition_is_rejected_and_follow_up_is_a_new_request(
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
 
     async def update_draft(*args, **kwargs):
-        return "use docker", None
+        return DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                text="use docker",
+                kind=DirectiveKind.USE_ITEM,
+                operands=MappingProxyType({"item": "docker"}),
+            ),
+        )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", update_draft)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
     seed = asyncio.run(
         pipe.pipe(
             {
@@ -162,9 +179,12 @@ def test_failed_transition_is_rejected_and_follow_up_is_a_new_request(
     )
 
     async def no_draft(*args, **kwargs):
-        return None, None
+        return DraftResult(
+            source="test",
+            result=NoDirective(reason="reject.confident_non_directive"),
+        )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", no_draft)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
     rejected = asyncio.run(
         pipe.pipe(
             {
@@ -202,12 +222,22 @@ def test_failed_transition_does_not_change_existing_engine_state(monkeypatch) ->
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
 
     async def update_draft(*args, **kwargs):
-        return "use docker", None
+        return DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                text="use docker",
+                kind=DirectiveKind.USE_ITEM,
+                operands=MappingProxyType({"item": "docker"}),
+            ),
+        )
 
     async def no_draft(*args, **kwargs):
-        return None, None
+        return DraftResult(
+            source="test",
+            result=NoDirective(reason="reject.confident_non_directive"),
+        )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", update_draft)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
     asyncio.run(
         pipe.pipe(
             {
@@ -220,7 +250,7 @@ def test_failed_transition_does_not_change_existing_engine_state(monkeypatch) ->
         )
     )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", no_draft)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
     asyncio.run(
         pipe.pipe(
             {
@@ -261,9 +291,12 @@ def test_fallback_to_raw_input_path_preserves_host_behavior(monkeypatch) -> None
     module.generate_chat_completion = forward
 
     async def no_draft(*args, **kwargs):
-        return None, None
+        return DraftResult(
+            source="test",
+            result=NoDirective(reason="reject.confident_non_directive"),
+        )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", no_draft)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
 
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
@@ -300,9 +333,16 @@ def test_local_update_and_rejection_responses_skip_downstream_model(
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
 
     async def update_draft(*args, **kwargs):
-        return "use docker", None
+        return DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                text="use docker",
+                kind=DirectiveKind.USE_ITEM,
+                operands=MappingProxyType({"item": "docker"}),
+            ),
+        )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", update_draft)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
     update = asyncio.run(
         pipe.pipe(
             {
@@ -316,9 +356,12 @@ def test_local_update_and_rejection_responses_skip_downstream_model(
     )
 
     async def no_draft(*args, **kwargs):
-        return None, None
+        return DraftResult(
+            source="test",
+            result=NoDirective(reason="reject.confident_non_directive"),
+        )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", no_draft)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
     rejection = asyncio.run(
         pipe.pipe(
             {
@@ -354,9 +397,12 @@ def test_near_miss_rejection_does_not_change_existing_engine_state(monkeypatch) 
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
 
     async def no_draft(*args, **kwargs):
-        return None, None
+        return DraftResult(
+            source="test",
+            result=NoDirective(reason="reject.confident_non_directive"),
+        )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", no_draft)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
     chat_id = "chat-near-miss-followup"
 
     rejected = asyncio.run(
@@ -414,9 +460,12 @@ def test_compound_directives_fall_through_to_normal_forwarding(monkeypatch) -> N
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
 
     async def compound_draft(*args, **kwargs):
-        return "use docker and prohibit peanuts", None
+        return DraftResult(
+            source="test",
+            result=UnknownDirective(reason="reject.multi_candidate_directive"),
+        )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", compound_draft)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", compound_draft)
     result = asyncio.run(
         pipe.pipe(
             {
@@ -457,9 +506,16 @@ def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exis
     chat_id = "chat-passthrough"
 
     async def update_draft(*args, **kwargs):
-        return "use docker", None
+        return DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                text="use docker",
+                kind=DirectiveKind.USE_ITEM,
+                operands=MappingProxyType({"item": "docker"}),
+            ),
+        )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", update_draft)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
     asyncio.run(
         pipe.pipe(
             {
@@ -473,9 +529,12 @@ def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exis
     )
 
     async def no_draft(*args, **kwargs):
-        return None, None
+        return DraftResult(
+            source="test",
+            result=NoDirective(reason="reject.confident_non_directive"),
+        )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", no_draft)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
     result = asyncio.run(
         pipe.pipe(
             {
@@ -575,9 +634,12 @@ def test_debug_mode_missing_base_model_returns_deterministic_message(
     pipe.valves.ALLOW_MISSING_BASE_MODEL_FOR_DEBUG = True
 
     async def no_draft(*args, **kwargs):
-        return None, None
+        return DraftResult(
+            source="test",
+            result=NoDirective(reason="reject.confident_non_directive"),
+        )
 
-    monkeypatch.setattr(module.Pipe, "_preprocess_user_input", no_draft)
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
 
     result = asyncio.run(
         pipe.pipe(
@@ -608,11 +670,6 @@ def test_preprocessor_model_not_found_is_normalized(monkeypatch) -> None:
         return {"choices": [{"message": {"content": "downstream"}}]}
 
     module.generate_chat_completion = generate
-    module.preprocess_heuristic = lambda _text: {
-        "outcome": "no_directive",
-        "directive": None,
-    }
-
     result = asyncio.run(
         pipe.pipe(
             {"model": "pipe-model", "messages": [{"role": "user", "content": "hello"}]},
@@ -647,11 +704,6 @@ def test_fallback_uses_preprocessor_model_then_forward_uses_base_model(
         return {"choices": [{"message": {"content": "downstream"}}]}
 
     module.generate_chat_completion = generate
-    module.preprocess_heuristic = lambda _text: {
-        "outcome": "no_directive",
-        "directive": None,
-    }
-
     result = asyncio.run(
         pipe.pipe(
             {
@@ -666,6 +718,68 @@ def test_fallback_uses_preprocessor_model_then_forward_uses_base_model(
 
     assert result == {"choices": [{"message": {"content": "downstream"}}]}
     assert calls == ["prep-model", "base-model"]
+
+
+def test_extract_drafted_text_only_applies_canonical_directive(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_extract_text", monkeypatch)
+    pipe = module.Pipe()
+
+    canonical = DraftResult(
+        source="test",
+        result=CanonicalDirective(
+            text="use docker",
+            kind=DirectiveKind.USE_ITEM,
+            operands=MappingProxyType({"item": "docker"}),
+        ),
+    )
+    no_directive = DraftResult(
+        source="test",
+        result=NoDirective(reason="reject.confident_non_directive"),
+    )
+    unknown = DraftResult(
+        source="test",
+        result=UnknownDirective(reason="reject.multi_candidate_directive"),
+    )
+
+    assert pipe._extract_drafted_text(canonical) == "use docker"
+    assert pipe._extract_drafted_text(no_directive) is None
+    assert pipe._extract_drafted_text(unknown) is None
+
+
+def test_unknown_directive_falls_back_to_normal_user_input_flow(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_unknown_falls_back", monkeypatch)
+    forwarded: list[dict[str, object]] = []
+
+    async def forward(
+        _: object, payload: dict[str, object], __: object
+    ) -> dict[str, object]:
+        forwarded.append(payload)
+        return {"choices": [{"message": {"content": "downstream"}}]}
+
+    module.generate_chat_completion = forward
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+
+    async def unknown_draft(*args, **kwargs):
+        return DraftResult(
+            source="test",
+            result=UnknownDirective(reason="reject.multi_candidate_directive"),
+        )
+
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", unknown_draft)
+
+    result = asyncio.run(
+        pipe.pipe(
+            {"model": "pipe-model", "messages": [{"role": "user", "content": "hello"}]},
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-unknown-raw",
+        )
+    )
+
+    assert result == {"choices": [{"message": {"content": "downstream"}}]}
+    assert forwarded[0]["messages"] == [{"role": "user", "content": "hello"}]
 
 
 def test_validate_configured_model_ids_supports_async_user_lookup(monkeypatch) -> None:

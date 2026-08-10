@@ -22,6 +22,7 @@ import inspect
 import json
 import logging
 import re
+import threading
 from collections.abc import AsyncIterator
 from typing import Any, Literal, TypedDict, cast
 
@@ -56,11 +57,13 @@ from context_compiler import (
     PolicyValue,
 )
 from context_compiler.engine import Engine
+from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
-    DRAFT_OUTCOME_DIRECTIVE,
+    DirectiveDrafter,
+    DraftResult,
+    NoDirective,
+    UnknownDirective,
     get_converter_prompt,
-    parse_preprocessor_output,
-    preprocess_heuristic,
 )
 
 logger = logging.getLogger(__name__)
@@ -428,6 +431,27 @@ def _is_truthy_bool(value: object) -> bool:
     return False
 
 
+def _run_coroutine_blocking(awaitable: object) -> Any:
+    result: dict[str, Any] = {}
+    error: list[BaseException] = []
+
+    def _runner() -> None:
+        import asyncio
+
+        try:
+            result["value"] = asyncio.run(cast(Any, awaitable))
+        except BaseException as exc:  # pragma: no cover - exercised via caller tests
+            error.append(exc)
+
+    thread = threading.Thread(target=_runner, daemon=True)
+    thread.start()
+    thread.join()
+
+    if error:
+        raise error[0]
+    return result.get("value")
+
+
 class Pipe:
     """Map Context Compiler decisions into Open WebUI pipe behavior.
 
@@ -466,6 +490,7 @@ class Pipe:
 
     def __init__(self) -> None:
         self.valves = self.Valves()
+        self._last_preprocessor_error: str | None = None
 
     def _allow_missing_base_model_for_debug(self) -> bool:
         return _is_truthy_bool(
@@ -686,20 +711,18 @@ class Pipe:
             )
         return None
 
-    async def _llm_fallback_preprocess(
+    async def _llm_fallback_candidate(
         self,
         message: str,
-        state: _EngineSnapshot,
         *,
         request: Request,
         user_payload: dict[str, Any],
-        prompt_profile: str,
         model_id: str | None,
-    ) -> tuple[str | None, str | None]:
-        del state, prompt_profile
+    ) -> str | None:
+        self._last_preprocessor_error = None
         model_id = _normalize_model_id(model_id)
         if model_id is None:
-            return None, None
+            return None
 
         payload: dict[str, Any] = {
             "model": model_id,
@@ -717,58 +740,72 @@ class Pipe:
         except Exception as exc:
             normalized_exception = self._normalize_preprocessor_exception(exc)
             if normalized_exception is not None:
-                return None, normalized_exception
-            return None, None
+                self._last_preprocessor_error = normalized_exception
+                logger.warning("preprocessor: %s", normalized_exception)
+            return None
 
         normalized_error = self._normalize_preprocessor_error(response)
         if normalized_error is not None:
-            return None, normalized_error
+            self._last_preprocessor_error = normalized_error
+            logger.warning("preprocessor: %s", normalized_error)
+            return None
 
-        raw_output = _extract_completion_content(response)
-        parsed = parse_preprocessor_output(raw_output)
-        if parsed is None:
-            return None, None
-        return parsed.text, None
+        return _extract_completion_content(response)
+
+    async def _draft_user_input(
+        self,
+        message: str,
+        *,
+        request: Request,
+        user_payload: dict[str, Any],
+        model_id: str | None,
+    ) -> DraftResult:
+        def fallback(candidate_message: str) -> str | None:
+            return cast(
+                str | None,
+                _run_coroutine_blocking(
+                    self._llm_fallback_candidate(
+                        candidate_message,
+                        request=request,
+                        user_payload=user_payload,
+                        model_id=model_id,
+                    )
+                ),
+            )
+
+        drafter = DirectiveDrafter(
+            fallback=fallback,
+            fallback_source="openwebui_fallback",
+        )
+        return drafter.draft_directive(message)
+
+    def _extract_drafted_text(self, drafted_result: DraftResult) -> str | None:
+        if isinstance(drafted_result.result, CanonicalDirective):
+            return drafted_result.result.text
+        if isinstance(drafted_result.result, NoDirective):
+            return None
+        if isinstance(drafted_result.result, UnknownDirective):
+            return None
+        return None
 
     async def _preprocess_user_input(
         self,
         message: str,
-        state: _EngineSnapshot,
         *,
         request: Request,
         user_payload: dict[str, Any],
         prompt_profile: str,
         model_id: str | None,
-    ) -> tuple[str | None, str | None]:
-        # Heuristic first for precision, determinism, and low latency.
-        # If heuristic does not produce a directive, try Open WebUI-native fallback.
-        heuristic_result = preprocess_heuristic(message)
-
-        if (
-            heuristic_result["outcome"] == DRAFT_OUTCOME_DIRECTIVE
-            and heuristic_result["directive"]
-        ):
-            parsed = parse_preprocessor_output(heuristic_result["directive"])
-            if parsed is not None:
-                return parsed.text, None
-
-        if _is_directive_shaped_input(message):
-            return None, None
-
-        # In debug mode with missing base/preprocessor model ids, skip fallback
-        # preprocess entirely so we never attempt an empty-model LLM call.
-        model_id = _normalize_model_id(model_id)
-        if model_id is None:
-            return None, None
-
-        return await self._llm_fallback_preprocess(
+    ) -> tuple[DraftResult, str | None]:
+        del prompt_profile
+        self._last_preprocessor_error = None
+        drafted_result = await self._draft_user_input(
             message,
-            state,
             request=request,
             user_payload=user_payload,
-            prompt_profile=prompt_profile,
             model_id=model_id,
         )
+        return drafted_result, self._last_preprocessor_error
 
     async def _forward_passthrough(
         self,
@@ -885,9 +922,8 @@ class Pipe:
 
         preprocessd: str | None = None
         preprocess_error: str | None = None
-        preprocessd, preprocess_error = await self._preprocess_user_input(
+        drafted_result, preprocess_error = await self._preprocess_user_input(
             latest_user_text,
-            _snapshot_engine_state(engine),
             request=__request__,
             user_payload=__user__,
             prompt_profile=self.valves.PREPROCESSOR_PROMPT_PROFILE,
@@ -896,6 +932,8 @@ class Pipe:
         if preprocess_error is not None:
             return preprocess_error
 
+        preprocessd = self._extract_drafted_text(drafted_result)
+        logger.debug("preprocessor: drafted_result=%r", drafted_result)
         logger.debug("preprocessor: preprocessd=%r", preprocessd)
         # Preserve core behavior: if preprocess yields no directive, use raw user
         # text so the compiler still decides rejection/passthrough/update.
