@@ -5,13 +5,13 @@ from dataclasses import dataclass
 from typing import Literal, TypedDict
 
 from context_compiler import (
+    Decision,
     DecisionKind,
     POLICY_PROHIBIT,
     POLICY_USE,
     PolicyValue,
-    create_engine,
+    Engine,
 )
-from context_compiler.engine import Engine
 
 
 class CalendarToolCall(TypedDict):
@@ -42,12 +42,9 @@ class CalendarToolTurnResult(TypedDict):
 
 
 def _decision_kind_name(
-    decision: object,
+    decision: Decision,
 ) -> Literal["error", "update", "passthrough"]:
-    if not isinstance(decision, dict):
-        raise ValueError("unexpected decision shape")
-
-    kind = decision.get("kind")
+    kind = decision.kind
     if kind == DecisionKind.ERROR:
         return "error"
     if kind == DecisionKind.UPDATE:
@@ -147,10 +144,12 @@ def handle_calendar_admin_turn(
 
     decision = engine.step(compiler_input)
 
-    if decision["kind"] == DecisionKind.ERROR:
+    if decision.kind == DecisionKind.ERROR:
         return {
             "decision_kind": "error",
-            "prompt_to_user": decision["message"],
+            "prompt_to_user": decision.message
+            if decision.kind == DecisionKind.ERROR
+            else None,
             "execution_result": {
                 "authorization_state": "blocked",
                 "tool_visible": False,
@@ -164,7 +163,9 @@ def handle_calendar_admin_turn(
 
     return {
         "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision["message"],
+        "prompt_to_user": decision.message
+        if decision.kind == DecisionKind.ERROR
+        else None,
         "execution_result": execute_calendar_admin_tool_if_allowed(
             tool_call,
             policies=engine.policies,
@@ -176,7 +177,7 @@ def handle_calendar_admin_turn(
 def run_demo() -> CalendarToolExecutionResult:
     """Run a deterministic demonstration with explicit authorization state."""
 
-    engine = create_engine()
+    engine = Engine()
     engine.step("use calendar_admin")
     host = CalendarAdminHost()
 

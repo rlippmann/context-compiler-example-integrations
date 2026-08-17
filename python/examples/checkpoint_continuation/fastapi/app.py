@@ -4,8 +4,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Literal
 
-from context_compiler import POLICY_USE, DecisionKind, PolicyValue, create_engine
-from context_compiler.engine import Engine
+from context_compiler import DecisionKind, Engine, POLICY_USE, PolicyValue
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing_extensions import TypedDict
@@ -100,13 +99,13 @@ def select_itinerary_from_policies(policies: Mapping[str, PolicyValue]) -> str |
 
 
 def restore_engine_from_persisted_state(state_json: str) -> Engine:
-    engine = create_engine()
+    engine = Engine()
     engine.import_json(state_json)
     return engine
 
 
 def _fresh_engine() -> Engine:
-    return create_engine()
+    return Engine()
 
 
 def create_app(
@@ -137,16 +136,18 @@ def create_app(
 
         selected_itinerary = select_itinerary_from_policies(engine.policies)
         decision_kind: Literal["error", "update", "passthrough"]
-        if decision["kind"] == DecisionKind.ERROR:
+        if decision.kind == DecisionKind.ERROR:
             decision_kind = "error"
-        elif decision["kind"] == DecisionKind.UPDATE:
+        elif decision.kind == DecisionKind.UPDATE:
             decision_kind = "update"
         else:
             decision_kind = "passthrough"
 
         return {
             "decision_kind": decision_kind,
-            "message_to_user": decision["message"],
+            "message_to_user": decision.message
+            if decision.kind == DecisionKind.ERROR
+            else None,
             "persisted_state_json": state_json,
             "selected_itinerary": selected_itinerary,
             "booking": {

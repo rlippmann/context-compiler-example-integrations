@@ -658,23 +658,23 @@ wheels = [
 
 [[package]]
 name = "context-compiler"
-version = "0.9.0.dev7"
+version = "0.9.0.dev13"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/46/bf/ac08c624496ef2f74b284e05f539f02f798f89b1d7e81758214b568c2803/context_compiler-0.9.0.dev7.tar.gz", hash = "sha256:c2cf459606d7c73da43afbf0aa97f3cba5e459b41845fd76c54b1a96047e282a", size = 52123, upload-time = "2026-08-07T07:41:06.506Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a8/99/d9340cda4349d2301818061ff19739e0e22eb3f4969249c2b69ae6510a87/context_compiler-0.9.0.dev13.tar.gz", hash = "sha256:733e5a84d22343cb0cf6e0fc435acc5943308b300eddb5d52d2a379d067ef383", size = 54371, upload-time = "2026-08-16T08:34:50.891Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fd/b7/8a8a6f33589a420f20082633e1bae9f863778eaa790bf25b94c1c955dbd7/context_compiler-0.9.0.dev7-py3-none-any.whl", hash = "sha256:8cea54a91a17ed2b912ab1b4e652ad787d4d3201220aadbf77aa3fe6551693f0", size = 23862, upload-time = "2026-08-07T07:41:05.378Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/56/261c3c7da43b49d057722e96e787aac7f8d76ae7bb4748bddae581312227/context_compiler-0.9.0.dev13-py3-none-any.whl", hash = "sha256:27b33f88c0fe6bca4d49f6af986eddac515e5da92e6c0a896d6a523e385ef641", size = 26482, upload-time = "2026-08-16T08:34:49.6Z" },
 ]
 
 [[package]]
 name = "context-compiler-directive-drafter"
-version = "0.2.0.dev1"
+version = "0.2.0.dev2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "context-compiler" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6b/b1/990d8ea99be4386ca6be2633446a904fdc759269c45e45079c9ba0f0c06c/context_compiler_directive_drafter-0.2.0.dev1.tar.gz", hash = "sha256:cae1bd43e145e96d895178154c0c261b8ed28037b38d5232f4b00ee57ae88e4f", size = 85661, upload-time = "2026-08-10T02:49:52.538Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4a/29/7bebef5ebe92b89e38c9e4aba22b30526400be68d68c176e29514faba7e5/context_compiler_directive_drafter-0.2.0.dev2.tar.gz", hash = "sha256:89acc90936bb1ecc62705b3e51733e1164fae9599cd11a9fca72b52f922fe05c", size = 88929, upload-time = "2026-08-17T06:59:35.174Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/34/b6/b2982194d61a7a9affbc2afefa2d36eb1d1c49918664c9c1fad6c366ea31/context_compiler_directive_drafter-0.2.0.dev1-py3-none-any.whl", hash = "sha256:16b294e8ab63e08fc6e494dfa7777bea62c2f1db9b19473f4a656968b9848ca6", size = 18724, upload-time = "2026-08-10T02:49:51.109Z" },
+    { url = "https://files.pythonhosted.org/packages/46/77/04bc383764d79b0bc459c4478d6bb31f18f40a79b0a850964c8d4b5cdccd/context_compiler_directive_drafter-0.2.0.dev2-py3-none-any.whl", hash = "sha256:cdb7940627a43dd82f0c975500d0009b9d2972e3bbd820042c13b61e4d566802", size = 20066, upload-time = "2026-08-17T06:59:33.825Z" },
 ]
 
 [[package]]
@@ -726,9 +726,9 @@ proxy-runtime = [
 requires-dist = [
     { name = "chromadb", marker = "extra == 'all'" },
     { name = "chromadb", marker = "extra == 'retrieval'" },
-    { name = "context-compiler", specifier = "==0.9.0.dev7" },
-    { name = "context-compiler-directive-drafter", marker = "extra == 'all'", specifier = "==0.2.0.dev1" },
-    { name = "context-compiler-directive-drafter", marker = "extra == 'drafter'", specifier = "==0.2.0.dev1" },
+    { name = "context-compiler", specifier = "==0.9.0.dev13" },
+    { name = "context-compiler-directive-drafter", marker = "extra == 'all'", specifier = "==0.2.0.dev2" },
+    { name = "context-compiler-directive-drafter", marker = "extra == 'drafter'", specifier = "==0.2.0.dev2" },
     { name = "fastapi", marker = "extra == 'all'" },
     { name = "fastapi", marker = "extra == 'fastapi'" },
     { name = "litellm", marker = "extra == 'all'" },
@@ -739,7 +739,7 @@ provides-extras = ["all", "drafter", "fastapi", "litellm", "retrieval"]
 [package.metadata.requires-dev]
 dev = [
     { name = "chromadb" },
-    { name = "context-compiler-directive-drafter", specifier = "==0.2.0.dev1" },
+    { name = "context-compiler-directive-drafter", specifier = "==0.2.0.dev2" },
     { name = "fastapi" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "httpx2", specifier = ">=2.5.0" },

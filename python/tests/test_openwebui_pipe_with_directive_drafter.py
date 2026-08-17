@@ -102,7 +102,6 @@ def test_canonical_draft_creates_approval_prompt_and_does_not_mutate_state(
         return DraftResult(
             source="test",
             result=CanonicalDirective(
-                text="use docker",
                 kind=DirectiveKind.USE_ITEM,
                 operands=MappingProxyType({"item": "docker"}),
             ),
@@ -147,10 +146,10 @@ def test_canonical_draft_creates_approval_prompt_and_does_not_mutate_state(
 def test_approval_applies_stored_directive(monkeypatch) -> None:
     module = _load_module("owui_with_drafter_failed_transition_followup", monkeypatch)
     compile_inputs: list[str] = []
-    real_create_engine = module.create_engine
+    real_Engine = module.Engine
 
-    def create_engine_with_tracking():
-        engine = real_create_engine()
+    def Engine_with_tracking():
+        engine = real_Engine()
         original_step = engine.step
 
         def tracked_step(user_input: str):
@@ -160,7 +159,7 @@ def test_approval_applies_stored_directive(monkeypatch) -> None:
         engine.step = tracked_step
         return engine
 
-    monkeypatch.setattr(module, "create_engine", create_engine_with_tracking)
+    monkeypatch.setattr(module, "Engine", Engine_with_tracking)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
     pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
@@ -169,7 +168,6 @@ def test_approval_applies_stored_directive(monkeypatch) -> None:
         return DraftResult(
             source="test",
             result=CanonicalDirective(
-                text="use docker",
                 kind=DirectiveKind.USE_ITEM,
                 operands=MappingProxyType({"item": "docker"}),
             ),
@@ -239,7 +237,6 @@ def test_rejection_does_not_mutate_state(monkeypatch) -> None:
         return DraftResult(
             source="test",
             result=CanonicalDirective(
-                text="use docker",
                 kind=DirectiveKind.USE_ITEM,
                 operands=MappingProxyType({"item": "docker"}),
             ),
@@ -303,7 +300,6 @@ def test_pending_approval_does_not_affect_show_state(monkeypatch) -> None:
         return DraftResult(
             source="test",
             result=CanonicalDirective(
-                text="use docker",
                 kind=DirectiveKind.USE_ITEM,
                 operands=MappingProxyType({"item": "docker"}),
             ),
@@ -341,10 +337,10 @@ def test_unrelated_follow_up_while_pending_does_not_apply_proposal(monkeypatch) 
     module = _load_module("owui_with_drafter_pending_unrelated_followup", monkeypatch)
     compile_inputs: list[str] = []
     forwarded: list[dict[str, object]] = []
-    real_create_engine = module.create_engine
+    real_Engine = module.Engine
 
-    def create_engine_with_tracking():
-        engine = real_create_engine()
+    def Engine_with_tracking():
+        engine = real_Engine()
         original_step = engine.step
 
         def tracked_step(user_input: str):
@@ -360,7 +356,7 @@ def test_unrelated_follow_up_while_pending_does_not_apply_proposal(monkeypatch) 
         forwarded.append(payload)
         return {"choices": [{"message": {"content": "downstream"}}]}
 
-    monkeypatch.setattr(module, "create_engine", create_engine_with_tracking)
+    monkeypatch.setattr(module, "Engine", Engine_with_tracking)
     module.generate_chat_completion = forward
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
@@ -370,7 +366,6 @@ def test_unrelated_follow_up_while_pending_does_not_apply_proposal(monkeypatch) 
         return DraftResult(
             source="test",
             result=CanonicalDirective(
-                text="use docker",
                 kind=DirectiveKind.USE_ITEM,
                 operands=MappingProxyType({"item": "docker"}),
             ),
@@ -419,10 +414,10 @@ def test_no_stale_pending_proposal_remains_after_non_approval_response(
     module = _load_module("owui_with_drafter_no_stale_pending", monkeypatch)
     compile_inputs: list[str] = []
     forwarded: list[dict[str, object]] = []
-    real_create_engine = module.create_engine
+    real_Engine = module.Engine
 
-    def create_engine_with_tracking():
-        engine = real_create_engine()
+    def Engine_with_tracking():
+        engine = real_Engine()
         original_step = engine.step
 
         def tracked_step(user_input: str):
@@ -438,7 +433,7 @@ def test_no_stale_pending_proposal_remains_after_non_approval_response(
         forwarded.append(payload)
         return {"choices": [{"message": {"content": "downstream"}}]}
 
-    monkeypatch.setattr(module, "create_engine", create_engine_with_tracking)
+    monkeypatch.setattr(module, "Engine", Engine_with_tracking)
     module.generate_chat_completion = forward
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
@@ -448,7 +443,6 @@ def test_no_stale_pending_proposal_remains_after_non_approval_response(
         return DraftResult(
             source="test",
             result=CanonicalDirective(
-                text="use docker",
                 kind=DirectiveKind.USE_ITEM,
                 operands=MappingProxyType({"item": "docker"}),
             ),
@@ -554,7 +548,6 @@ def test_local_update_and_no_directive_passthrough_preserve_host_behavior(
         return DraftResult(
             source="test",
             result=CanonicalDirective(
-                text="use docker",
                 kind=DirectiveKind.USE_ITEM,
                 operands=MappingProxyType({"item": "docker"}),
             ),
@@ -731,7 +724,6 @@ def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exis
         return DraftResult(
             source="test",
             result=CanonicalDirective(
-                text="use docker",
                 kind=DirectiveKind.USE_ITEM,
                 operands=MappingProxyType({"item": "docker"}),
             ),
@@ -957,7 +949,6 @@ def test_extract_drafted_text_only_applies_canonical_directive(monkeypatch) -> N
     canonical = DraftResult(
         source="test",
         result=CanonicalDirective(
-            text="use docker",
             kind=DirectiveKind.USE_ITEM,
             operands=MappingProxyType({"item": "docker"}),
         ),

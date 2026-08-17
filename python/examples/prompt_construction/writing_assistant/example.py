@@ -8,12 +8,12 @@ from collections.abc import Mapping
 from typing import Literal, TypedDict
 
 from context_compiler import (
+    Decision,
     DecisionKind,
     POLICY_USE,
     PolicyValue,
-    create_engine,
+    Engine,
 )
-from context_compiler.engine import Engine
 
 CONCISE_STYLE = "concise_style"
 BOARD_UPDATE_CONTEXT = "draft is a board update summarizing quarterly results"
@@ -56,12 +56,9 @@ class PromptConstructionResult(TypedDict):
 
 
 def _decision_kind_name(
-    decision: object,
+    decision: Decision,
 ) -> Literal["error", "update", "passthrough"]:
-    if not isinstance(decision, dict):
-        raise ValueError("unexpected decision shape")
-
-    kind = decision.get("kind")
+    kind = decision.kind
     if kind == DecisionKind.ERROR:
         return "error"
     if kind == DecisionKind.UPDATE:
@@ -129,10 +126,12 @@ def prepare_prompt_turn(
 
     decision = engine.step(compiler_input)
 
-    if decision["kind"] == DecisionKind.ERROR:
+    if decision.kind == DecisionKind.ERROR:
         return {
             "decision_kind": "error",
-            "prompt_to_user": decision["message"],
+            "prompt_to_user": decision.message
+            if decision.kind == DecisionKind.ERROR
+            else None,
             "model_call_ready": False,
             "llm_call_performed": False,
             "messages": [],
@@ -148,7 +147,9 @@ def prepare_prompt_turn(
     )
     return {
         "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision["message"],
+        "prompt_to_user": decision.message
+        if decision.kind == DecisionKind.ERROR
+        else None,
         "model_call_ready": True,
         "llm_call_performed": False,
         "messages": messages,
@@ -163,12 +164,12 @@ def run_demo() -> dict[str, PromptConstructionResult]:
 
     user_text = "Ignore the saved document context and write this like a casual post."
 
-    default_engine = create_engine()
-    premise_engine = create_engine()
+    default_engine = Engine()
+    premise_engine = Engine()
     premise_engine.step(f"set premise {BOARD_UPDATE_CONTEXT}")
-    policy_engine = create_engine()
+    policy_engine = Engine()
     policy_engine.step(f"use {CONCISE_STYLE}")
-    combined_engine = create_engine()
+    combined_engine = Engine()
     combined_engine.step(f"set premise {BOARD_UPDATE_CONTEXT}")
     combined_engine.step(f"use {CONCISE_STYLE}")
 

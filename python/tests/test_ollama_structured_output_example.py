@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from context_compiler import create_engine
+from context_compiler import Engine
 
 from context_compiler_example_integrations.examples.schema_selection.ollama_structured_output.example import (
     PYTHON_SCRIPT_SCHEMA,
@@ -25,7 +25,7 @@ class _FakeResponse:
 
 
 def test_use_python_script_selects_python_script_schema() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("use python_script")
 
     plan = plan_turn("Write a helper script.", engine)
@@ -35,7 +35,7 @@ def test_use_python_script_selects_python_script_schema() -> None:
 
 
 def test_prohibited_competing_schema_not_selected() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("use python_script")
     engine.step("prohibit shell_command")
 
@@ -46,9 +46,9 @@ def test_prohibited_competing_schema_not_selected() -> None:
 
 
 def test_empty_or_unknown_state_selects_no_schema() -> None:
-    empty_plan = plan_turn("Write something.", create_engine())
+    empty_plan = plan_turn("Write something.", Engine())
 
-    unknown_engine = create_engine()
+    unknown_engine = Engine()
     unknown_engine.step("use compact_summary")
     unknown_plan = plan_turn("Write something.", unknown_engine)
 
@@ -59,7 +59,7 @@ def test_empty_or_unknown_state_selects_no_schema() -> None:
 
 
 def test_contradiction_error_path_selects_no_schema() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("use python_script")
 
     plan = plan_turn("prohibit python_script", engine)

@@ -4,8 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Literal, TypedDict
 
-from context_compiler import POLICY_USE, DecisionKind, PolicyValue, create_engine
-from context_compiler.engine import Engine
+from context_compiler import Decision, DecisionKind, Engine, POLICY_USE, PolicyValue
 
 
 class BookingRecord(TypedDict):
@@ -65,12 +64,9 @@ def select_itinerary_from_policies(policies: Mapping[str, PolicyValue]) -> str |
 
 
 def _decision_kind_name(
-    decision: object,
+    decision: Decision,
 ) -> Literal["error", "update", "passthrough"]:
-    if not isinstance(decision, dict):
-        raise ValueError("unexpected decision shape")
-
-    kind = decision.get("kind")
+    kind = decision.kind
     if kind == DecisionKind.ERROR:
         return "error"
     if kind == DecisionKind.UPDATE:
@@ -95,7 +91,9 @@ def persist_itinerary_selection(
     return {
         "compiler_input": compiler_input,
         "decision_kind": _decision_kind_name(decision),
-        "message_to_user": decision["message"],
+        "message_to_user": decision.message
+        if decision.kind == DecisionKind.ERROR
+        else None,
         "persisted_state_json": persisted_state_json,
         "selected_itinerary": selected_itinerary,
         "host_applied_change": False,
@@ -108,7 +106,7 @@ def persist_itinerary_selection(
 def restore_engine_from_persisted_state(state_json: str) -> Engine:
     """Restore authoritative compiler state into a fresh engine."""
 
-    engine = create_engine()
+    engine = Engine()
     engine.import_json(state_json)
     return engine
 
@@ -139,7 +137,7 @@ def run_demo() -> dict[str, BookingChangeRuntimeResult | str]:
         "booking_id": "booking-100",
         "active_itinerary": "boston_trip",
     }
-    first_engine = create_engine()
+    first_engine = Engine()
     engine_persistence_store = EnginePersistenceStore()
 
     persisted_result = persist_itinerary_selection(

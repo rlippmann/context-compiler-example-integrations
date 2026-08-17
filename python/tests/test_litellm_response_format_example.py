@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from types import SimpleNamespace
 
 import pytest
-from context_compiler import create_engine
+from context_compiler import Engine
 
 from context_compiler_example_integrations.examples.schema_selection.litellm_response_format.response_format import (
     ACTION_PLAN_RESPONSE_FORMAT,
@@ -75,7 +75,7 @@ def litellm_runtime_stub():
 
 
 def test_no_matching_policy_selects_no_response_format() -> None:
-    plan = plan_turn("Summarize this.", create_engine())
+    plan = plan_turn("Summarize this.", Engine())
 
     assert plan["decision_kind"] == "no_directive"
     assert plan["selected_response_format_item"] is None
@@ -83,7 +83,7 @@ def test_no_matching_policy_selects_no_response_format() -> None:
 
 
 def test_use_compact_summary_selects_compact_summary_response_format() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("use compact_summary")
 
     plan = plan_turn("Summarize this.", engine)
@@ -93,7 +93,7 @@ def test_use_compact_summary_selects_compact_summary_response_format() -> None:
 
 
 def test_use_action_plan_selects_action_plan_response_format() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("use action_plan")
 
     plan = plan_turn("What should I do next?", engine)
@@ -103,7 +103,7 @@ def test_use_action_plan_selects_action_plan_response_format() -> None:
 
 
 def test_prohibit_compact_summary_selects_no_response_format() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("prohibit compact_summary")
 
     plan = plan_turn("Summarize this.", engine)
@@ -113,7 +113,7 @@ def test_prohibit_compact_summary_selects_no_response_format() -> None:
 
 
 def test_contradiction_error_path_selects_no_schema() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("use compact_summary")
 
     plan = plan_turn("prohibit compact_summary", engine)
@@ -194,7 +194,7 @@ def test_litellm_runtime_sends_selected_response_format(
     monkeypatch: pytest.MonkeyPatch,
     litellm_runtime_stub: _ThreadedStubServer,
 ) -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("use compact_summary")
     plan = plan_turn("Summarize this.", engine)
 
@@ -229,7 +229,7 @@ def test_litellm_runtime_omits_response_format_when_unselected(
     monkeypatch: pytest.MonkeyPatch,
     litellm_runtime_stub: _ThreadedStubServer,
 ) -> None:
-    plan = plan_turn("Summarize this.", create_engine())
+    plan = plan_turn("Summarize this.", Engine())
 
     assert plan["selected_response_format_item"] is None
     assert plan["response_format"] is None

@@ -23,10 +23,7 @@ except ModuleNotFoundError:
         pass
 
 
-from context_compiler import (
-    DecisionKind,
-    create_engine,
-)
+from context_compiler import DecisionKind, Engine, NoDirectiveDecision
 from context_compiler_example_integrations.reference_integrations.litellm_proxy._checkpoint_support import (
     MODE_PERSISTENT,
     CheckpointStore,
@@ -85,7 +82,7 @@ class ContextCompilerPreCallHook(CustomLogger):
             "litellm_proxy: latest_user_text_present=%s", latest_user_text is not None
         )
 
-        engine = create_engine()
+        engine = Engine()
         if session.mode == MODE_PERSISTENT and session.session_key is not None:
             checkpoint = CHECKPOINT_STORE.load(session.session_key)
             if checkpoint is not None:
@@ -100,13 +97,13 @@ class ContextCompilerPreCallHook(CustomLogger):
         if latest_user_text is not None:
             decision = engine.step(latest_user_text)
         else:
-            decision = {"kind": DecisionKind.NO_DIRECTIVE, "message": None}
+            decision = NoDirectiveDecision()
 
-        logger.debug("litellm_proxy: decision_kind=%s", decision["kind"])
+        logger.debug("litellm_proxy: decision_kind=%s", decision.kind)
 
-        if decision["kind"] == DecisionKind.ERROR:
+        if decision.kind == DecisionKind.ERROR:
             logger.debug("litellm_proxy: rejecting_failed_application=true")
-            return decision.get("message") or "Request rejected."
+            return decision.message or "Request rejected."
 
         if session.mode == MODE_PERSISTENT and session.session_key is not None:
             CHECKPOINT_STORE.save(

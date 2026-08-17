@@ -19,14 +19,14 @@ from importlib import import_module
 from typing import TypedDict, cast
 
 from context_compiler import (
+    Decision,
     DecisionKind,
     DECISION_UPDATE,
     POLICY_PROHIBIT,
     POLICY_USE,
     PolicyValue,
-    is_update,
+    Engine,
 )
-from context_compiler.engine import Engine
 
 from context_compiler_example_integrations.examples._shared.provider_mode import (
     print_startup_config,
@@ -106,12 +106,12 @@ def _build_trace_text(
     *,
     original_input: str,
     compiler_input: str,
-    decision: object,
+    decision: Decision | DecisionKind,
     state_before: object,
     state_after: object,
     llm_called: bool,
 ) -> str:
-    kind = decision.get("kind", "unknown") if isinstance(decision, dict) else "unknown"
+    kind = decision if isinstance(decision, DecisionKind) else decision.kind
     lines = [
         "Context Compiler trace",
         f"- original_input: {original_input}",
@@ -256,7 +256,7 @@ def _append_trace(
     *,
     original_input: str,
     compiler_input: str,
-    decision: object,
+    decision: Decision | DecisionKind,
     state_before: object,
     state_after: object,
     llm_called: bool,
@@ -278,17 +278,21 @@ def handle_turn(user_input: str, engine: Engine) -> str:
     state_before = _snapshot_engine_state(engine)
     logger.debug("litellm_basic: engine_input=%s", f"user_input len={len(user_input)}")
     decision = engine.step(user_input)
-    if decision["kind"] == DecisionKind.ERROR:
+    if decision.kind == DecisionKind.ERROR:
         kind = DecisionKind.ERROR.value
-    elif is_update(decision):
+    elif decision.kind == DecisionKind.UPDATE:
         kind = DECISION_UPDATE
     else:
         kind = DecisionKind.NO_DIRECTIVE.value
     logger.debug("litellm_basic: decision=%s", kind)
     near_miss_prompt = _near_miss_directive_error(user_input)
 
-    if decision["kind"] == DecisionKind.ERROR:
-        response_text = near_miss_prompt or decision["message"] or ""
+    if decision.kind == DecisionKind.ERROR:
+        response_text = (
+            near_miss_prompt or decision.message
+            if decision.kind == DecisionKind.ERROR
+            else None or ""
+        )
         return _append_trace(
             response_text,
             original_input=user_input,
@@ -298,17 +302,17 @@ def handle_turn(user_input: str, engine: Engine) -> str:
             state_after=_snapshot_engine_state(engine),
             llm_called=False,
         )
-    if near_miss_prompt is not None and decision["kind"] == DecisionKind.NO_DIRECTIVE:
+    if near_miss_prompt is not None and decision.kind == DecisionKind.NO_DIRECTIVE:
         return _append_trace(
             near_miss_prompt,
             original_input=user_input,
             compiler_input=user_input,
-            decision={"kind": DecisionKind.ERROR, "message": near_miss_prompt},
+            decision=DecisionKind.ERROR,
             state_before=state_before,
             state_after=_snapshot_engine_state(engine),
             llm_called=False,
         )
-    if is_update(decision):
+    if decision.kind == DecisionKind.UPDATE:
         response_text = _summarize_update_from_input(user_input)
         return _append_trace(
             response_text,

@@ -7,7 +7,7 @@ from typing import Literal, TypedDict
 from context_compiler import (
     POLICY_USE,
     PolicyValue,
-    create_engine,
+    Engine,
 )
 
 DAMAGED_ORDER_PREMISE = (
@@ -151,7 +151,7 @@ def run_intake(
 def run_demo() -> IntakeRunResult:
     """Run a small demonstration with refund_intake enabled."""
 
-    engine = create_engine()
+    engine = Engine()
     engine.step("use refund_intake")
 
     request: IntakeRequest = {

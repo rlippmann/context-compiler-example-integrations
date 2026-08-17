@@ -1,4 +1,4 @@
-from context_compiler import create_engine
+from context_compiler import Engine
 
 from context_compiler_example_integrations.examples.tool_gating.mcp_calendar_admin.example import (
     CalendarAdminMcpHost,
@@ -11,7 +11,7 @@ from context_compiler_example_integrations.examples.tool_gating.mcp_calendar_adm
 
 
 def prohibited_engine():
-    engine = create_engine()
+    engine = Engine()
     engine.step("prohibit calendar_admin")
     return engine
 
@@ -32,7 +32,7 @@ def test_allowed_state_exposes_and_executes_calendar_admin_mcp_tool() -> None:
 
 
 def test_absent_state_omits_hidden_mcp_tool_from_exposed_tools() -> None:
-    engine = create_engine()
+    engine = Engine()
     host = CalendarAdminMcpHost()
 
     result = describe_exposed_mcp_tools(engine, compiler_input="", host=host)
@@ -47,7 +47,7 @@ def test_absent_state_omits_hidden_mcp_tool_from_exposed_tools() -> None:
 
 
 def test_absent_state_blocks_direct_call_to_hidden_mcp_tool() -> None:
-    engine = create_engine()
+    engine = Engine()
     host = CalendarAdminMcpHost()
 
     result = execute_mcp_tool_if_allowed(
@@ -97,7 +97,7 @@ def test_prohibited_state_omits_and_blocks_calendar_admin_mcp_tool() -> None:
 
 
 def test_adversarial_text_alone_does_not_expose_or_execute_hidden_mcp_tool() -> None:
-    engine = create_engine()
+    engine = Engine()
     host = CalendarAdminMcpHost()
 
     result = execute_mcp_tool_if_allowed(
@@ -120,8 +120,8 @@ def test_adversarial_text_alone_does_not_expose_or_execute_hidden_mcp_tool() -> 
 def test_runtime_behavior_changes_only_when_authoritative_state_allows_mcp_tool() -> (
     None
 ):
-    blocked_engine = create_engine()
-    allowed_engine = create_engine()
+    blocked_engine = Engine()
+    allowed_engine = Engine()
     allowed_engine.step("use calendar_admin")
 
     blocked_host = CalendarAdminMcpHost()
@@ -152,7 +152,7 @@ def test_runtime_behavior_changes_only_when_authoritative_state_allows_mcp_tool(
 
 
 def test_conflicting_use_then_prohibit_returns_error_and_blocks_mcp_tool() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("use calendar_admin")
     host = CalendarAdminMcpHost()
 

@@ -5,13 +5,13 @@ from dataclasses import dataclass, field
 from typing import Literal, TypedDict
 
 from context_compiler import (
+    Decision,
     DecisionKind,
     POLICY_PROHIBIT,
     POLICY_USE,
     PolicyValue,
-    create_engine,
+    Engine,
 )
-from context_compiler.engine import Engine
 
 
 class ExpenseRequest(TypedDict):
@@ -43,12 +43,9 @@ class ExpenseTurnResult(TypedDict):
 
 
 def _decision_kind_name(
-    decision: object,
+    decision: Decision,
 ) -> Literal["error", "update", "passthrough"]:
-    if not isinstance(decision, dict):
-        raise ValueError("unexpected decision shape")
-
-    kind = decision.get("kind")
+    kind = decision.kind
     if kind == DecisionKind.ERROR:
         return "error"
     if kind == DecisionKind.UPDATE:
@@ -121,10 +118,12 @@ def handle_expense_turn(
 
     decision = engine.step(compiler_input)
 
-    if decision["kind"] == DecisionKind.ERROR:
+    if decision.kind == DecisionKind.ERROR:
         return {
             "decision_kind": "error",
-            "prompt_to_user": decision["message"],
+            "prompt_to_user": decision.message
+            if decision.kind == DecisionKind.ERROR
+            else None,
             "execution_result": {
                 "authorization_state": "blocked",
                 "executed": False,
@@ -136,7 +135,9 @@ def handle_expense_turn(
 
     return {
         "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision["message"],
+        "prompt_to_user": decision.message
+        if decision.kind == DecisionKind.ERROR
+        else None,
         "execution_result": execute_expense_if_authorized(
             request,
             policies=engine.policies,
@@ -148,7 +149,7 @@ def handle_expense_turn(
 def run_demo() -> ExpenseExecutionResult:
     """Run a deterministic demonstration with explicit authorization state."""
 
-    engine = create_engine()
+    engine = Engine()
     engine.step("use expense_approval")
 
     request: ExpenseRequest = {

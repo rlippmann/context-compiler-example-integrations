@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from context_compiler.engine import Engine
 
-from context_compiler import POLICY_PROHIBIT
+from context_compiler import Engine, POLICY_PROHIBIT
 
 
 def render_compiled_state_contract(engine: Engine) -> str:

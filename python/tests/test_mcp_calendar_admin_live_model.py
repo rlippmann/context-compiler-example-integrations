@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 import pytest
-from context_compiler import create_engine
+from context_compiler import Engine
 
 from context_compiler_example_integrations.examples.tool_gating.mcp_calendar_admin.live_model import (
     run_live_model_turn,
@@ -43,7 +43,7 @@ def test_live_model_tool_surface_changes_with_authoritative_state(
     assert absent_result["executed"] is False
     assert _read_jsonl(artifact_path) == []
 
-    allowed_engine = create_engine()
+    allowed_engine = Engine()
     allowed_engine.step("use calendar_admin")
     allowed_result = run_live_model_turn(
         user_intent=USER_INTENT,

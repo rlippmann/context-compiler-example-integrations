@@ -9,11 +9,12 @@ from pathlib import Path
 from typing import Literal
 
 from context_compiler import (
+    Decision,
     DecisionKind,
     POLICY_PROHIBIT,
     POLICY_USE,
     PolicyValue,
-    create_engine,
+    Engine,
 )
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -62,12 +63,9 @@ class ExpenseMutationResponse(TypedDict):
 
 
 def _decision_kind_name(
-    decision: object,
+    decision: Decision,
 ) -> Literal["error", "update", "passthrough"]:
-    if not isinstance(decision, dict):
-        raise ValueError("unexpected decision shape")
-
-    kind = decision.get("kind")
+    kind = decision.kind
     if kind == DecisionKind.ERROR:
         return "error"
     if kind == DecisionKind.UPDATE:
@@ -256,7 +254,7 @@ def create_app(
                 ),
             )
 
-        engine = create_engine()
+        engine = Engine()
         if request.authoritative_state is not None:
             engine.import_json(
                 json.dumps(
@@ -276,8 +274,10 @@ def create_app(
         if request.compiler_input:
             decision = engine.step(request.compiler_input)
             decision_kind = _decision_kind_name(decision)
-            prompt_to_user = decision["message"]
-            if decision["kind"] == DecisionKind.ERROR:
+            prompt_to_user = (
+                decision.message if decision.kind == DecisionKind.ERROR else None
+            )
+            if decision.kind == DecisionKind.ERROR:
                 raise HTTPException(
                     status_code=409,
                     detail=_blocked_response(

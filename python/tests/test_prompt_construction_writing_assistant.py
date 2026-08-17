@@ -1,4 +1,4 @@
-from context_compiler import create_engine
+from context_compiler import Engine
 
 from context_compiler_example_integrations.examples.prompt_construction.writing_assistant.example import (
     BOARD_UPDATE_CONTEXT,
@@ -17,13 +17,13 @@ from context_compiler_example_integrations.examples.prompt_construction.writing_
 
 
 def concise_prohibited_engine():
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"prohibit {CONCISE_STYLE}")
     return engine
 
 
 def test_default_prompt_with_absent_state() -> None:
-    engine = create_engine()
+    engine = Engine()
 
     result = prepare_prompt_turn(
         engine,
@@ -43,7 +43,7 @@ def test_default_prompt_with_absent_state() -> None:
 
 
 def test_board_update_premise_adds_context_only() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"set premise {BOARD_UPDATE_CONTEXT}")
 
     result = prepare_prompt_turn(
@@ -59,7 +59,7 @@ def test_board_update_premise_adds_context_only() -> None:
 
 
 def test_concise_style_policy_adds_constraint_only() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {CONCISE_STYLE}")
 
     result = prepare_prompt_turn(
@@ -75,7 +75,7 @@ def test_concise_style_policy_adds_constraint_only() -> None:
 
 
 def test_premise_and_policy_can_shape_prompt_together() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"set premise {BOARD_UPDATE_CONTEXT}")
     engine.step(f"use {CONCISE_STYLE}")
 
@@ -92,7 +92,7 @@ def test_premise_and_policy_can_shape_prompt_together() -> None:
 
 
 def test_changed_premise_swaps_context() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"set premise {BOARD_UPDATE_CONTEXT}")
 
     result = prepare_prompt_turn(
@@ -120,7 +120,7 @@ def test_prohibited_style_is_not_applied() -> None:
 
 
 def test_adversarial_user_text_does_not_override_saved_premise_or_policy() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"set premise {BOARD_UPDATE_CONTEXT}")
     engine.step(f"use {CONCISE_STYLE}")
 
@@ -139,7 +139,7 @@ def test_adversarial_user_text_does_not_override_saved_premise_or_policy() -> No
 
 
 def test_invalid_premise_lifecycle_produces_error_behavior() -> None:
-    engine = create_engine()
+    engine = Engine()
 
     result = prepare_prompt_turn(
         engine,
@@ -157,7 +157,7 @@ def test_invalid_premise_lifecycle_produces_error_behavior() -> None:
 
 
 def test_contradictory_policy_directives_produce_error_behavior() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {CONCISE_STYLE}")
 
     result = prepare_prompt_turn(
@@ -177,7 +177,7 @@ def test_contradictory_policy_directives_produce_error_behavior() -> None:
 
 
 def test_build_prompt_messages_can_include_premise_and_policy() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"set premise {BOARD_UPDATE_CONTEXT}")
     engine.step(f"use {CONCISE_STYLE}")
 

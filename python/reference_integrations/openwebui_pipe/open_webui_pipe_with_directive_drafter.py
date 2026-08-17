@@ -48,15 +48,14 @@ except ModuleNotFoundError:
 
 
 from context_compiler import (
+    Decision,
     DecisionKind,
     DECISION_UPDATE,
     POLICY_PROHIBIT,
     POLICY_USE,
-    create_engine,
-    is_update,
+    Engine,
     PolicyValue,
 )
-from context_compiler.engine import Engine
 from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
     DirectiveDrafter,
@@ -121,7 +120,7 @@ def _snapshot_engine_state(engine: Engine) -> _EngineSnapshot:
 
 
 def _restore_engine_from_snapshot(snapshot_json: str) -> Engine:
-    engine = create_engine()
+    engine = Engine()
     engine.import_json(snapshot_json)
     return engine
 
@@ -238,13 +237,13 @@ def _render_state_summary_line(state: object) -> str:
 
 def _build_compact_trace_text(
     *,
-    decision: object,
+    decision: Decision | DecisionKind,
     state_before: object,
     state_after: object,
     llm_called: bool,
     state_injected: str,
 ) -> str:
-    kind = decision.get("kind", "unknown") if isinstance(decision, dict) else "unknown"
+    kind = decision if isinstance(decision, DecisionKind) else decision.kind
     changed = (
         "yes"
         if _normalize_state(state_before) != _normalize_state(state_after)
@@ -499,7 +498,7 @@ class Pipe:
         *,
         original_input: str,
         compiler_input: str,
-        decision: object,
+        decision: Decision | DecisionKind,
         state_before: object,
         state_after: object,
         llm_called: bool,
@@ -817,7 +816,7 @@ class Pipe:
         chat_key = _resolve_chat_key(__user__, __chat_id__, __metadata__)
         engine = _ENGINES_BY_CHAT_KEY.get(chat_key)
         if engine is None:
-            engine = create_engine()
+            engine = Engine()
             _ENGINES_BY_CHAT_KEY[chat_key] = engine
 
         if latest_user_text.strip().lower() == "show state":
@@ -832,21 +831,23 @@ class Pipe:
                 compile_input = pending_proposal
                 logger.debug("preprocessor: approved_pending_input=%r", compile_input)
                 decision = engine.step(compile_input)
-                if decision["kind"] == DecisionKind.ERROR:
+                if decision.kind == DecisionKind.ERROR:
                     kind = DecisionKind.ERROR.value
-                elif is_update(decision):
+                elif decision.kind == DecisionKind.UPDATE:
                     kind = DECISION_UPDATE
                 else:
                     kind = DecisionKind.NO_DIRECTIVE.value
                 logger.debug("preprocessor: decision=%s", kind)
                 state_after = _snapshot_engine_state(engine)
 
-                if decision["kind"] == DecisionKind.ERROR:
+                if decision.kind == DecisionKind.ERROR:
                     _ENGINES_BY_CHAT_KEY[chat_key] = _restore_engine_from_snapshot(
                         engine_snapshot_json
                     )
                     return self._with_trace(
-                        decision["message"] or "",
+                        decision.message
+                        if decision.kind == DecisionKind.ERROR
+                        else None or "",
                         original_input=latest_user_text,
                         compiler_input=compile_input,
                         decision=decision,
@@ -855,7 +856,7 @@ class Pipe:
                         preprocessor_output=compile_input,
                         llm_called=False,
                     )
-                if decision["kind"] == DecisionKind.NO_DIRECTIVE:
+                if decision.kind == DecisionKind.NO_DIRECTIVE:
                     state_injected = (
                         "yes" if _has_non_empty_authoritative_state(engine) else "no"
                     )
@@ -877,7 +878,7 @@ class Pipe:
                         llm_called=base_model_id is not None,
                         state_injected=state_injected,
                     )
-                if is_update(decision):
+                if decision.kind == DecisionKind.UPDATE:
                     return self._with_trace(
                         "State updated.",
                         original_input=latest_user_text,
@@ -943,7 +944,7 @@ class Pipe:
                 response,
                 original_input=latest_user_text,
                 compiler_input=latest_user_text,
-                decision={"kind": DecisionKind.NO_DIRECTIVE.value, "message": None},
+                decision=DecisionKind.NO_DIRECTIVE,
                 state_before=state_before,
                 state_after=state_before,
                 preprocessor_output=None,

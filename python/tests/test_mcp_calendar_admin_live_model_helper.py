@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from context_compiler import create_engine
+from context_compiler import Engine
 
 from context_compiler_example_integrations.examples.tool_gating.mcp_calendar_admin.live_model import (
     _SelectedToolCall,
@@ -42,7 +42,7 @@ def test_authorized_state_exposes_protected_tool_and_executes_selected_tool(
     tmp_path: Path,
 ) -> None:
     artifact_path = tmp_path / "tool_calls.jsonl"
-    engine = create_engine()
+    engine = Engine()
     engine.step("use calendar_admin")
 
     result = run_live_model_turn(
@@ -81,7 +81,7 @@ def test_authorized_state_reports_clear_diagnostic_when_model_skips_protected_to
     tmp_path: Path,
 ) -> None:
     artifact_path = tmp_path / "tool_calls.jsonl"
-    engine = create_engine()
+    engine = Engine()
     engine.step("use calendar_admin")
 
     result = run_live_model_turn(
@@ -108,7 +108,7 @@ def test_authorized_state_reports_clear_diagnostic_when_model_skips_protected_to
 
 def test_contradiction_blocks_before_model_tool_execution(tmp_path: Path) -> None:
     artifact_path = tmp_path / "tool_calls.jsonl"
-    engine = create_engine()
+    engine = Engine()
     engine.step("use calendar_admin")
     model_called = False
 

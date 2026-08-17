@@ -1,4 +1,4 @@
-from context_compiler import create_engine
+from context_compiler import Engine
 
 from context_compiler_example_integrations.examples.schema_selection.refund_intake.example import (
     DAMAGED_ORDER_PREMISE,
@@ -27,7 +27,7 @@ def test_refund_intake_schema_selects_refund_handler() -> None:
 
 
 def test_adversarial_technical_support_path_is_not_called() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("use refund_intake")
 
     request: IntakeRequest = {
@@ -59,7 +59,7 @@ def test_adversarial_technical_support_path_is_not_called() -> None:
 
 
 def test_technical_support_policy_selects_technical_support_handler() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("use technical_support")
 
     request: IntakeRequest = {
@@ -135,7 +135,7 @@ def test_order_intake_context_maps_to_selected_schema() -> None:
 
 
 def test_damaged_order_premise_selects_refund_schema() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"set premise {DAMAGED_ORDER_PREMISE}")
 
     request: IntakeRequest = {
@@ -167,7 +167,7 @@ def test_damaged_order_premise_selects_refund_schema() -> None:
 
 
 def test_digital_login_failure_premise_selects_technical_support_schema() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"set premise {DIGITAL_LOGIN_FAILURE_PREMISE}")
 
     request: IntakeRequest = {
@@ -199,7 +199,7 @@ def test_digital_login_failure_premise_selects_technical_support_schema() -> Non
 
 
 def test_no_matching_policy_selects_no_schema() -> None:
-    engine = create_engine()
+    engine = Engine()
 
     selected_schema = select_schema_from_semantics(
         premise=engine.premise,
@@ -210,7 +210,7 @@ def test_no_matching_policy_selects_no_schema() -> None:
 
 
 def test_unrelated_premise_selects_no_schema() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("set premise customer asked about changing a mailing address")
 
     selected_schema = select_schema_from_semantics(
@@ -222,7 +222,7 @@ def test_unrelated_premise_selects_no_schema() -> None:
 
 
 def test_refund_like_wording_without_state_does_not_select_schema() -> None:
-    engine = create_engine()
+    engine = Engine()
 
     request: IntakeRequest = {
         "customer_id": "customer-789",
@@ -249,7 +249,7 @@ def test_refund_like_wording_without_state_does_not_select_schema() -> None:
 
 
 def test_adversarial_user_text_does_not_override_refund_premise() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"set premise {DAMAGED_ORDER_PREMISE}")
 
     request: IntakeRequest = {
