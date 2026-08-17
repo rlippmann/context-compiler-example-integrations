@@ -1,4 +1,4 @@
-from context_compiler import create_engine
+from context_compiler import Engine
 
 from context_compiler_example_integrations.examples.tool_gating.calendar_admin.example import (
     CalendarAdminHost,
@@ -10,7 +10,7 @@ from context_compiler_example_integrations.examples.tool_gating.calendar_admin.e
 
 
 def prohibited_engine():
-    engine = create_engine()
+    engine = Engine()
     engine.step("prohibit calendar_admin")
     return engine
 
@@ -35,7 +35,7 @@ def test_allowed_state_exposes_and_executes_calendar_admin_tool() -> None:
 
 
 def test_absent_state_hides_and_blocks_calendar_admin_tool() -> None:
-    engine = create_engine()
+    engine = Engine()
     host = CalendarAdminHost()
 
     result = execute_calendar_admin_tool_if_allowed(
@@ -89,7 +89,7 @@ def test_prohibited_state_hides_and_blocks_calendar_admin_tool() -> None:
 def test_adversarial_text_alone_does_not_expose_or_execute_calendar_admin_tool() -> (
     None
 ):
-    engine = create_engine()
+    engine = Engine()
     host = CalendarAdminHost()
 
     result = execute_calendar_admin_tool_if_allowed(
@@ -110,8 +110,8 @@ def test_adversarial_text_alone_does_not_expose_or_execute_calendar_admin_tool()
 
 
 def test_runtime_behavior_changes_only_when_authoritative_state_allows_tool() -> None:
-    blocked_engine = create_engine()
-    allowed_engine = create_engine()
+    blocked_engine = Engine()
+    allowed_engine = Engine()
     allowed_engine.step("use calendar_admin")
 
     blocked_host = CalendarAdminHost()
@@ -146,7 +146,7 @@ def test_runtime_behavior_changes_only_when_authoritative_state_allows_tool() ->
 def test_conflicting_use_then_prohibit_requires_clarification_and_keeps_tool_hidden() -> (
     None
 ):
-    engine = create_engine()
+    engine = Engine()
     engine.step("use calendar_admin")
     host = CalendarAdminHost()
 

@@ -22,14 +22,14 @@ from importlib import import_module
 from typing import TypedDict, cast
 
 from context_compiler import (
+    Decision,
     DecisionKind,
     DECISION_UPDATE,
     POLICY_PROHIBIT,
     POLICY_USE,
     PolicyValue,
-    is_update,
+    Engine,
 )
-from context_compiler.engine import Engine
 from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
     DraftResult,
@@ -115,14 +115,14 @@ def _build_trace_text(
     original_input: str,
     compiler_input: str,
     preprocessor_output: str | None,
-    decision: object,
+    decision: Decision | DecisionKind,
     premise_before: str | None,
     policies_before: Mapping[str, PolicyValue],
     premise_after: str | None,
     policies_after: Mapping[str, PolicyValue],
     llm_called: bool,
 ) -> str:
-    kind = decision.get("kind", "unknown") if isinstance(decision, dict) else "unknown"
+    kind = decision if isinstance(decision, DecisionKind) else decision.kind
     lines = [
         "Context Compiler trace",
         f"- original_input: {original_input}",
@@ -275,7 +275,7 @@ def _append_trace(
     original_input: str,
     compiler_input: str,
     preprocessor_output: str | None,
-    decision: object,
+    decision: Decision | DecisionKind,
     state_before: tuple[str | None, dict[str, PolicyValue]],
     state_after: tuple[str | None, dict[str, PolicyValue]],
     llm_called: bool,
@@ -318,7 +318,7 @@ def handle_turn(
             original_input=user_input,
             compiler_input=user_input,
             preprocessor_output=None,
-            decision={"kind": DecisionKind.NO_DIRECTIVE.value, "message": None},
+            decision=DecisionKind.NO_DIRECTIVE,
             state_before=state_before,
             state_after=(engine.premise, dict(engine.policies)),
             llm_called=True,
@@ -333,23 +333,25 @@ def handle_turn(
             original_input=user_input,
             compiler_input=compile_input,
             preprocessor_output=preprocessd,
-            decision={"kind": DecisionKind.NO_DIRECTIVE.value, "message": None},
+            decision=DecisionKind.NO_DIRECTIVE,
             state_before=state_before,
             state_after=(engine.premise, dict(engine.policies)),
             llm_called=False,
         )
 
     decision = engine.step(compile_input)
-    if decision["kind"] == DecisionKind.ERROR:
+    if decision.kind == DecisionKind.ERROR:
         kind = DecisionKind.ERROR.value
-    elif is_update(decision):
+    elif decision.kind == DecisionKind.UPDATE:
         kind = DECISION_UPDATE
     else:
         kind = DecisionKind.NO_DIRECTIVE.value
     logger.debug("preprocessor: decision=%s", kind)
 
-    if decision["kind"] == DecisionKind.ERROR:
-        response_text = decision["message"] or ""
+    if decision.kind == DecisionKind.ERROR:
+        response_text = (
+            decision.message if decision.kind == DecisionKind.ERROR else None or ""
+        )
         return _append_trace(
             response_text,
             original_input=user_input,
@@ -360,7 +362,7 @@ def handle_turn(
             state_after=(engine.premise, dict(engine.policies)),
             llm_called=False,
         )
-    if is_update(decision):
+    if decision.kind == DecisionKind.UPDATE:
         response_text = "State updated."
         return _append_trace(
             response_text,

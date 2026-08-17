@@ -5,13 +5,13 @@ from dataclasses import dataclass, field
 from typing import Literal, NotRequired, TypedDict
 
 from context_compiler import (
+    Decision,
     DecisionKind,
     POLICY_PROHIBIT,
     POLICY_USE,
     PolicyValue,
-    create_engine,
+    Engine,
 )
-from context_compiler.engine import Engine
 
 
 class McpToolDefinition(TypedDict):
@@ -54,12 +54,9 @@ class McpDecisionResult(TypedDict):
 
 
 def _decision_kind_name(
-    decision: object,
+    decision: Decision,
 ) -> Literal["error", "update", "passthrough"]:
-    if not isinstance(decision, dict):
-        raise ValueError("unexpected decision shape")
-
-    kind = decision.get("kind")
+    kind = decision.kind
     if kind == DecisionKind.ERROR:
         return "error"
     if kind == DecisionKind.UPDATE:
@@ -170,10 +167,12 @@ def handle_mcp_tool_turn(
 
     decision = engine.step(compiler_input)
 
-    if decision["kind"] == DecisionKind.ERROR:
+    if decision.kind == DecisionKind.ERROR:
         return {
             "decision_kind": "error",
-            "prompt_to_user": decision["message"],
+            "prompt_to_user": decision.message
+            if decision.kind == DecisionKind.ERROR
+            else None,
             "execution_result": {
                 "authorization_state": "blocked",
                 "tool_visible": False,
@@ -187,7 +186,9 @@ def handle_mcp_tool_turn(
 
     return {
         "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision["message"],
+        "prompt_to_user": decision.message
+        if decision.kind == DecisionKind.ERROR
+        else None,
         "execution_result": execute_mcp_tool_if_allowed(
             tool_call,
             policies=engine.policies,
@@ -206,16 +207,20 @@ def describe_exposed_mcp_tools(
 
     decision = engine.step(compiler_input)
 
-    if decision["kind"] == DecisionKind.ERROR:
+    if decision.kind == DecisionKind.ERROR:
         return {
             "decision_kind": "error",
-            "prompt_to_user": decision["message"],
+            "prompt_to_user": decision.message
+            if decision.kind == DecisionKind.ERROR
+            else None,
             "exposed_tools": host.exposed_mcp_tools(engine.policies),
         }
 
     return {
         "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision["message"],
+        "prompt_to_user": decision.message
+        if decision.kind == DecisionKind.ERROR
+        else None,
         "exposed_tools": host.exposed_mcp_tools(engine.policies),
     }
 
@@ -223,7 +228,7 @@ def describe_exposed_mcp_tools(
 def run_demo() -> McpToolExecutionResult:
     """Run a deterministic MCP demonstration with explicit authorization state."""
 
-    engine = create_engine()
+    engine = Engine()
     engine.step("use calendar_admin")
     host = CalendarAdminMcpHost()
 

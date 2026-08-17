@@ -244,10 +244,10 @@ def test_current_turn_is_processed_exactly_once(monkeypatch) -> None:
     module = _load_proxy_module(monkeypatch, "litellm_proxy_step_once")
     hook = module.ContextCompilerPreCallHook()
     seen_inputs: list[str] = []
-    original_create_engine = module.create_engine
+    original_Engine = module.Engine
 
-    def create_engine_with_tracking():
-        engine = original_create_engine()
+    def Engine_with_tracking():
+        engine = original_Engine()
         original_step = engine.step
 
         def tracked_step(user_input: str):
@@ -257,7 +257,7 @@ def test_current_turn_is_processed_exactly_once(monkeypatch) -> None:
         engine.step = tracked_step
         return engine
 
-    monkeypatch.setattr(module, "create_engine", create_engine_with_tracking)
+    monkeypatch.setattr(module, "Engine", Engine_with_tracking)
     data = {
         "model": "demo",
         "context_compiler_mode": "stateless",

@@ -1,4 +1,4 @@
-from context_compiler import create_engine
+from context_compiler import Engine
 
 from context_compiler_example_integrations.examples.retrieval_filtering.chromadb_hr_policy_lookup.example import (
     EMPLOYEE_ACCESS,
@@ -12,13 +12,13 @@ from context_compiler_example_integrations.examples.retrieval_filtering.chromadb
 
 
 def employee_prohibited_engine():
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"prohibit {EMPLOYEE_ACCESS}")
     return engine
 
 
 def test_employee_access_retrieves_employee_documents_only() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {EMPLOYEE_ACCESS}")
     retriever = ChromaHRPolicyRetriever.build()
 
@@ -33,7 +33,7 @@ def test_employee_access_retrieves_employee_documents_only() -> None:
 
 
 def test_manager_access_retrieves_manager_documents() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {MANAGER_ACCESS}")
     retriever = ChromaHRPolicyRetriever.build()
 
@@ -51,7 +51,7 @@ def test_manager_access_retrieves_manager_documents() -> None:
 
 
 def test_restricted_documents_are_filtered_before_return() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {EMPLOYEE_ACCESS}")
     retriever = ChromaHRPolicyRetriever.build()
 
@@ -66,7 +66,7 @@ def test_restricted_documents_are_filtered_before_return() -> None:
 
 
 def test_adversarial_queries_do_not_bypass_filtering() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {EMPLOYEE_ACCESS}")
     retriever = ChromaHRPolicyRetriever.build()
 
@@ -86,10 +86,10 @@ def test_adversarial_queries_do_not_bypass_filtering() -> None:
 
 def test_retrieval_behavior_changes_when_authoritative_state_changes() -> None:
     retriever = ChromaHRPolicyRetriever.build()
-    absent_engine = create_engine()
-    employee_engine = create_engine()
+    absent_engine = Engine()
+    employee_engine = Engine()
     employee_engine.step(f"use {EMPLOYEE_ACCESS}")
-    manager_engine = create_engine()
+    manager_engine = Engine()
     manager_engine.step(f"use {MANAGER_ACCESS}")
 
     absent_result = retrieve_hr_documents(
@@ -117,7 +117,7 @@ def test_retrieval_behavior_changes_when_authoritative_state_changes() -> None:
 
 
 def test_contradictory_directives_return_error_instead_of_silent_overwrite() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {EMPLOYEE_ACCESS}")
     retriever = ChromaHRPolicyRetriever.build()
 
@@ -140,7 +140,7 @@ def test_contradictory_directives_return_error_instead_of_silent_overwrite() -> 
 
 
 def test_absent_state_uses_documented_default_behavior() -> None:
-    engine = create_engine()
+    engine = Engine()
 
     assert allowed_audiences_from_policies(engine.policies) == set()
 

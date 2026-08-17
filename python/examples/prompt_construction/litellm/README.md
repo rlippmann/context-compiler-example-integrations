@@ -71,9 +71,9 @@ pip install "context-compiler-example-integrations[litellm]"
 export OPENAI_API_KEY=...
 export MODEL=openai/gpt-4o-mini
 python - <<'PY'
-from context_compiler import create_engine
+from context_compiler import Engine
 from context_compiler_example_integrations.examples.prompt_construction.litellm.basic import handle_turn
-engine = create_engine()
+engine = Engine()
 print(handle_turn("set premise concise replies", engine))
 PY
 ```
@@ -85,9 +85,9 @@ pip install "context-compiler-example-integrations[all]"
 export OPENAI_API_KEY=...
 export MODEL=openai/gpt-4o-mini
 python - <<'PY'
-from context_compiler import create_engine
+from context_compiler import Engine
 from context_compiler_example_integrations.examples.prompt_construction.litellm.with_directive_drafter import handle_turn
-engine = create_engine()
+engine = Engine()
 print(handle_turn("set premise to concise replies", engine))
 PY
 ```

@@ -1,4 +1,4 @@
-from context_compiler import create_engine
+from context_compiler import Engine
 
 from context_compiler_example_integrations.examples.gateway_middleware.customer_support_routing.example import (
     SupportGateway,
@@ -11,7 +11,7 @@ from context_compiler_example_integrations.examples.gateway_middleware.customer_
 
 
 def prohibited_engine():
-    engine = create_engine()
+    engine = Engine()
     engine.step("prohibit billing_support")
     return engine
 
@@ -29,7 +29,7 @@ def test_authorized_state_routes_billing_request_to_downstream() -> None:
 
 
 def test_absent_state_blocks_billing_request() -> None:
-    engine = create_engine()
+    engine = Engine()
     gateway = SupportGateway()
     downstream = SupportService()
 
@@ -81,7 +81,7 @@ def test_prohibited_state_blocks_billing_request() -> None:
 
 
 def test_absent_state_routes_non_billing_request_to_default_path() -> None:
-    engine = create_engine()
+    engine = Engine()
     gateway = SupportGateway()
     downstream = SupportService()
 
@@ -106,7 +106,7 @@ def test_absent_state_routes_non_billing_request_to_default_path() -> None:
 
 
 def test_adversarial_text_does_not_bypass_gateway_decision() -> None:
-    engine = create_engine()
+    engine = Engine()
     gateway = SupportGateway()
     downstream = SupportService()
 
@@ -131,7 +131,7 @@ def test_adversarial_text_does_not_bypass_gateway_decision() -> None:
 
 
 def test_conflicting_use_then_prohibit_requires_clarification_and_blocks() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("use billing_support")
     gateway = SupportGateway()
     downstream = SupportService()

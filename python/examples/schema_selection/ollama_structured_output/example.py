@@ -17,9 +17,8 @@ from context_compiler import (
     DecisionKind,
     POLICY_USE,
     PolicyValue,
-    create_engine,
+    Engine,
 )
-from context_compiler.engine import Engine
 
 PYTHON_SCRIPT_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -78,10 +77,12 @@ def plan_turn(user_input: str, engine: Engine) -> TurnPlan:
     """Run compiler step and decide whether to request Ollama structured output."""
 
     decision = engine.step(user_input)
-    if decision["kind"] == DecisionKind.ERROR:
+    if decision.kind == DecisionKind.ERROR:
         return {
             "decision_kind": "error",
-            "error_prompt": decision["message"],
+            "error_prompt": decision.message
+            if decision.kind == DecisionKind.ERROR
+            else None,
             "selected_schema_item": None,
             "format_schema": None,
         }
@@ -89,7 +90,7 @@ def plan_turn(user_input: str, engine: Engine) -> TurnPlan:
     selected_item, format_schema = select_ollama_format_schema(engine.policies)
 
     return {
-        "decision_kind": str(decision["kind"].value),
+        "decision_kind": str(decision.kind.value),
         "error_prompt": None,
         "selected_schema_item": selected_item,
         "format_schema": format_schema,
@@ -137,7 +138,7 @@ def optional_ollama_call(
 
 
 def main() -> None:
-    engine = create_engine()
+    engine = Engine()
 
     # Demonstration setup.
     engine.step("use python_script")

@@ -128,6 +128,18 @@ def test_engine_state_is_kept_per_chat_id_until_engine_cache_is_cleared(
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
 
+    asyncio.run(
+        pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "use kubectl"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__="chat-1",
+        )
+    )
+
     first = asyncio.run(
         pipe.pipe(
             {

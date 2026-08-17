@@ -188,9 +188,9 @@ If you want a slightly broader manual pass:
 
 ### Case 3
 
-- prompt(s): `clear state` → `use podman instead of docker`
+- prompt(s): `clear state` → `use docker` → `use podman instead of docker`
 - base model: generic “how to switch to Podman” tutorial
-- basic pipe: `No exact policy found for "docker". Replacement requires an exact policy match...`
+- basic pipe: `State updated: Use podman.`
 - directive-drafter pipe: same deterministic rejection
 - why this matters: the app only replaces a policy when the old item already exists.
 

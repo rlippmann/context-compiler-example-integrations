@@ -27,10 +27,7 @@ except ModuleNotFoundError:
         pass
 
 
-from context_compiler import (
-    DecisionKind,
-    create_engine,
-)
+from context_compiler import DecisionKind, Engine, NoDirectiveDecision
 from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
     DirectiveDrafter,
@@ -162,7 +159,7 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
                 "metadata.context_compiler_session_key."
             )
 
-        engine = create_engine()
+        engine = Engine()
         if session.mode == MODE_PERSISTENT and session.session_key is not None:
             checkpoint = CHECKPOINT_STORE.load(session.session_key)
             if checkpoint is not None:
@@ -187,15 +184,15 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
             if isinstance(drafted_result.result, CanonicalDirective):
                 decision = engine.step(drafted_result.result.text)
             else:
-                decision = {"kind": DecisionKind.NO_DIRECTIVE, "message": None}
+                decision = NoDirectiveDecision()
         else:
-            decision = {"kind": DecisionKind.NO_DIRECTIVE, "message": None}
+            decision = NoDirectiveDecision()
 
-        logger.debug("litellm_proxy: decision_kind=%s", decision["kind"])
+        logger.debug("litellm_proxy: decision_kind=%s", decision.kind)
 
-        if decision["kind"] == DecisionKind.ERROR:
+        if decision.kind == DecisionKind.ERROR:
             logger.debug("litellm_proxy: rejecting_failed_application=true")
-            message = decision.get("message")
+            message = decision.message
             return (
                 message if isinstance(message, str) and message else "Request rejected."
             )

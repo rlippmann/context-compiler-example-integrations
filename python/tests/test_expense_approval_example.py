@@ -1,4 +1,4 @@
-from context_compiler import create_engine
+from context_compiler import Engine
 
 from context_compiler_example_integrations.examples.execution_authorization.expense_approval.example import (
     ExpenseHost,
@@ -10,7 +10,7 @@ from context_compiler_example_integrations.examples.execution_authorization.expe
 
 
 def prohibited_engine():
-    engine = create_engine()
+    engine = Engine()
     engine.step("prohibit expense_approval")
     return engine
 
@@ -31,7 +31,7 @@ def test_authorized_state_executes_expense_action() -> None:
 
 
 def test_absent_state_blocks_execution() -> None:
-    engine = create_engine()
+    engine = Engine()
     host = ExpenseHost()
 
     result = execute_expense_if_authorized(
@@ -75,7 +75,7 @@ def test_prohibited_state_blocks_execution() -> None:
 
 
 def test_adversarial_request_text_alone_does_not_authorize_execution() -> None:
-    engine = create_engine()
+    engine = Engine()
     host = ExpenseHost()
 
     result = execute_expense_if_authorized(
@@ -98,8 +98,8 @@ def test_adversarial_request_text_alone_does_not_authorize_execution() -> None:
 def test_runtime_behavior_changes_only_when_authoritative_state_allows_execution() -> (
     None
 ):
-    blocked_engine = create_engine()
-    allowed_engine = create_engine()
+    blocked_engine = Engine()
+    allowed_engine = Engine()
     allowed_engine.step("use expense_approval")
 
     blocked_host = ExpenseHost()
@@ -129,7 +129,7 @@ def test_runtime_behavior_changes_only_when_authoritative_state_allows_execution
 
 
 def test_conflicting_use_then_prohibit_returns_error_and_does_not_execute() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step("use expense_approval")
     host = ExpenseHost()
 

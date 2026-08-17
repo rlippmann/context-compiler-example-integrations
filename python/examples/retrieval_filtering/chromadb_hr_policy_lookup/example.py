@@ -8,13 +8,13 @@ from uuid import uuid4
 import chromadb
 from chromadb.api.models.Collection import Collection
 from context_compiler import (
+    Decision,
     DecisionKind,
     POLICY_PROHIBIT,
     POLICY_USE,
     PolicyValue,
-    create_engine,
+    Engine,
 )
-from context_compiler.engine import Engine
 
 EMPLOYEE_ACCESS = "employee_hr_access"
 MANAGER_ACCESS = "manager_hr_access"
@@ -78,12 +78,9 @@ def example_documents() -> list[PolicyDocument]:
 
 
 def _decision_kind_name(
-    decision: object,
+    decision: Decision,
 ) -> Literal["error", "update", "passthrough"]:
-    if not isinstance(decision, dict):
-        raise ValueError("unexpected decision shape")
-
-    kind = decision.get("kind")
+    kind = decision.kind
     if kind == DecisionKind.ERROR:
         return "error"
     if kind == DecisionKind.UPDATE:
@@ -257,10 +254,12 @@ def handle_retrieval_turn(
 
     decision = engine.step(compiler_input)
 
-    if decision["kind"] == DecisionKind.ERROR:
+    if decision.kind == DecisionKind.ERROR:
         return {
             "decision_kind": "error",
-            "prompt_to_user": decision["message"],
+            "prompt_to_user": decision.message
+            if decision.kind == DecisionKind.ERROR
+            else None,
             "retrieval_result": {
                 "query": query,
                 "eligible_document_ids": [],
@@ -271,7 +270,9 @@ def handle_retrieval_turn(
 
     return {
         "decision_kind": _decision_kind_name(decision),
-        "prompt_to_user": decision["message"],
+        "prompt_to_user": decision.message
+        if decision.kind == DecisionKind.ERROR
+        else None,
         "retrieval_result": retrieve_hr_documents(
             query,
             policies=engine.policies,
@@ -286,10 +287,10 @@ def run_demo() -> dict[str, RetrievalResult]:
     query = "handbook benefits"
     retriever = ChromaHRPolicyRetriever.build()
 
-    absent_engine = create_engine()
-    employee_engine = create_engine()
+    absent_engine = Engine()
+    employee_engine = Engine()
     employee_engine.step(f"use {EMPLOYEE_ACCESS}")
-    manager_engine = create_engine()
+    manager_engine = Engine()
     manager_engine.step(f"use {MANAGER_ACCESS}")
 
     return {

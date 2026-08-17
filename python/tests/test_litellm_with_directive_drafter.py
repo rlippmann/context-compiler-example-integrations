@@ -2,7 +2,7 @@ from types import MappingProxyType
 from typing import Any
 
 import pytest
-from context_compiler import create_engine
+from context_compiler import Engine
 from context_compiler.grammar import CanonicalDirective, DirectiveKind
 from context_compiler_directive_drafter import (
     DirectiveDrafter,
@@ -24,9 +24,9 @@ def test_directive_shaped_or_natural_language_input_is_drafted_before_engine_ste
     monkeypatch,
 ) -> None:
     compile_inputs: list[str] = []
-    real_step = create_engine().step
+    real_step = Engine().step
 
-    engine = create_engine()
+    engine = Engine()
 
     def step_with_capture(user_input: str):
         compile_inputs.append(user_input)
@@ -50,7 +50,7 @@ def test_directive_shaped_or_natural_language_input_is_drafted_before_engine_ste
 def test_rejected_canonical_directive_does_not_call_engine_step_or_mutate_state(
     monkeypatch,
 ) -> None:
-    engine = create_engine()
+    engine = Engine()
     compile_inputs: list[str] = []
     real_step = engine.step
 
@@ -84,7 +84,7 @@ def test_rejected_canonical_directive_does_not_call_engine_step_or_mutate_state(
 
 
 def test_no_directive_keeps_normal_flow(monkeypatch) -> None:
-    engine = create_engine()
+    engine = Engine()
     compile_inputs: list[str] = []
     llm_calls: list[list[dict[str, str]]] = []
     real_step = engine.step
@@ -114,7 +114,7 @@ def test_no_directive_keeps_normal_flow(monkeypatch) -> None:
 
 
 def test_unknown_directive_keeps_normal_flow(monkeypatch) -> None:
-    engine = create_engine()
+    engine = Engine()
     compile_inputs: list[str] = []
     llm_calls: list[list[dict[str, str]]] = []
     real_step = engine.step
@@ -166,7 +166,6 @@ def test_extract_drafted_text_only_applies_canonical_directive() -> None:
     drafted_result = DraftResult(
         source="test",
         result=CanonicalDirective(
-            text="use docker",
             kind=DirectiveKind.USE_ITEM,
             operands=MappingProxyType({"item": "docker"}),
         ),
@@ -191,7 +190,7 @@ def test_local_update_responses_skip_downstream_litellm_call(
         DirectiveDrafter(fallback=lambda _message: "use docker"),
     )
 
-    update_engine = create_engine()
+    update_engine = Engine()
     update = module.handle_turn(
         "please use docker", update_engine, approval_handler=lambda _directive: True
     )
@@ -222,7 +221,7 @@ def test_malformed_directive_like_input_falls_through_to_downstream_litellm(
         DirectiveDrafter(fallback=lambda _message: None),
     )
 
-    clarify_engine = create_engine()
+    clarify_engine = Engine()
     clarify = module.handle_turn("set premise to concise replies", clarify_engine)
 
     assert clarify == "downstream reply"
@@ -393,10 +392,7 @@ def test_directive_shaped_malformed_inputs_can_fall_through_to_normal_turn_flow(
     )
     monkeypatch.setattr(module, "_call_litellm", lambda _messages: "downstream reply")
 
-    assert (
-        module.handle_turn("use docker instead of", create_engine())
-        == "downstream reply"
-    )
+    assert module.handle_turn("use docker instead of", Engine()) == "downstream reply"
     assert fallback_calls == 1
 
 
@@ -417,7 +413,7 @@ def test_compound_directives_fall_through_when_not_applied(monkeypatch) -> None:
 
     result = module.handle_turn(
         "please use docker and prohibit peanuts",
-        create_engine(),
+        Engine(),
     )
 
     assert result == "downstream reply"
@@ -428,6 +424,6 @@ def test_handle_turn_has_no_session_or_resume_behavior(monkeypatch) -> None:
     monkeypatch.setattr(module, "_call_litellm", lambda _messages: "ok")
     monkeypatch.setattr(module, "_preprocess_user_input", lambda _text: None)
 
-    engine = create_engine()
+    engine = Engine()
 
     assert module.handle_turn("hello", engine) == "ok"

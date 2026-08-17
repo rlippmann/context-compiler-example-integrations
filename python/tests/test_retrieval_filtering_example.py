@@ -1,4 +1,4 @@
-from context_compiler import create_engine
+from context_compiler import Engine
 
 from context_compiler_example_integrations.examples.retrieval_filtering.hr_policy_lookup.example import (
     EMPLOYEE_ACCESS,
@@ -17,20 +17,20 @@ from context_compiler_example_integrations.examples.retrieval_filtering.hr_polic
 
 
 def employee_prohibited_engine():
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"prohibit {EMPLOYEE_ACCESS}")
     return engine
 
 
 def premise_engine(premise: str):
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {EMPLOYEE_ACCESS}")
     engine.step(f"set premise {premise}")
     return engine
 
 
 def test_employee_access_retrieves_employee_documents_only() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {EMPLOYEE_ACCESS}")
     retriever = HRPolicyRetriever(documents=example_documents())
 
@@ -49,7 +49,7 @@ def test_employee_access_retrieves_employee_documents_only() -> None:
 
 
 def test_manager_access_retrieves_manager_documents() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {MANAGER_ACCESS}")
     retriever = HRPolicyRetriever(documents=example_documents())
 
@@ -72,7 +72,7 @@ def test_manager_access_retrieves_manager_documents() -> None:
 
 
 def test_restricted_documents_are_filtered() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {EMPLOYEE_ACCESS}")
     retriever = HRPolicyRetriever(documents=example_documents())
 
@@ -91,7 +91,7 @@ def test_restricted_documents_are_filtered() -> None:
 
 
 def test_adversarial_queries_do_not_bypass_filtering() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {EMPLOYEE_ACCESS}")
     retriever = HRPolicyRetriever(documents=example_documents())
 
@@ -115,10 +115,10 @@ def test_adversarial_queries_do_not_bypass_filtering() -> None:
 
 def test_retrieval_behavior_changes_when_authoritative_state_changes() -> None:
     retriever = HRPolicyRetriever(documents=example_documents())
-    absent_engine = create_engine()
-    employee_engine = create_engine()
+    absent_engine = Engine()
+    employee_engine = Engine()
     employee_engine.step(f"use {EMPLOYEE_ACCESS}")
-    manager_engine = create_engine()
+    manager_engine = Engine()
     manager_engine.step(f"use {MANAGER_ACCESS}")
 
     absent_result = retrieve_hr_documents(
@@ -178,7 +178,7 @@ def test_same_query_with_different_premises_changes_employee_results() -> None:
 
 
 def test_premise_does_not_expand_access_beyond_eligible_documents() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {EMPLOYEE_ACCESS}")
     engine.step(f"set premise {STAFFING_CASE_PREMISE}")
     retriever = HRPolicyRetriever(documents=example_documents())
@@ -199,7 +199,7 @@ def test_premise_does_not_expand_access_beyond_eligible_documents() -> None:
 
 def test_absent_or_unknown_premise_does_not_invent_results() -> None:
     retriever = HRPolicyRetriever(documents=example_documents())
-    absent_engine = create_engine()
+    absent_engine = Engine()
     absent_engine.step(f"use {EMPLOYEE_ACCESS}")
     unknown_engine = premise_engine("case concerns badge printer toner levels")
 
@@ -221,7 +221,7 @@ def test_absent_or_unknown_premise_does_not_invent_results() -> None:
 
 
 def test_contradictory_directives_return_error_instead_of_silent_overwrite() -> None:
-    engine = create_engine()
+    engine = Engine()
     engine.step(f"use {EMPLOYEE_ACCESS}")
     retriever = HRPolicyRetriever(documents=example_documents())
 
@@ -244,7 +244,7 @@ def test_contradictory_directives_return_error_instead_of_silent_overwrite() -> 
 
 
 def test_absent_state_uses_documented_default_behavior() -> None:
-    engine = create_engine()
+    engine = Engine()
 
     assert allowed_audiences_from_policies(engine.policies) == set()
 

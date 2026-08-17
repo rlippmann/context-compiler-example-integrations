@@ -16,9 +16,8 @@ from context_compiler import (
     DecisionKind,
     POLICY_USE,
     PolicyValue,
-    create_engine,
+    Engine,
 )
-from context_compiler.engine import Engine
 
 from context_compiler_example_integrations.examples._shared.provider_mode import (
     print_startup_config,
@@ -100,10 +99,12 @@ def plan_turn(user_input: str, engine: Engine) -> TurnPlan:
     """Run compiler step and decide whether to request LiteLLM structured output."""
 
     decision = engine.step(user_input)
-    if decision["kind"] == DecisionKind.ERROR:
+    if decision.kind == DecisionKind.ERROR:
         return {
             "decision_kind": "error",
-            "error_prompt": decision["message"],
+            "error_prompt": decision.message
+            if decision.kind == DecisionKind.ERROR
+            else None,
             "selected_response_format_item": None,
             "response_format": None,
         }
@@ -111,7 +112,7 @@ def plan_turn(user_input: str, engine: Engine) -> TurnPlan:
     selected_item, response_format = select_litellm_response_format(engine.policies)
 
     return {
-        "decision_kind": str(decision["kind"].value),
+        "decision_kind": str(decision.kind.value),
         "error_prompt": None,
         "selected_response_format_item": selected_item,
         "response_format": response_format,
@@ -185,7 +186,7 @@ def optional_litellm_call(
 
 
 def main() -> None:
-    engine = create_engine()
+    engine = Engine()
 
     # Demonstration setup.
     engine.step("use compact_summary")
