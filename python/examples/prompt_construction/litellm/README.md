@@ -8,6 +8,12 @@ with LiteLLM:
 - `basic.py`: compiler-only flow (no directive drafter)
 - `with_directive_drafter.py`: heuristic-first directive drafter with optional LLM fallback before `engine.step(...)`
 
+Both flows use the current compiler API: create an `Engine`, pass the latest
+input to `engine.step(...)`, and handle the returned decision object. The host
+reads fields such as `decision.kind` and `decision.message`; it does not use
+retired decision helper functions or derive authoritative state from model
+output.
+
 ## What the user sees
 
 - Compiler-only flow:
@@ -54,7 +60,7 @@ pip install "context-compiler-example-integrations[litellm]"
 export OPENAI_API_KEY=...
 ```
 
-These examples require `context-compiler>=0.8.3`.
+These examples require `context-compiler>=0.9.0dev13`.
 
 For `with_directive_drafter.py`:
 
@@ -62,7 +68,7 @@ For `with_directive_drafter.py`:
 pip install "context-compiler-example-integrations[all]"
 ```
 
-That variant requires `context-compiler-directive-drafter>=0.1.2`.
+That variant requires `context-compiler-directive-drafter>=0.2.0dev2`.
 
 ## Quickstart (copy/paste)
 
@@ -174,7 +180,11 @@ In the related schema-selection example:
 - Conflict behavior (both):
   - `use docker` then `prohibit docker` -> conflict error.
 - Replacement precondition (both):
-  - `use podman instead of docker` without prior `use docker` -> replacement error.
+  - A replacement requires the source policy to exist first.
+  - `use podman instead of docker` without prior `use docker` returns an error
+    decision with failure `REPLACEMENT_SOURCE_MISSING`.
+  - Any repairs attached to that decision are advisory; they do not authorize
+    a state change.
 - Directive-adjacent abstain (`with_directive_drafter.py`):
   - `change premise concise replies` is classified as `unknown`, not rewritten, and handled by an engine error prompt.
 - Host-side request shaping (`python/examples/schema_selection/litellm_response_format/response_format.py`):
