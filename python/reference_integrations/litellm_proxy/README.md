@@ -26,6 +26,9 @@ Available hook files:
 - In stateless mode, no continuity is preserved across requests.
 - If directive application fails, the proxy does not call the downstream model
   and LiteLLM surfaces the rejection as an HTTP 400 response.
+- Replacements require an existing source policy. A missing source produces an
+  error decision with failure `REPLACEMENT_SOURCE_MISSING`; repairs on that
+  decision are advisory and do not authorize a state change.
 - If result is `passthrough`, the proxy forwards the request normally.
 - If result is `update`, the proxy injects compiler state as a system message
   and then calls the model.
@@ -105,7 +108,7 @@ For `context_compiler_precall_hook_with_directive_drafter.py`:
 pip install "context-compiler-example-integrations[all]"
 ```
 
-That variant requires `context-compiler-directive-drafter>=0.1.2`.
+That variant requires `context-compiler-directive-drafter>=0.2.0dev2`.
 
 For the opt-in runtime smoke test, install the proxy runtime extras:
 

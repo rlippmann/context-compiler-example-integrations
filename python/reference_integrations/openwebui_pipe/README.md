@@ -12,6 +12,9 @@ without Directive Drafter preprocessing.
   `[[cc_state]]` system message in the forwarded request.
 - Conflicting or invalid updates are rejected for the current request and do not
   create resumable continuation state.
+- A replacement is valid only when its source policy already exists. If the
+  source is missing, `engine.step(...)` returns an error decision with failure
+  `REPLACEMENT_SOURCE_MISSING`; any attached repairs are advisory.
 - The pipe handles exact `show state` locally. The pipe treats near matches such
   as `show state please` as normal chat input.
 
@@ -53,7 +56,7 @@ Open WebUI is a separate runtime and must already be installed/configured separa
 Open WebUI also needs at least one real backend model/provider configured (for example Ollama or OpenAI) so `BASE_MODEL_ID` resolves to an actual model.
 Note: The `PROVIDER` environment contract used in LiteLLM examples/demos does not apply to OpenWebUI. OpenWebUI manages providers via its own connection settings and model IDs.
 
-These examples require `context-compiler>=0.8.3`.
+These examples require `context-compiler>=0.9.0dev13`.
 
 ### Configuration
 
@@ -65,7 +68,7 @@ These examples require `context-compiler>=0.8.3`.
 If using `open_webui_pipe_with_directive_drafter.py`:
 
 - Install directive-drafter support if needed:
-  `pip install "context-compiler>=0.8.3" "context-compiler-directive-drafter>=0.1.2"`
+  `pip install "context-compiler>=0.9.0dev13" "context-compiler-directive-drafter>=0.2.0dev2"`
 - Set `PREPROCESSOR_PROMPT_PROFILE=default` for heuristic-first behavior
 - Optionally set `PREPROCESSOR_MODEL_ID` to use a separate fallback drafting model
 - If `PREPROCESSOR_MODEL_ID` is unset, fallback uses `BASE_MODEL_ID`
@@ -82,8 +85,8 @@ If frontmatter dependency installs are disabled, offline, or unavailable:
 
 1. Install the package manually:
 
-- Minimal pipe: `pip install "context-compiler>=0.8.3"`
-- Directive Drafter pipe: `pip install "context-compiler>=0.8.3" "context-compiler-directive-drafter>=0.1.2"`
+- Minimal pipe: `pip install "context-compiler>=0.9.0dev13"`
+- Directive Drafter pipe: `pip install "context-compiler>=0.9.0dev13" "context-compiler-directive-drafter>=0.2.0dev2"`
 
 1. Import and enable the function in Open WebUI, then configure valves.
 
@@ -226,7 +229,7 @@ These examples support both sync (`0.8.x`) and async (`0.9.x`) user lookup.
 - `PREPROCESSOR_MODEL_ID must not match the selected pipe model id`: choose a real backend model id, not the pipe model id itself.
 - `PREPROCESSOR_MODEL_ID is invalid or not configured in Open WebUI`: the fallback route hit a missing model; fix the configured fallback model or unset it to reuse `BASE_MODEL_ID`.
 - `ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true`: directive-only updates still run locally, but passthrough returns a deterministic debug message instead of calling a downstream model.
-- imports fail after function upload: install `context-compiler>=0.8.3` in the Open WebUI runtime, and add `context-compiler-directive-drafter>=0.1.2` only for the Directive Drafter pipe, because the copied function runs from a temp/cached location.
+- imports fail after function upload: install `context-compiler>=0.9.0dev13` in the Open WebUI runtime, and add `context-compiler-directive-drafter>=0.2.0dev2` only for the Directive Drafter pipe, because the copied function runs from a temp/cached location.
 
 ## Fallback notes
 
