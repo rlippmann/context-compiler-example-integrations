@@ -15,9 +15,8 @@ This example extends `open_webui_pipe.py` by inserting a directive-drafting step
    calling `engine.step(...)`
 
 Core decision handling remains the same as the base integration.
-Pending approvals are carried in the Open WebUI conversation transcript so
-they survive the transition between requests without relying on pipe object
-lifetime.
+Pending approvals use Open WebUI's native confirmation event and do not add
+state to the conversation transcript.
 """
 
 import inspect
@@ -51,13 +50,12 @@ except ModuleNotFoundError:
 from context_compiler import (
     Decision,
     DecisionKind,
-    DECISION_UPDATE,
     POLICY_PROHIBIT,
     POLICY_USE,
     Engine,
     PolicyValue,
 )
-from context_compiler.grammar import CanonicalDirective, decompose_directive
+from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
     DirectiveDrafter,
     DraftResult,
@@ -69,8 +67,6 @@ from context_compiler_directive_drafter import (
 logger = logging.getLogger(__name__)
 
 _CC_MARKER = "[[cc_state]]"
-_PENDING_MARKER_PREFIX = "<!-- cc_pending_directive:"
-_PENDING_MARKER_SUFFIX = " -->"
 _ENGINES_BY_CHAT_KEY: dict[str, Engine] = {}
 
 
@@ -79,24 +75,16 @@ class _EngineSnapshot(TypedDict):
     policies: dict[str, PolicyValue]
 
 
-def _is_explicit_approval(message: str) -> bool:
-    return message.strip().lower() in {"y", "yes"}
-
-
-def _is_explicit_rejection(message: str) -> bool:
-    return message.strip().lower() in {"n", "no"}
-
-
-def _render_proposal_prompt(directive: CanonicalDirective, chat_key: str) -> str:
-    marker = json.dumps(
-        {"chat_key": chat_key, "directive": directive.text},
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-    return (
-        f"This is what I think the directive is:\n{directive.text}\nApply it? (y/n)\n"
-        f"{_PENDING_MARKER_PREFIX}{marker}{_PENDING_MARKER_SUFFIX}"
-    )
+def _confirmation_was_accepted(response: object) -> bool:
+    if isinstance(response, bool):
+        return response
+    if isinstance(response, dict):
+        for key in ("confirmed", "approved", "value"):
+            if key in response:
+                return _confirmation_was_accepted(response[key])
+    if isinstance(response, str):
+        return response.strip().lower() in {"y", "yes", "true", "1", "ok"}
+    return False
 
 
 def _resolve_chat_key(
@@ -123,49 +111,6 @@ def _extract_latest_user_text(messages: list[dict[str, Any]]) -> str | None:
             return content
         return None
     return None
-
-
-def _extract_pending_directive(
-    messages: list[dict[str, Any]], chat_key: str
-) -> CanonicalDirective | None:
-    """Restore the latest unresolved approval from Open WebUI chat history."""
-    for index in range(len(messages) - 1, -1, -1):
-        message = messages[index]
-        if message.get("role") != "assistant":
-            continue
-        content = message.get("content")
-        if not isinstance(content, str):
-            continue
-        marker_start = content.rfind(_PENDING_MARKER_PREFIX)
-        if marker_start < 0:
-            continue
-        marker_end = content.find(_PENDING_MARKER_SUFFIX, marker_start)
-        if marker_end < 0:
-            continue
-        # A later assistant response means this marker was already resolved.
-        if any(item.get("role") == "assistant" for item in messages[index + 1 :]):
-            continue
-        payload_text = content[marker_start + len(_PENDING_MARKER_PREFIX) : marker_end]
-        try:
-            payload = json.loads(payload_text)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(payload, dict) or payload.get("chat_key") != chat_key:
-            continue
-        directive_text = payload.get("directive")
-        if not isinstance(directive_text, str):
-            continue
-        directive = decompose_directive(directive_text)
-        if isinstance(directive, CanonicalDirective):
-            return directive
-    return None
-
-
-def _strip_pending_marker_from_text(content: str) -> str:
-    pattern = (
-        re.escape(_PENDING_MARKER_PREFIX) + r".*?" + re.escape(_PENDING_MARKER_SUFFIX)
-    )
-    return re.sub(pattern, "", content, flags=re.DOTALL).rstrip()
 
 
 def _snapshot_engine_state(engine: Engine) -> _EngineSnapshot:
@@ -331,9 +276,7 @@ def _strip_trace_blocks_from_messages(
         msg = dict(message)
         content = msg.get("content")
         if isinstance(content, str):
-            msg["content"] = _strip_pending_marker_from_text(
-                _strip_trace_block_from_text(content)
-            )
+            msg["content"] = _strip_trace_block_from_text(content)
         cleaned.append(msg)
     return cleaned
 
@@ -804,6 +747,71 @@ class Pipe:
             return normalized_error
         return response
 
+    async def _apply_approved_directive(
+        self,
+        directive: CanonicalDirective,
+        *,
+        body: dict[str, Any],
+        user_payload: dict[str, Any],
+        request: Request,
+        base_model_id: str | None,
+        chat_key: str,
+        original_input: str,
+        engine: Engine,
+    ) -> Any:
+        state_before = _snapshot_engine_state(engine)
+        engine_snapshot_json = engine.export_json()
+        compile_input = directive.text
+        logger.debug("preprocessor: approved_input=%r", compile_input)
+        decision = engine.apply_directive(directive)
+        state_after = _snapshot_engine_state(engine)
+
+        if decision.kind == DecisionKind.ERROR:
+            _ENGINES_BY_CHAT_KEY[chat_key] = _restore_engine_from_snapshot(
+                engine_snapshot_json
+            )
+            return self._with_trace(
+                decision.message,
+                original_input=original_input,
+                compiler_input=compile_input,
+                decision=decision,
+                state_before=state_before,
+                state_after=state_after,
+                preprocessor_output=compile_input,
+                llm_called=False,
+            )
+        if decision.kind == DecisionKind.UPDATE:
+            return self._with_trace(
+                "State updated.",
+                original_input=original_input,
+                compiler_input=compile_input,
+                decision=decision,
+                state_before=state_before,
+                state_after=state_after,
+                preprocessor_output=compile_input,
+                llm_called=False,
+            )
+
+        state_injected = "yes" if _has_non_empty_authoritative_state(engine) else "no"
+        response = await self._forward_passthrough(
+            body,
+            user_payload,
+            request,
+            base_model_id=base_model_id,
+            engine=engine,
+        )
+        return self._with_trace(
+            response,
+            original_input=original_input,
+            compiler_input=compile_input,
+            decision=decision,
+            state_before=state_before,
+            state_after=state_after,
+            preprocessor_output=compile_input,
+            llm_called=base_model_id is not None,
+            state_injected=state_injected,
+        )
+
     async def pipe(
         self,
         body: dict[str, Any],
@@ -811,6 +819,7 @@ class Pipe:
         __request__: Request,
         __chat_id__: str | None = None,
         __metadata__: dict[str, Any] | None = None,
+        __event_call__: Any | None = None,
     ) -> Any:
         # Open WebUI integration entrypoint:
         # 1) extract latest user input
@@ -877,97 +886,6 @@ class Pipe:
         if latest_user_text.strip().lower() == "show state":
             return _render_show_state_summary(engine)
 
-        pending_directive = _extract_pending_directive(messages, chat_key)
-        if pending_directive is not None:
-            if _is_explicit_approval(latest_user_text):
-                state_before = _snapshot_engine_state(engine)
-                engine_snapshot_json = engine.export_json()
-                compile_input = pending_directive.text
-                logger.debug("preprocessor: approved_pending_input=%r", compile_input)
-                decision = engine.apply_directive(pending_directive)
-                if decision.kind == DecisionKind.ERROR:
-                    kind = DecisionKind.ERROR.value
-                elif decision.kind == DecisionKind.UPDATE:
-                    kind = DECISION_UPDATE
-                else:
-                    kind = DecisionKind.NO_DIRECTIVE.value
-                logger.debug("preprocessor: decision=%s", kind)
-                state_after = _snapshot_engine_state(engine)
-
-                if decision.kind == DecisionKind.ERROR:
-                    _ENGINES_BY_CHAT_KEY[chat_key] = _restore_engine_from_snapshot(
-                        engine_snapshot_json
-                    )
-                    return self._with_trace(
-                        decision.message
-                        if decision.kind == DecisionKind.ERROR
-                        else None or "",
-                        original_input=latest_user_text,
-                        compiler_input=compile_input,
-                        decision=decision,
-                        state_before=state_before,
-                        state_after=state_after,
-                        preprocessor_output=compile_input,
-                        llm_called=False,
-                    )
-                if decision.kind == DecisionKind.NO_DIRECTIVE:
-                    state_injected = (
-                        "yes" if _has_non_empty_authoritative_state(engine) else "no"
-                    )
-                    response = await self._forward_passthrough(
-                        body,
-                        __user__,
-                        __request__,
-                        base_model_id=base_model_id,
-                        engine=engine,
-                    )
-                    return self._with_trace(
-                        response,
-                        original_input=latest_user_text,
-                        compiler_input=compile_input,
-                        decision=decision,
-                        state_before=state_before,
-                        state_after=state_after,
-                        preprocessor_output=compile_input,
-                        llm_called=base_model_id is not None,
-                        state_injected=state_injected,
-                    )
-                if decision.kind == DecisionKind.UPDATE:
-                    return self._with_trace(
-                        "State updated.",
-                        original_input=latest_user_text,
-                        compiler_input=compile_input,
-                        decision=decision,
-                        state_before=state_before,
-                        state_after=state_after,
-                        preprocessor_output=compile_input,
-                        llm_called=False,
-                    )
-
-                state_injected = (
-                    "yes" if _has_non_empty_authoritative_state(engine) else "no"
-                )
-                response = await self._forward_passthrough(
-                    body,
-                    __user__,
-                    __request__,
-                    base_model_id=base_model_id,
-                    engine=engine,
-                )
-                return self._with_trace(
-                    response,
-                    original_input=latest_user_text,
-                    compiler_input=compile_input,
-                    decision=decision,
-                    state_before=state_before,
-                    state_after=state_after,
-                    preprocessor_output=compile_input,
-                    llm_called=base_model_id is not None,
-                    state_injected=state_injected,
-                )
-            if _is_explicit_rejection(latest_user_text):
-                return "Directive discarded. No state change was applied."
-
         state_before = _snapshot_engine_state(engine)
         preprocess_error: str | None = None
         drafted_result, preprocess_error = await self._preprocess_user_input(
@@ -1004,5 +922,34 @@ class Pipe:
                 state_injected=state_injected,
             )
 
-        compile_input = drafted_result.result.text
-        return _render_proposal_prompt(drafted_result.result, chat_key)
+        if __event_call__ is None:
+            return (
+                "Context Compiler pipe misconfigured: Open WebUI confirmation support "
+                "(__event_call__) is required for Directive Drafter approvals."
+            )
+
+        approval_response = await __event_call__(
+            {
+                "type": "confirmation",
+                "data": {
+                    "title": "Approve directive",
+                    "message": (
+                        "This is what I think the directive is:\n"
+                        f"{drafted_result.result.text}\n\nApply it?"
+                    ),
+                },
+            }
+        )
+        if not _confirmation_was_accepted(approval_response):
+            return "Directive discarded. No state change was applied."
+
+        return await self._apply_approved_directive(
+            drafted_result.result,
+            body=body,
+            user_payload=__user__,
+            request=__request__,
+            base_model_id=base_model_id,
+            chat_key=chat_key,
+            original_input=latest_user_text,
+            engine=engine,
+        )
