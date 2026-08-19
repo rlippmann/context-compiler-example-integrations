@@ -40,7 +40,7 @@ shapes the downstream request.
 ## Files
 
 - `open_webui_pipe.py`: basic integration, no Directive Drafter layer (recommended/default).
-- `open_webui_pipe_with_directive_drafter.py`: optional/experimental Directive Drafter layer (heuristic check first, then optional model fallback) before `engine.step(...)`.
+- `open_webui_pipe_with_directive_drafter.py`: optional Directive Drafter layer (heuristic check first, then optional model fallback) before `engine.step(...)`.
 
 ## Setup
 
@@ -119,7 +119,7 @@ Use this pipe when you want the simplest Open WebUI integration path.
 
 Suggested verification:
 
-- Send `use docker` and confirm you get `State updated: Use docker.` with trace showing a local turn
+- Send `use docker` and confirm the native OpenWebUI confirmation dialog appears first; after approval, confirm `State updated: Use docker.` with trace showing a local turn
 - Send a normal prompt such as `what should I run?` and confirm trace shows a forwarded turn with compiler state included
 - Send `use docker`, then `prohibit docker`, and confirm Open WebUI rejects the second request instead of changing state
 - Optionally send `show state` and confirm the state summary is returned locally
@@ -132,6 +132,18 @@ Advanced check:
 ### Directive-drafter pipe
 
 Use this pipe when you want the same runtime behavior plus Directive Drafter preprocessing.
+
+When the drafter produces a `CanonicalDirective`, the pipe uses Open WebUI's
+native `__event_call__` confirmation dialog for HITL approval. The lifecycle is:
+
+1. Directive Drafter drafts a canonical directive.
+2. Open WebUI asks the user to confirm the drafted directive.
+3. An approved directive is applied through the Context Compiler `Engine` path.
+4. A rejected directive is discarded without changing authoritative state.
+
+The confirmation is request-scoped. It remains active while the current
+Open WebUI request waits for the user's response, but it is not durable pending
+state and does not survive an Open WebUI server restart.
 
 Suggested verification:
 
@@ -221,11 +233,10 @@ If you want a slightly broader manual pass:
 
 ## Compatibility
 
-Tested target: Open WebUI `v0.8.12`.
-Validated at runtime on stock Docker Open WebUI with a real backend model provider.
-
-Compatibility note: OpenWebUI `0.9.x` changed `Users.get_user_by_id` to async.
-These examples support both sync (`0.8.x`) and async (`0.9.x`) user lookup.
+Tested and validated at runtime on Open WebUI `v0.11.0` with a real Ollama
+backend model provider. Both the basic Pipe and Directive Drafter Pipe loaded
+and completed live requests, including native confirmation approval and
+rejection flows.
 
 ## Troubleshooting
 
