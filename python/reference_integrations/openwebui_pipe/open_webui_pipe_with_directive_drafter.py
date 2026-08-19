@@ -15,8 +15,9 @@ This example extends `open_webui_pipe.py` by inserting a directive-drafting step
    calling `engine.step(...)`
 
 Core decision handling remains the same as the base integration.
-Failed transitions are rejected for the current request and do not leave
-resumable in-memory engine state behind.
+Pending approvals are carried in the Open WebUI conversation transcript so
+they survive the transition between requests without relying on pipe object
+lifetime.
 """
 
 import inspect
@@ -56,7 +57,7 @@ from context_compiler import (
     Engine,
     PolicyValue,
 )
-from context_compiler.grammar import CanonicalDirective
+from context_compiler.grammar import CanonicalDirective, decompose_directive
 from context_compiler_directive_drafter import (
     DirectiveDrafter,
     DraftResult,
@@ -68,8 +69,9 @@ from context_compiler_directive_drafter import (
 logger = logging.getLogger(__name__)
 
 _CC_MARKER = "[[cc_state]]"
+_PENDING_MARKER_PREFIX = "<!-- cc_pending_directive:"
+_PENDING_MARKER_SUFFIX = " -->"
 _ENGINES_BY_CHAT_KEY: dict[str, Engine] = {}
-_PENDING_PROPOSALS_BY_CHAT_KEY: dict[str, str] = {}
 
 
 class _EngineSnapshot(TypedDict):
@@ -85,8 +87,16 @@ def _is_explicit_rejection(message: str) -> bool:
     return message.strip().lower() in {"n", "no"}
 
 
-def _render_proposal_prompt(directive_text: str) -> str:
-    return f"This is what I think the directive is:\n{directive_text}\nApply it? (y/n)"
+def _render_proposal_prompt(directive: CanonicalDirective, chat_key: str) -> str:
+    marker = json.dumps(
+        {"chat_key": chat_key, "directive": directive.text},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return (
+        f"This is what I think the directive is:\n{directive.text}\nApply it? (y/n)\n"
+        f"{_PENDING_MARKER_PREFIX}{marker}{_PENDING_MARKER_SUFFIX}"
+    )
 
 
 def _resolve_chat_key(
@@ -113,6 +123,49 @@ def _extract_latest_user_text(messages: list[dict[str, Any]]) -> str | None:
             return content
         return None
     return None
+
+
+def _extract_pending_directive(
+    messages: list[dict[str, Any]], chat_key: str
+) -> CanonicalDirective | None:
+    """Restore the latest unresolved approval from Open WebUI chat history."""
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if message.get("role") != "assistant":
+            continue
+        content = message.get("content")
+        if not isinstance(content, str):
+            continue
+        marker_start = content.rfind(_PENDING_MARKER_PREFIX)
+        if marker_start < 0:
+            continue
+        marker_end = content.find(_PENDING_MARKER_SUFFIX, marker_start)
+        if marker_end < 0:
+            continue
+        # A later assistant response means this marker was already resolved.
+        if any(item.get("role") == "assistant" for item in messages[index + 1 :]):
+            continue
+        payload_text = content[marker_start + len(_PENDING_MARKER_PREFIX) : marker_end]
+        try:
+            payload = json.loads(payload_text)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict) or payload.get("chat_key") != chat_key:
+            continue
+        directive_text = payload.get("directive")
+        if not isinstance(directive_text, str):
+            continue
+        directive = decompose_directive(directive_text)
+        if isinstance(directive, CanonicalDirective):
+            return directive
+    return None
+
+
+def _strip_pending_marker_from_text(content: str) -> str:
+    pattern = (
+        re.escape(_PENDING_MARKER_PREFIX) + r".*?" + re.escape(_PENDING_MARKER_SUFFIX)
+    )
+    return re.sub(pattern, "", content, flags=re.DOTALL).rstrip()
 
 
 def _snapshot_engine_state(engine: Engine) -> _EngineSnapshot:
@@ -278,7 +331,9 @@ def _strip_trace_blocks_from_messages(
         msg = dict(message)
         content = msg.get("content")
         if isinstance(content, str):
-            msg["content"] = _strip_trace_block_from_text(content)
+            msg["content"] = _strip_pending_marker_from_text(
+                _strip_trace_block_from_text(content)
+            )
         cleaned.append(msg)
     return cleaned
 
@@ -822,15 +877,14 @@ class Pipe:
         if latest_user_text.strip().lower() == "show state":
             return _render_show_state_summary(engine)
 
-        pending_proposal = _PENDING_PROPOSALS_BY_CHAT_KEY.get(chat_key)
-        if pending_proposal is not None:
+        pending_directive = _extract_pending_directive(messages, chat_key)
+        if pending_directive is not None:
             if _is_explicit_approval(latest_user_text):
-                del _PENDING_PROPOSALS_BY_CHAT_KEY[chat_key]
                 state_before = _snapshot_engine_state(engine)
                 engine_snapshot_json = engine.export_json()
-                compile_input = pending_proposal
+                compile_input = pending_directive.text
                 logger.debug("preprocessor: approved_pending_input=%r", compile_input)
-                decision = engine.step(compile_input)
+                decision = engine.apply_directive(pending_directive)
                 if decision.kind == DecisionKind.ERROR:
                     kind = DecisionKind.ERROR.value
                 elif decision.kind == DecisionKind.UPDATE:
@@ -912,9 +966,7 @@ class Pipe:
                     state_injected=state_injected,
                 )
             if _is_explicit_rejection(latest_user_text):
-                del _PENDING_PROPOSALS_BY_CHAT_KEY[chat_key]
                 return "Directive discarded. No state change was applied."
-            del _PENDING_PROPOSALS_BY_CHAT_KEY[chat_key]
 
         state_before = _snapshot_engine_state(engine)
         preprocess_error: str | None = None
@@ -953,5 +1005,4 @@ class Pipe:
             )
 
         compile_input = drafted_result.result.text
-        _PENDING_PROPOSALS_BY_CHAT_KEY[chat_key] = compile_input
-        return _render_proposal_prompt(compile_input)
+        return _render_proposal_prompt(drafted_result.result, chat_key)

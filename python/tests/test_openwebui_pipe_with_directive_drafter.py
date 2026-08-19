@@ -89,7 +89,6 @@ def _load_module(module_name: str, monkeypatch: pytest.MonkeyPatch):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module._ENGINES_BY_CHAT_KEY.clear()
-    module._PENDING_PROPOSALS_BY_CHAT_KEY.clear()
     return module
 
 
@@ -137,9 +136,10 @@ def test_canonical_draft_creates_approval_prompt_and_does_not_mutate_state(
         )
     )
 
-    assert result == (
+    assert result.startswith(
         "This is what I think the directive is:\nuse docker\nApply it? (y/n)"
     )
+    assert "<!-- cc_pending_directive:" in result
     assert show_state == "Premise: none\nUse: none\nProhibit: none"
 
 
@@ -150,13 +150,13 @@ def test_approval_applies_stored_directive(monkeypatch) -> None:
 
     def Engine_with_tracking():
         engine = real_Engine()
-        original_step = engine.step
+        original_apply_directive = engine.apply_directive
 
-        def tracked_step(user_input: str):
-            compile_inputs.append(user_input)
-            return original_step(user_input)
+        def tracked_apply_directive(directive):
+            compile_inputs.append(directive.text)
+            return original_apply_directive(directive)
 
-        engine.step = tracked_step
+        engine.apply_directive = tracked_apply_directive
         return engine
 
     monkeypatch.setattr(module, "Engine", Engine_with_tracking)
@@ -187,7 +187,13 @@ def test_approval_applies_stored_directive(monkeypatch) -> None:
     )
     follow_up = asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "y"}]},
+            {
+                "model": "pipe-model",
+                "messages": [
+                    {"role": "assistant", "content": seed},
+                    {"role": "user", "content": "y"},
+                ],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-failed-transition",
@@ -205,7 +211,7 @@ def test_approval_applies_stored_directive(monkeypatch) -> None:
         )
     )
 
-    assert seed == (
+    assert seed.startswith(
         "This is what I think the directive is:\nuse docker\nApply it? (y/n)"
     )
     assert follow_up == "State updated."
@@ -223,6 +229,70 @@ def test_approval_applies_stored_directive(monkeypatch) -> None:
 
     assert second_follow_up != "State updated."
     assert compile_inputs == ["use docker"]
+
+
+def test_pending_approval_survives_pipe_object_lifetime(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_pending_lifecycle", monkeypatch)
+
+    async def update_draft(*args, **kwargs):
+        return DraftResult(
+            source="test",
+            result=CanonicalDirective(
+                kind=DirectiveKind.USE_ITEM,
+                operands=MappingProxyType({"item": "docker"}),
+            ),
+        )
+
+    monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
+    first_pipe = module.Pipe()
+    first_pipe.valves.BASE_MODEL_ID = "base-model"
+    first_pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    chat_id = "chat-pending-lifecycle"
+    proposal = asyncio.run(
+        first_pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "please use docker"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+
+    # Simulate Open WebUI reloading/replacing the pipe object between requests.
+    module._ENGINES_BY_CHAT_KEY.clear()
+    second_pipe = module.Pipe()
+    second_pipe.valves.BASE_MODEL_ID = "base-model"
+    second_pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    approved = asyncio.run(
+        second_pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [
+                    {"role": "assistant", "content": proposal},
+                    {"role": "user", "content": "y"},
+                ],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+
+    assert approved == "State updated."
+    state = asyncio.run(
+        second_pipe.pipe(
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "show state"}],
+            },
+            __user__={"id": "u1"},
+            __request__=object(),
+            __chat_id__=chat_id,
+        )
+    )
+    assert state == "Premise: none\nUse: docker\nProhibit: none"
 
 
 def test_rejection_does_not_mutate_state(monkeypatch) -> None:
@@ -243,7 +313,7 @@ def test_rejection_does_not_mutate_state(monkeypatch) -> None:
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
-    asyncio.run(
+    proposal = asyncio.run(
         pipe.pipe(
             {
                 "model": "pipe-model",
@@ -256,7 +326,13 @@ def test_rejection_does_not_mutate_state(monkeypatch) -> None:
     )
     rejected = asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "n"}]},
+            {
+                "model": "pipe-model",
+                "messages": [
+                    {"role": "assistant", "content": proposal},
+                    {"role": "user", "content": "n"},
+                ],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-state-preserved",
@@ -393,14 +469,20 @@ def test_unrelated_follow_up_while_pending_does_not_apply_proposal(monkeypatch) 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
     follow_up = asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "hello"}]},
+            {
+                "model": "pipe-model",
+                "messages": [
+                    {"role": "assistant", "content": proposal},
+                    {"role": "user", "content": "hello"},
+                ],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-pending-unrelated-followup",
         )
     )
 
-    assert proposal == (
+    assert proposal.startswith(
         "This is what I think the directive is:\nuse docker\nApply it? (y/n)"
     )
     assert follow_up == {"choices": [{"message": {"content": "downstream"}}]}
@@ -455,7 +537,7 @@ def test_no_stale_pending_proposal_remains_after_non_approval_response(
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
-    asyncio.run(
+    proposal = asyncio.run(
         pipe.pipe(
             {
                 "model": "pipe-model",
@@ -468,9 +550,15 @@ def test_no_stale_pending_proposal_remains_after_non_approval_response(
     )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
-    asyncio.run(
+    follow_up = asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "hello"}]},
+            {
+                "model": "pipe-model",
+                "messages": [
+                    {"role": "assistant", "content": proposal},
+                    {"role": "user", "content": "hello"},
+                ],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-no-stale-pending",
@@ -478,7 +566,18 @@ def test_no_stale_pending_proposal_remains_after_non_approval_response(
     )
     later_yes = asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "yes"}]},
+            {
+                "model": "pipe-model",
+                "messages": [
+                    {"role": "assistant", "content": proposal},
+                    {"role": "user", "content": "hello"},
+                    {
+                        "role": "assistant",
+                        "content": follow_up["choices"][0]["message"]["content"],
+                    },
+                    {"role": "user", "content": "yes"},
+                ],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-no-stale-pending",
@@ -587,7 +686,7 @@ def test_local_update_and_no_directive_passthrough_preserve_host_behavior(
         )
     )
 
-    assert proposal == (
+    assert proposal.startswith(
         "This is what I think the directive is:\nuse docker\nApply it? (y/n)"
     )
     assert passthrough == {"choices": [{"message": {"content": "downstream"}}]}
@@ -730,7 +829,7 @@ def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exis
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
-    asyncio.run(
+    proposal = asyncio.run(
         pipe.pipe(
             {
                 "model": "pipe-model",
@@ -743,7 +842,13 @@ def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exis
     )
     asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "y"}]},
+            {
+                "model": "pipe-model",
+                "messages": [
+                    {"role": "assistant", "content": proposal},
+                    {"role": "user", "content": "y"},
+                ],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__=chat_id,
