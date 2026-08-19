@@ -2,7 +2,7 @@
 title: Context Compiler Open WebUI Pipe
 author: rlippmann
 author_url: https://github.com/rlippmann/context-compiler-example-integrations
-version: 0.9.4
+version: 0.10.0
 requirements: context-compiler>=0.9.0dev13
 
 Minimal Open WebUI Pipe integration for Context Compiler.
