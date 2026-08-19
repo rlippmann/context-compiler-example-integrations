@@ -140,8 +140,8 @@ Suggested verification:
 - Send `please use docker` and confirm either:
   - the Directive Drafter converts it into a local state update, or
   - trace shows the turn followed the normal compiler path without a silent state change
-- When a canonical directive is drafted, keep the approval response in the conversation and send `y`; confirm the next request returns `State updated.` and `show state` reports `Use: docker`.
-- Repeat the draft flow with `n`; confirm the pipe returns `Directive discarded. No state change was applied.` and `show state` remains unchanged.
+- When a canonical directive is drafted, confirm the native Open WebUI approval dialog; accepting it returns `State updated.` and `show state` reports `Use: docker`.
+- Repeat the draft flow and reject it in the native confirmation dialog; confirm the pipe returns `Directive discarded. No state change was applied.` and `show state` remains unchanged.
 - Send `please use docker`, then `prohibit docker`, and confirm the second request is rejected without creating resumable state
 - Send `use docker and prohibit peanuts` and confirm the pipe responds locally that multiple directives are not supported and must be submitted separately
 - Send a normal prompt such as `what should I run?` and confirm trace shows a forwarded turn with compiler state included
@@ -150,26 +150,27 @@ Advanced check:
 
 - If you have a local proxy or stub, inspect the forwarded request and confirm it contains exactly one `[[cc_state]]` system message reflecting the active state.
 - Confirm that saved premise appears as `Premise: ...` and saved policy appears as `Use: ...` or `Prohibit: ...`.
-- Confirm that the approval response remains in the Open WebUI message history between the draft and the `y`/`n` request. The pipe stores the pending canonical directive in a host-visible conversation marker, restores it as a `CanonicalDirective`, and strips the marker before downstream model calls.
+- Confirm that the approval prompt is a native Open WebUI confirmation dialog and that no approval marker or pending directive is added to the conversation transcript.
 
 ### Optional extra checks
 
 If you want a slightly broader manual pass:
 
 - verify chat isolation with separate real chat ids
-- verify a pending approval survives chat continuation, including pipe object replacement, while the conversation transcript is retained
-- verify this does not imply that authoritative state survives a server restart; engine state is lost after restart because these examples do not use external persistence
+- verify the native confirmation flow does not depend on pipe object lifetime
+- verify authoritative engine state is lost after restart because these examples do not use external persistence
 - verify non-text input is bypassed
 
 ### Notes
 
 - Trace is the easiest way to verify behavior from the Open WebUI chat output.
+- Native approval requires an active Open WebUI browser session because `__event_call__` waits for the confirmation response during the current request.
 - Forwarded-request inspection is optional and most useful when you already have a local proxy or stub.
 - Exact `show state` is a local-state check and does not rely on trace output.
 
 ## Limits
 
-- Pending approval survives chat continuation only when Open WebUI resends the prior assistant message in the conversation transcript
+- Approval state is held only for the active native confirmation call; no pending approval state is stored in chat content
 - Authoritative state does not survive a server restart; it remains in-memory because these examples have no durable external persistence
 - No multi-worker or cross-process guarantees
 - No Redis, DB, or external storage for checkpoints
