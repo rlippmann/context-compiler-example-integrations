@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createEngine, type EngineState } from "@rlippmann/context-compiler";
+import { Engine } from "@rlippmann/context-compiler";
+import { engineFromState, snapshotState, type CompilerState } from "../src/compiler-state.js";
 
 import {
   BOARD_UPDATE_CONTEXT,
@@ -17,7 +18,7 @@ import {
   styleLabelsFromState
 } from "../src/index.js";
 
-function conciseProhibitedState(): EngineState {
+function conciseProhibitedState(): CompilerState {
   return {
     version: 2,
     premise: null,
@@ -26,7 +27,7 @@ function conciseProhibitedState(): EngineState {
 }
 
 test("default prompt with absent state", () => {
-  const engine = createEngine();
+  const engine = new Engine();
 
   const result = preparePromptTurn(
     engine,
@@ -34,7 +35,7 @@ test("default prompt with absent state", () => {
     "Please review this draft."
   );
 
-  assert.equal(result.decisionKind, "passthrough");
+  assert.equal(result.decisionKind, "no_directive");
   assert.deepEqual(result.messages, [
     { role: "system", content: DEFAULT_SYSTEM_PROMPT },
     { role: "user", content: "Please review this draft." }
@@ -46,7 +47,7 @@ test("default prompt with absent state", () => {
 });
 
 test("board update premise adds context only", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`set premise ${BOARD_UPDATE_CONTEXT}`);
 
   const result = preparePromptTurn(
@@ -62,7 +63,7 @@ test("board update premise adds context only", () => {
 });
 
 test("concise style policy adds constraint only", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`use ${CONCISE_STYLE}`);
 
   const result = preparePromptTurn(
@@ -81,7 +82,7 @@ test("concise style policy adds constraint only", () => {
 });
 
 test("premise and policy can shape prompt together", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`set premise ${BOARD_UPDATE_CONTEXT}`);
   engine.step(`use ${CONCISE_STYLE}`);
 
@@ -98,7 +99,7 @@ test("premise and policy can shape prompt together", () => {
 });
 
 test("changed premise swaps context", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`set premise ${BOARD_UPDATE_CONTEXT}`);
 
   const result = preparePromptTurn(
@@ -119,7 +120,7 @@ test("changed premise swaps context", () => {
 });
 
 test("prohibited style is not applied", () => {
-  const engine = createEngine({ state: conciseProhibitedState() });
+  const engine = engineFromState(conciseProhibitedState());
 
   const result = preparePromptTurn(
     engine,
@@ -132,7 +133,7 @@ test("prohibited style is not applied", () => {
 });
 
 test("adversarial user text does not override saved premise or policy", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`set premise ${BOARD_UPDATE_CONTEXT}`);
   engine.step(`use ${CONCISE_STYLE}`);
 
@@ -151,7 +152,7 @@ test("adversarial user text does not override saved premise or policy", () => {
 });
 
 test("invalid premise lifecycle produces clarification behavior", () => {
-  const engine = createEngine();
+  const engine = new Engine();
 
   const result = preparePromptTurn(
     engine,
@@ -159,7 +160,7 @@ test("invalid premise lifecycle produces clarification behavior", () => {
     "Please rewrite this paragraph."
   );
 
-  assert.equal(result.decisionKind, "clarify");
+  assert.equal(result.decisionKind, "error");
   assert.deepEqual(result.messages, []);
   assert.equal(result.modelCallReady, false);
   assert.equal(
@@ -173,7 +174,7 @@ test("invalid premise lifecycle produces clarification behavior", () => {
 });
 
 test("contradictory policy directives produce clarification behavior", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`use ${CONCISE_STYLE}`);
 
   const result = preparePromptTurn(
@@ -182,7 +183,7 @@ test("contradictory policy directives produce clarification behavior", () => {
     "Please rewrite this paragraph."
   );
 
-  assert.equal(result.decisionKind, "clarify");
+  assert.equal(result.decisionKind, "error");
   assert.deepEqual(result.messages, []);
   assert.equal(result.modelCallReady, false);
   assert.equal(
@@ -196,11 +197,11 @@ test("contradictory policy directives produce clarification behavior", () => {
 });
 
 test("buildPromptMessages can include premise and policy", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`set premise ${BOARD_UPDATE_CONTEXT}`);
   engine.step(`use ${CONCISE_STYLE}`);
 
-  const result = buildPromptMessages(engine.state, "Revise this announcement.");
+  const result = buildPromptMessages(snapshotState(engine), "Revise this announcement.");
 
   assert.equal(result.premise, BOARD_UPDATE_CONTEXT);
   assert.deepEqual(result.styleLabels, [CONCISE_STYLE]);

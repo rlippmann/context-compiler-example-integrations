@@ -3,7 +3,8 @@ import test from "node:test";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createEngine } from "@rlippmann/context-compiler";
+import { Engine } from "@rlippmann/context-compiler";
+import { engineFromState, snapshotState } from "../src/compiler-state.js";
 
 import { runLiveModelTurn } from "../src/live_model.js";
 
@@ -40,11 +41,11 @@ test(
     assert.equal(absentResult.executed, false);
     assert.deepEqual(readJsonl(artifactPath), []);
 
-    const allowedEngine = createEngine();
+    const allowedEngine = new Engine();
     allowedEngine.step("use calendar_admin");
     const allowedResult = await runLiveModelTurn({
       userIntent: USER_INTENT,
-      authoritativeState: allowedEngine.state,
+      authoritativeState: snapshotState(allowedEngine),
       artifactPath
     });
 
@@ -63,12 +64,12 @@ test(
 
     const clarifyResult = await runLiveModelTurn({
       userIntent: USER_INTENT,
-      authoritativeState: allowedEngine.state,
+      authoritativeState: snapshotState(allowedEngine),
       compilerInput: "prohibit calendar_admin",
       artifactPath
     });
 
-    assert.equal(clarifyResult.decisionKind, "clarify");
+    assert.equal(clarifyResult.decisionKind, "error");
     assert.equal(clarifyResult.executed, false);
     assert.equal(readJsonl(artifactPath).length, 1);
   }

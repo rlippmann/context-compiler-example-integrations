@@ -1,14 +1,16 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
-import {
-  createEngine,
-  type EngineState
-} from "@rlippmann/context-compiler";
+import { Engine } from "@rlippmann/context-compiler";
 
 import {
   buildGenerateObjectRequest,
   type StructuredSchemaName
 } from "./index.js";
+import {
+  engineFromState,
+  snapshotState,
+  type CompilerState
+} from "./compiler-state.js";
 
 export type LiveProviderConfig = {
   apiKey: string;
@@ -42,18 +44,18 @@ export function resolveLiveProviderConfig(): LiveProviderConfig {
 
 export async function runLiveGenerateObject(input: {
   prompt: string;
-  authoritativeState?: EngineState;
+  authoritativeState?: CompilerState;
   compilerInput?: string;
 }): Promise<LiveGenerateObjectResult> {
-  const engine = createEngine(
-    input.authoritativeState ? { state: input.authoritativeState } : undefined
-  );
+  const engine = input.authoritativeState
+    ? engineFromState(input.authoritativeState)
+    : new Engine();
 
   if (input.compilerInput) {
     engine.step(input.compilerInput);
   }
 
-  const request = buildGenerateObjectRequest(engine.state, input.prompt);
+  const request = buildGenerateObjectRequest(snapshotState(engine), input.prompt);
 
   if (request === null) {
     return {

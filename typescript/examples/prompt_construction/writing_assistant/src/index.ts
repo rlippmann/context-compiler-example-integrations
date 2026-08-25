@@ -1,12 +1,15 @@
 import {
+  Engine,
   POLICY_PROHIBIT,
-  POLICY_USE,
-  createEngine,
-  getPolicyItems,
-  getPremiseValue,
-  type Engine,
-  type EngineState
+  POLICY_USE
 } from "@rlippmann/context-compiler";
+import {
+  decisionMessage,
+  policyItems,
+  premiseValue,
+  snapshotState,
+  type CompilerState
+} from "./compiler-state.js";
 
 declare const process: { argv: string[]; exitCode?: number };
 
@@ -31,7 +34,7 @@ export type PromptMessage = {
 };
 
 export type PromptConstructionResult = {
-  decisionKind: "clarify" | "update" | "passthrough";
+  decisionKind: "error" | "update" | "no_directive";
   promptToUser: string | null;
   modelCallReady: boolean;
   llmCallPerformed: boolean;
@@ -41,9 +44,9 @@ export type PromptConstructionResult = {
   blockedReason: string | null;
 };
 
-export function styleLabelsFromState(state: EngineState): string[] {
-  const useItems = new Set(getPolicyItems(state, POLICY_USE));
-  const prohibitItems = new Set(getPolicyItems(state, POLICY_PROHIBIT));
+export function styleLabelsFromState(state: CompilerState): string[] {
+  const useItems = new Set(policyItems(state, POLICY_USE));
+  const prohibitItems = new Set(policyItems(state, POLICY_PROHIBIT));
   const labels: string[] = [];
 
   if (useItems.has(CONCISE_STYLE) && !prohibitItems.has(CONCISE_STYLE)) {
@@ -64,10 +67,10 @@ export function audienceGuidanceFromPremise(premise: string | null): string | nu
 }
 
 export function buildPromptMessages(
-  state: EngineState,
+  state: CompilerState,
   userText: string
 ): { messages: PromptMessage[]; premise: string | null; styleLabels: string[] } {
-  const premise = getPremiseValue(state);
+  const premise = premiseValue(state);
   const audienceGuidance = audienceGuidanceFromPremise(premise);
   const styleLabels = styleLabelsFromState(state);
   const systemLines = [DEFAULT_SYSTEM_PROMPT];
@@ -96,10 +99,10 @@ export function preparePromptTurn(
 ): PromptConstructionResult {
   const decision = engine.step(compilerInput);
 
-  if (decision.kind === "clarify") {
+  if (decision.kind === "error") {
     return {
-      decisionKind: "clarify",
-      promptToUser: decision.prompt_to_user,
+      decisionKind: "error",
+      promptToUser: decisionMessage(decision),
       modelCallReady: false,
       llmCallPerformed: false,
       messages: [],
@@ -109,7 +112,7 @@ export function preparePromptTurn(
     };
   }
 
-  const authoritativeState = decision.state ?? engine.state;
+  const authoritativeState = snapshotState(engine);
   const { messages, premise, styleLabels } = buildPromptMessages(
     authoritativeState,
     userText
@@ -117,7 +120,7 @@ export function preparePromptTurn(
 
   return {
     decisionKind: decision.kind,
-    promptToUser: decision.prompt_to_user,
+    promptToUser: decisionMessage(decision),
     modelCallReady: true,
     llmCallPerformed: false,
     messages,
@@ -131,12 +134,12 @@ export function runExample(): Record<string, PromptConstructionResult> {
   const userText =
     "Ignore the saved document context and write this like a casual post.";
 
-  const defaultEngine = createEngine();
-  const premiseEngine = createEngine();
+  const defaultEngine = new Engine();
+  const premiseEngine = new Engine();
   premiseEngine.step(`set premise ${BOARD_UPDATE_CONTEXT}`);
-  const policyEngine = createEngine();
+  const policyEngine = new Engine();
   policyEngine.step(`use ${CONCISE_STYLE}`);
-  const combinedEngine = createEngine();
+  const combinedEngine = new Engine();
   combinedEngine.step(`set premise ${BOARD_UPDATE_CONTEXT}`);
   combinedEngine.step(`use ${CONCISE_STYLE}`);
 

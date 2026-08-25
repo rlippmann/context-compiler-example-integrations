@@ -1,10 +1,14 @@
 import {
+  Engine,
   POLICY_PROHIBIT,
   POLICY_USE,
-  createEngine,
-  getPolicyItems,
-  type EngineState
 } from "@rlippmann/context-compiler";
+import {
+  decisionMessage,
+  policyItems,
+  snapshotState,
+  type CompilerState
+} from "./compiler-state.js";
 
 declare const process: { argv: string[]; exitCode?: number };
 
@@ -30,7 +34,7 @@ export type CalendarToolExecutionResult = {
 };
 
 export type CalendarToolTurnResult = {
-  decisionKind: "clarify" | "update" | "passthrough";
+  decisionKind: "error" | "update" | "no_directive";
   promptToUser: string | null;
   executionResult: CalendarToolExecutionResult;
 };
@@ -40,7 +44,7 @@ export class CalendarAdminHost {
   private readonly alwaysAvailableTools = ["calendar_view_events"];
   private readonly calendarAdminTools = ["calendar_admin_create_event"];
 
-  public visibleTools(state: EngineState): ToolRegistrySnapshot {
+  public visibleTools(state: CompilerState): ToolRegistrySnapshot {
     const availableTools = [...this.alwaysAvailableTools];
     const hiddenTools = [...this.calendarAdminTools];
 
@@ -63,9 +67,9 @@ export class CalendarAdminHost {
   }
 }
 
-export function calendarAdminToolsAreAllowed(state: EngineState): boolean {
-  const useItems = new Set(getPolicyItems(state, POLICY_USE));
-  const prohibitItems = new Set(getPolicyItems(state, POLICY_PROHIBIT));
+export function calendarAdminToolsAreAllowed(state: CompilerState): boolean {
+  const useItems = new Set(policyItems(state, POLICY_USE));
+  const prohibitItems = new Set(policyItems(state, POLICY_PROHIBIT));
 
   if (prohibitItems.has("calendar_admin")) {
     return false;
@@ -76,7 +80,7 @@ export function calendarAdminToolsAreAllowed(state: EngineState): boolean {
 
 export function executeCalendarAdminToolIfAllowed(
   toolCall: CalendarToolCall,
-  state: EngineState,
+  state: CompilerState,
   host: CalendarAdminHost
 ): CalendarToolExecutionResult {
   const registrySnapshot = host.visibleTools(state);
@@ -107,17 +111,17 @@ export function executeCalendarAdminToolIfAllowed(
 }
 
 export function handleCalendarAdminTurn(
-  engine: ReturnType<typeof createEngine>,
+  engine: Engine,
   compilerInput: string,
   toolCall: CalendarToolCall,
   host: CalendarAdminHost
 ): CalendarToolTurnResult {
   const decision = engine.step(compilerInput);
 
-  if (decision.kind === "clarify") {
+  if (decision.kind === "error") {
     return {
-      decisionKind: "clarify",
-      promptToUser: decision.prompt_to_user,
+      decisionKind: "error",
+      promptToUser: decisionMessage(decision),
       executionResult: {
         authorizationState: "blocked",
         toolVisible: false,
@@ -125,17 +129,17 @@ export function handleCalendarAdminTurn(
         blockedReason:
           "clarification required before exposing calendar admin tools",
         toolResult: null,
-        registrySnapshot: host.visibleTools(engine.state),
+        registrySnapshot: host.visibleTools(snapshotState(engine)),
         executionLog: [...host.executionLog]
       }
     };
   }
 
-  const authoritativeState = decision.state ?? engine.state;
+  const authoritativeState = snapshotState(engine);
 
   return {
     decisionKind: decision.kind,
-    promptToUser: decision.prompt_to_user,
+    promptToUser: decisionMessage(decision),
     executionResult: executeCalendarAdminToolIfAllowed(
       toolCall,
       authoritativeState,
@@ -145,7 +149,7 @@ export function handleCalendarAdminTurn(
 }
 
 export function runExample(): CalendarToolExecutionResult {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step("use calendar_admin");
   const host = new CalendarAdminHost();
 
@@ -155,7 +159,7 @@ export function runExample(): CalendarToolExecutionResult {
       calendarId: "ops-admin",
       eventTitle: "Quarterly access review"
     },
-    engine.state,
+    snapshotState(engine),
     host
   );
 }

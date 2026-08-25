@@ -1,10 +1,14 @@
 import {
+  Engine,
   POLICY_PROHIBIT,
   POLICY_USE,
-  createEngine,
-  getPolicyItems,
-  type EngineState
 } from "@rlippmann/context-compiler";
+import {
+  decisionMessage,
+  policyItems,
+  snapshotState,
+  type CompilerState
+} from "./compiler-state.js";
 
 declare const process: { argv: string[]; exitCode?: number };
 
@@ -35,13 +39,13 @@ export type McpToolExecutionResult = {
 };
 
 export type McpToolTurnResult = {
-  decisionKind: "clarify" | "update" | "passthrough";
+  decisionKind: "error" | "update" | "no_directive";
   promptToUser: string | null;
   executionResult: McpToolExecutionResult;
 };
 
 export type McpDecisionResult = {
-  decisionKind: "clarify" | "update" | "passthrough";
+  decisionKind: "error" | "update" | "no_directive";
   promptToUser: string | null;
   exposedTools: ExposedMcpTools;
 };
@@ -63,7 +67,7 @@ export class CalendarAdminMcpHost {
     }
   ];
 
-  public exposedMcpTools(state: EngineState): ExposedMcpTools {
+  public exposedMcpTools(state: CompilerState): ExposedMcpTools {
     const tools = [...this.alwaysAvailableTools];
     let hiddenToolNames = this.calendarAdminTools.map((tool) => tool.name);
 
@@ -86,9 +90,9 @@ export class CalendarAdminMcpHost {
   }
 }
 
-export function calendarAdminMcpToolsAreAllowed(state: EngineState): boolean {
-  const useItems = new Set(getPolicyItems(state, POLICY_USE));
-  const prohibitItems = new Set(getPolicyItems(state, POLICY_PROHIBIT));
+export function calendarAdminMcpToolsAreAllowed(state: CompilerState): boolean {
+  const useItems = new Set(policyItems(state, POLICY_USE));
+  const prohibitItems = new Set(policyItems(state, POLICY_PROHIBIT));
 
   if (prohibitItems.has("calendar_admin")) {
     return false;
@@ -99,7 +103,7 @@ export function calendarAdminMcpToolsAreAllowed(state: EngineState): boolean {
 
 export function executeMcpToolIfAllowed(
   toolCall: McpToolCall,
-  state: EngineState,
+  state: CompilerState,
   host: CalendarAdminMcpHost
 ): McpToolExecutionResult {
   const exposedTools = host.exposedMcpTools(state);
@@ -130,17 +134,17 @@ export function executeMcpToolIfAllowed(
 }
 
 export function handleMcpToolTurn(
-  engine: ReturnType<typeof createEngine>,
+  engine: Engine,
   compilerInput: string,
   toolCall: McpToolCall,
   host: CalendarAdminMcpHost
 ): McpToolTurnResult {
   const decision = engine.step(compilerInput);
 
-  if (decision.kind === "clarify") {
+  if (decision.kind === "error") {
     return {
-      decisionKind: "clarify",
-      promptToUser: decision.prompt_to_user,
+      decisionKind: "error",
+      promptToUser: decisionMessage(decision),
       executionResult: {
         authorizationState: "blocked",
         toolVisible: false,
@@ -148,47 +152,47 @@ export function handleMcpToolTurn(
         blockedReason:
           "clarification required before exposing calendar admin MCP tools",
         toolResult: null,
-        exposedTools: host.exposedMcpTools(engine.state),
+        exposedTools: host.exposedMcpTools(snapshotState(engine)),
         executionLog: [...host.executionLog]
       }
     };
   }
 
-  const authoritativeState = decision.state ?? engine.state;
+  const authoritativeState = snapshotState(engine);
 
   return {
     decisionKind: decision.kind,
-    promptToUser: decision.prompt_to_user,
+    promptToUser: decisionMessage(decision),
     executionResult: executeMcpToolIfAllowed(toolCall, authoritativeState, host)
   };
 }
 
 export function describeExposedMcpTools(
-  engine: ReturnType<typeof createEngine>,
+  engine: Engine,
   compilerInput: string,
   host: CalendarAdminMcpHost
 ): McpDecisionResult {
   const decision = engine.step(compilerInput);
 
-  if (decision.kind === "clarify") {
+  if (decision.kind === "error") {
     return {
-      decisionKind: "clarify",
-      promptToUser: decision.prompt_to_user,
-      exposedTools: host.exposedMcpTools(engine.state)
+      decisionKind: "error",
+      promptToUser: decisionMessage(decision),
+      exposedTools: host.exposedMcpTools(snapshotState(engine))
     };
   }
 
-  const authoritativeState = decision.state ?? engine.state;
+  const authoritativeState = snapshotState(engine);
 
   return {
     decisionKind: decision.kind,
-    promptToUser: decision.prompt_to_user,
+    promptToUser: decisionMessage(decision),
     exposedTools: host.exposedMcpTools(authoritativeState)
   };
 }
 
 export function runExample(): McpToolExecutionResult {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step("use calendar_admin");
   const host = new CalendarAdminMcpHost();
 
@@ -200,7 +204,7 @@ export function runExample(): McpToolExecutionResult {
         event_title: "Quarterly access review"
       }
     },
-    engine.state,
+    snapshotState(engine),
     host
   );
 }

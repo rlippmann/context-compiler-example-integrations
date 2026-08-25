@@ -21,4 +21,5 @@ In both variants:
 
 - `@rlippmann/context-compiler` remains the authority over saved state
 - runtime behavior changes stay observable even if the model is replaced by a stub
-- checkpoint persistence preserves saved state and pending `clarify` / `confirm` flows
+- checkpoint persistence preserves saved premise and policy state; 0.9 does not
+  expose pending `clarify` / `confirm` flows

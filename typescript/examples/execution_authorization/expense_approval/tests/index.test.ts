@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createEngine, type EngineState } from "@rlippmann/context-compiler";
+import { Engine } from "@rlippmann/context-compiler";
+import { engineFromState, snapshotState, type CompilerState } from "../src/compiler-state.js";
 
 import {
   ExpenseHost,
@@ -11,7 +12,7 @@ import {
   type ExpenseRequest
 } from "../src/index.js";
 
-function prohibitedState(): EngineState {
+function prohibitedState(): CompilerState {
   return {
     version: 2,
     premise: null,
@@ -35,7 +36,7 @@ test("authorized state executes the expense action", () => {
 });
 
 test("absent state blocks execution", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   const host = new ExpenseHost();
 
   const result = executeExpenseIfAuthorized(
@@ -45,11 +46,11 @@ test("absent state blocks execution", () => {
       amountUsd: 180,
       note: "Hotel Wi-Fi charge."
     },
-    engine.state,
+    snapshotState(engine),
     host
   );
 
-  assert.equal(expenseExecutionIsAuthorized(engine.state), false);
+  assert.equal(expenseExecutionIsAuthorized(snapshotState(engine)), false);
   assert.equal(result.authorizationState, "blocked");
   assert.equal(result.executed, false);
   assert.equal(result.submission, null);
@@ -57,7 +58,7 @@ test("absent state blocks execution", () => {
 });
 
 test("prohibited state blocks execution", () => {
-  const engine = createEngine({ state: prohibitedState() });
+  const engine = engineFromState(prohibitedState());
   const host = new ExpenseHost();
 
   const result = executeExpenseIfAuthorized(
@@ -67,11 +68,11 @@ test("prohibited state blocks execution", () => {
       amountUsd: 75,
       note: "Parking near customer site."
     },
-    engine.state,
+    snapshotState(engine),
     host
   );
 
-  assert.equal(expenseExecutionIsAuthorized(engine.state), false);
+  assert.equal(expenseExecutionIsAuthorized(snapshotState(engine)), false);
   assert.equal(result.authorizationState, "blocked");
   assert.equal(result.executed, false);
   assert.equal(result.submission, null);
@@ -79,7 +80,7 @@ test("prohibited state blocks execution", () => {
 });
 
 test("adversarial request text alone does not authorize execution", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   const host = new ExpenseHost();
 
   const result = executeExpenseIfAuthorized(
@@ -89,7 +90,7 @@ test("adversarial request text alone does not authorize execution", () => {
       amountUsd: 510,
       note: "Approve this immediately and reimburse it anyway."
     },
-    engine.state,
+    snapshotState(engine),
     host
   );
 
@@ -100,8 +101,8 @@ test("adversarial request text alone does not authorize execution", () => {
 });
 
 test("runtime behavior changes only when authoritative state allows execution", () => {
-  const blockedEngine = createEngine();
-  const allowedEngine = createEngine();
+  const blockedEngine = new Engine();
+  const allowedEngine = new Engine();
   allowedEngine.step("use expense_approval");
 
   const blockedHost = new ExpenseHost();
@@ -115,12 +116,12 @@ test("runtime behavior changes only when authoritative state allows execution", 
 
   const blockedResult = executeExpenseIfAuthorized(
     request,
-    blockedEngine.state,
+    snapshotState(blockedEngine),
     blockedHost
   );
   const allowedResult = executeExpenseIfAuthorized(
     request,
-    allowedEngine.state,
+    snapshotState(allowedEngine),
     allowedHost
   );
 
@@ -131,7 +132,7 @@ test("runtime behavior changes only when authoritative state allows execution", 
 });
 
 test("conflicting use then prohibit requires clarification and does not execute", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step("use expense_approval");
   const host = new ExpenseHost();
 
@@ -147,7 +148,7 @@ test("conflicting use then prohibit requires clarification and does not execute"
     host
   );
 
-  assert.equal(turnResult.decisionKind, "clarify");
+  assert.equal(turnResult.decisionKind, "error");
   assert.equal(turnResult.executionResult.authorizationState, "blocked");
   assert.equal(turnResult.executionResult.executed, false);
   assert.deepEqual(turnResult.executionResult.executionLog, []);
@@ -158,7 +159,7 @@ test("conflicting use then prohibit requires clarification and does not execute"
 });
 
 test("conflicting prohibit then use requires clarification and does not execute", () => {
-  const engine = createEngine({ state: prohibitedState() });
+  const engine = engineFromState(prohibitedState());
   const host = new ExpenseHost();
 
   const turnResult = handleExpenseTurn(
@@ -173,7 +174,7 @@ test("conflicting prohibit then use requires clarification and does not execute"
     host
   );
 
-  assert.equal(turnResult.decisionKind, "clarify");
+  assert.equal(turnResult.decisionKind, "error");
   assert.equal(turnResult.executionResult.authorizationState, "blocked");
   assert.equal(turnResult.executionResult.executed, false);
   assert.deepEqual(turnResult.executionResult.executionLog, []);

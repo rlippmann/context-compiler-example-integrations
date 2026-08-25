@@ -1,15 +1,16 @@
 # Checkpoint continuation
 
-Restoring a saved checkpoint changes whether a fresh host process can resume
-and apply a pending itinerary change. This example shows checkpoint
-continuation in a generic TypeScript travel-booking flow.
+Restoring saved compiler state lets a fresh host process continue from the same
+authoritative state. This example shows the 0.9 JSON state format in a generic
+TypeScript travel-booking flow.
 
 ## Domain
 
 The domain is a small travel-booking change flow.
 
 The user requests a change from the current itinerary to a new itinerary.
-That change requires confirmation before the host applies it.
+The compiler rejects a replacement unless the old itinerary already has an
+active `use` policy.
 
 ## Runtime
 
@@ -24,13 +25,10 @@ It does not use directive drafter.
 Context Compiler owns:
 
 - authoritative policy state
-- the pending confirmation continuation state
-- the checkpoint that captures both
+- the JSON state snapshot that captures it
 
-In this example, the pending checkpoint state is what makes the resumed
-confirmation meaningful.
-
-Restoring authoritative state alone is not enough to resume the pending change.
+Context Compiler 0.9 does not expose pending clarification or confirmation
+state. A saved state restores only premise and policy data.
 
 ## What the host owns
 
@@ -56,11 +54,10 @@ state changes.
 
 1. The host starts with a booking on `boston_trip`.
 2. The user initiates a switch to `chicago_trip`.
-3. Context Compiler enters a pending confirmation state.
-4. The host exports and persists the checkpoint.
-5. A fresh host process restores that checkpoint into a new engine.
-6. If the user confirms, the host applies the itinerary change.
-7. If the user rejects or sends unrelated text, the booking remains unchanged.
+3. Context Compiler returns a semantic error because `boston_trip` is not active.
+4. The host exports and persists the unchanged JSON state.
+5. A fresh host process restores that state into a new engine.
+6. A later `yes` input is `no_directive`; it does not resolve a pending change.
 
 ## Install
 

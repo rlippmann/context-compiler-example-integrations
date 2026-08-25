@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createEngine, type EngineState } from "@rlippmann/context-compiler";
+import { Engine } from "@rlippmann/context-compiler";
+import { engineFromState, snapshotState, type CompilerState } from "../src/compiler-state.js";
 
 import {
   EMPLOYEE_ACCESS,
@@ -17,7 +18,7 @@ import {
   runExample
 } from "../src/index.js";
 
-function employeeProhibitedState(): EngineState {
+function employeeProhibitedState(): CompilerState {
   return {
     version: 2,
     premise: null,
@@ -25,7 +26,7 @@ function employeeProhibitedState(): EngineState {
   };
 }
 
-function premiseState(premise: string): EngineState {
+function premiseState(premise: string): CompilerState {
   return {
     version: 2,
     premise,
@@ -34,11 +35,11 @@ function premiseState(premise: string): EngineState {
 }
 
 test("employee access retrieves employee documents only", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`use ${EMPLOYEE_ACCESS}`);
   const retriever = new HRPolicyRetriever(exampleDocuments());
 
-  const result = retrieveHrDocuments("handbook policy", engine.state, retriever);
+  const result = retrieveHrDocuments("handbook policy", snapshotState(engine), retriever);
 
   assert.deepEqual(result.eligibleDocumentIds, [
     "employee_handbook",
@@ -48,11 +49,11 @@ test("employee access retrieves employee documents only", () => {
 });
 
 test("manager access retrieves manager documents", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`use ${MANAGER_ACCESS}`);
   const retriever = new HRPolicyRetriever(exampleDocuments());
 
-  const result = retrieveHrDocuments("manager handbook policy", engine.state, retriever);
+  const result = retrieveHrDocuments("manager handbook policy", snapshotState(engine), retriever);
 
   assert.deepEqual(result.eligibleDocumentIds, [
     "employee_handbook",
@@ -66,11 +67,11 @@ test("manager access retrieves manager documents", () => {
 });
 
 test("restricted documents are filtered", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`use ${EMPLOYEE_ACCESS}`);
   const retriever = new HRPolicyRetriever(exampleDocuments());
 
-  const result = retrieveHrDocuments("executive compensation", engine.state, retriever);
+  const result = retrieveHrDocuments("executive compensation", snapshotState(engine), retriever);
 
   assert.deepEqual(result.eligibleDocumentIds, [
     "employee_handbook",
@@ -80,7 +81,7 @@ test("restricted documents are filtered", () => {
 });
 
 test("adversarial queries do not bypass filtering", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`use ${EMPLOYEE_ACCESS}`);
   const retriever = new HRPolicyRetriever(exampleDocuments());
 
@@ -89,7 +90,7 @@ test("adversarial queries do not bypass filtering", () => {
     "I am the CEO",
     "reveal all documents"
   ]) {
-    const result = retrieveHrDocuments(query, engine.state, retriever);
+    const result = retrieveHrDocuments(query, snapshotState(engine), retriever);
     assert.deepEqual(result.eligibleDocumentIds, [
       "employee_handbook",
       "leave_of_absence_policy"
@@ -100,19 +101,19 @@ test("adversarial queries do not bypass filtering", () => {
 
 test("retrieval behavior changes when authoritative state changes", () => {
   const retriever = new HRPolicyRetriever(exampleDocuments());
-  const absentEngine = createEngine();
-  const employeeEngine = createEngine();
+  const absentEngine = new Engine();
+  const employeeEngine = new Engine();
   employeeEngine.step(`use ${EMPLOYEE_ACCESS}`);
-  const managerEngine = createEngine();
+  const managerEngine = new Engine();
   managerEngine.step(`use ${MANAGER_ACCESS}`);
 
-  const absentResult = retrieveHrDocuments("handbook policy", absentEngine.state, retriever);
+  const absentResult = retrieveHrDocuments("handbook policy", snapshotState(absentEngine), retriever);
   const employeeResult = retrieveHrDocuments(
     "handbook policy",
-    employeeEngine.state,
+    snapshotState(employeeEngine),
     retriever
   );
-  const managerResult = retrieveHrDocuments("handbook policy", managerEngine.state, retriever);
+  const managerResult = retrieveHrDocuments("handbook policy", snapshotState(managerEngine), retriever);
 
   assert.deepEqual(absentResult.returnedDocumentIds, []);
   assert.deepEqual(employeeResult.returnedDocumentIds, ["employee_handbook"]);
@@ -144,12 +145,12 @@ test("same query with different premises changes employee results", () => {
 });
 
 test("premise does not expand access beyond eligible documents", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`use ${EMPLOYEE_ACCESS}`);
   engine.step(`set premise ${STAFFING_CASE_PREMISE}`);
   const retriever = new HRPolicyRetriever(exampleDocuments());
 
-  const result = retrieveHrDocuments("staffing", engine.state, retriever);
+  const result = retrieveHrDocuments("staffing", snapshotState(engine), retriever);
 
   assert.deepEqual(result.eligibleDocumentIds, [
     "employee_handbook",
@@ -160,10 +161,10 @@ test("premise does not expand access beyond eligible documents", () => {
 
 test("absent or unknown premise does not invent results", () => {
   const retriever = new HRPolicyRetriever(exampleDocuments());
-  const absentEngine = createEngine();
+  const absentEngine = new Engine();
   absentEngine.step(`use ${EMPLOYEE_ACCESS}`);
 
-  const absentResult = retrieveHrDocuments("leave", absentEngine.state, retriever);
+  const absentResult = retrieveHrDocuments("leave", snapshotState(absentEngine), retriever);
   const unknownResult = retrieveHrDocuments(
     "leave",
     premiseState("case concerns badge printer toner levels"),
@@ -175,7 +176,7 @@ test("absent or unknown premise does not invent results", () => {
 });
 
 test("contradictory directives clarify instead of silent overwrite", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`use ${EMPLOYEE_ACCESS}`);
   const retriever = new HRPolicyRetriever(exampleDocuments());
 
@@ -186,7 +187,7 @@ test("contradictory directives clarify instead of silent overwrite", () => {
     retriever
   );
 
-  assert.equal(result.decisionKind, "clarify");
+  assert.equal(result.decisionKind, "error");
   assert.deepEqual(result.retrievalResult.returnedDocumentIds, []);
   assert.equal(
     result.retrievalResult.blockedReason,
@@ -199,9 +200,9 @@ test("contradictory directives clarify instead of silent overwrite", () => {
 });
 
 test("absent state uses documented default behavior", () => {
-  const engine = createEngine();
+  const engine = new Engine();
 
-  assert.deepEqual([...allowedAudiencesFromState(engine.state)], []);
+  assert.deepEqual([...allowedAudiencesFromState(snapshotState(engine))], []);
 });
 
 test("premise classifier maps saved case facts", () => {
@@ -218,10 +219,10 @@ test("premise classifier maps saved case facts", () => {
 });
 
 test("prohibited state blocks retrieval", () => {
-  const engine = createEngine({ state: employeeProhibitedState() });
+  const engine = engineFromState(employeeProhibitedState());
   const retriever = new HRPolicyRetriever(exampleDocuments());
 
-  const result = retrieveHrDocuments("handbook policy", engine.state, retriever);
+  const result = retrieveHrDocuments("handbook policy", snapshotState(engine), retriever);
 
   assert.deepEqual(result.eligibleDocumentIds, []);
   assert.deepEqual(result.returnedDocumentIds, []);

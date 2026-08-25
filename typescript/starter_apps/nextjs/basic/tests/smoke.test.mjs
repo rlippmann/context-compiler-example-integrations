@@ -23,14 +23,14 @@ test("missing sessionId or input returns validation error", async () => {
   assert.deepEqual(result.json, { error: "sessionId and input are required" });
 });
 
-test("clarify returns no downstream request payload", async () => {
+test("semantic errors return no downstream request payload", async () => {
   const result = await postJson({
     sessionId: "nextjs-basic-clarify",
     input: "use podman instead of docker"
   });
 
   assert.equal(result.status, 200);
-  assert.equal(result.json.kind, "clarify");
+  assert.equal(result.json.kind, "error");
   assert.equal(typeof result.json.promptToUser, "string");
   assert.ok(!("requestPayload" in result.json));
   assert.ok(!("output" in result.json));
@@ -39,12 +39,12 @@ test("clarify returns no downstream request payload", async () => {
 test("repeated sessionId persists checkpoint behavior across turns", async () => {
   const sessionId = "nextjs-basic-persist";
   const first = await postJson({ sessionId, input: "use podman instead of docker" });
-  assert.equal(first.json.kind, "clarify");
+  assert.equal(first.json.kind, "error");
 
   const second = await postJson({ sessionId, input: "yes" });
   assert.equal(second.json.kind, "continue");
   assert.equal(typeof second.json.requestPayload?.systemPrompt, "string");
-  assert.match(second.json.requestPayload.systemPrompt, /USE: podman/);
+  assert.doesNotMatch(second.json.requestPayload.systemPrompt, /USE: podman/);
 });
 
 test("historical messages stay downstream-only and do not mutate compiler state", async () => {
@@ -61,10 +61,10 @@ test("historical messages stay downstream-only and do not mutate compiler state"
   assert.deepEqual(result.json.requestPayload.history, [{ role: "user", content: "prohibit peanuts" }]);
 });
 
-test("pending clarification survives checkpoint restore and resolves on later current turn", async () => {
+test("an error does not create pending compiler state", async () => {
   const sessionId = "nextjs-basic-checkpoint-clarify";
   const first = await postJson({ sessionId, input: "use podman instead of docker" });
-  assert.equal(first.json.kind, "clarify");
+  assert.equal(first.json.kind, "error");
 
   const second = await postJson({
     sessionId,
@@ -73,7 +73,7 @@ test("pending clarification survives checkpoint restore and resolves on later cu
   });
   assert.equal(second.status, 200);
   assert.equal(second.json.kind, "continue");
-  assert.match(second.json.requestPayload.systemPrompt, /USE: podman/);
+  assert.doesNotMatch(second.json.requestPayload.systemPrompt, /USE: podman/);
   assert.doesNotMatch(second.json.requestPayload.systemPrompt, /PROHIBIT: peanuts/);
 });
 

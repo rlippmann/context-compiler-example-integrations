@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createEngine } from "@rlippmann/context-compiler";
+import { Engine } from "@rlippmann/context-compiler";
+import { engineFromState, snapshotState } from "../src/compiler-state.js";
 
 import { runLiveGenerateObject } from "../src/live_model.js";
 
@@ -21,24 +22,24 @@ test(
       object: null
     });
 
-    const refundEngine = createEngine();
+    const refundEngine = new Engine();
     refundEngine.step("use refund_intake");
 
     const refundResult = await runLiveGenerateObject({
       prompt: USER_PROMPT,
-      authoritativeState: refundEngine.state
+      authoritativeState: snapshotState(refundEngine)
     });
 
     assert.equal(refundResult.called, true);
     assert.equal(refundResult.schemaName, "refund_intake");
     assertRefundIntakeObject(refundResult.object);
 
-    const supportEngine = createEngine();
+    const supportEngine = new Engine();
     supportEngine.step("use technical_support");
 
     const supportResult = await runLiveGenerateObject({
       prompt: USER_PROMPT,
-      authoritativeState: supportEngine.state
+      authoritativeState: snapshotState(supportEngine)
     });
 
     assert.equal(supportResult.called, true);

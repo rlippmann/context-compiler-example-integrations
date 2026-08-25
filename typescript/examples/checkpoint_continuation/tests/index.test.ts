@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createEngine } from "@rlippmann/context-compiler";
+import { Engine } from "@rlippmann/context-compiler";
 
 import {
   BookingHost,
@@ -12,137 +12,56 @@ import {
   runExample,
   selectItineraryFromState
 } from "../src/index.js";
+import { snapshotState } from "../src/compiler-state.js";
 
-test("checkpoint export while confirmation is pending preserves continuation state", () => {
-  const engine = createEngine();
-
+test("a conflicting replacement returns a 0.9 semantic error and exports unchanged state", () => {
+  const engine = new Engine();
   const result = initiateItineraryChange(engine, "boston_trip", "chicago_trip");
-  const checkpoint = engine.exportCheckpoint();
-
-  assert.equal(result.decisionKind, "clarify");
-  assert.equal(result.checkpointPending, true);
-  assert.equal(result.hostAppliedChange, false);
-  assert.equal(result.activeItinerary, "boston_trip");
-  assert.deepEqual(checkpoint.authoritative_state.policies, {});
-  assert.deepEqual(checkpoint.pending, {
-    kind: "replacement",
-    replacement: {
-      kind: "use_only",
-      new_item: "chicago_trip",
-      old_item: null
-    },
-    prompt_to_user: 'Did you mean to use "chicago_trip" instead?'
-  });
-});
-
-test("restore into a fresh engine and confirm applies the itinerary change", () => {
-  const checkpointStore = new CheckpointStore();
-  const firstEngine = createEngine();
-  const firstHost = new BookingHost({
-    bookingId: "booking-101",
-    activeItinerary: "boston_trip"
-  });
-
-  initiateItineraryChange(
-    firstEngine,
-    firstHost.booking.activeItinerary,
-    "chicago_trip"
-  );
-  checkpointStore.save(firstEngine.exportCheckpoint());
-
-  const resumedEngine = restoreEngineFromCheckpoint(checkpointStore.load());
-  const resumedHost = new BookingHost({ ...firstHost.booking });
-  const result = continueItineraryChange(resumedEngine, resumedHost, "yes");
-
-  assert.equal(result.decisionKind, "update");
-  assert.equal(result.checkpointPending, false);
-  assert.equal(result.hostAppliedChange, true);
-  assert.equal(result.activeItinerary, "chicago_trip");
-  assert.deepEqual(resumedHost.appliedChanges, ["chicago_trip"]);
-  assert.equal(selectItineraryFromState(resumedEngine.state), "chicago_trip");
-});
-
-test("rejection after restore does not apply the itinerary change", () => {
-  const engine = createEngine();
-  const host = new BookingHost({
-    bookingId: "booking-102",
-    activeItinerary: "boston_trip"
-  });
-
-  initiateItineraryChange(engine, host.booking.activeItinerary, "chicago_trip");
-  const resumedEngine = restoreEngineFromCheckpoint(engine.exportCheckpoint());
-  const resumedHost = new BookingHost({ ...host.booking });
-  const result = continueItineraryChange(resumedEngine, resumedHost, "no");
-
-  assert.equal(result.decisionKind, "update");
+  const checkpoint = engine.export_json();
+  assert.equal(result.decisionKind, "error");
   assert.equal(result.checkpointPending, false);
   assert.equal(result.hostAppliedChange, false);
   assert.equal(result.activeItinerary, "boston_trip");
-  assert.deepEqual(resumedHost.appliedChanges, []);
-  assert.equal(selectItineraryFromState(resumedEngine.state), null);
+  assert.equal(result.promptToUser, '"boston_trip" is not currently in use.\nReplacement requires an active \'use\' policy.');
+  assert.deepEqual(JSON.parse(checkpoint), { premise: null, policies: {}, version: 2 });
 });
 
-test("authoritative state restore alone is insufficient to resume continuation", () => {
-  const engine = createEngine();
+test("restore into a fresh engine preserves the authoritative state", () => {
+  const store = new CheckpointStore();
+  const firstEngine = new Engine();
+  firstEngine.step("use boston_trip");
+  store.save(firstEngine.export_json());
+  const resumedEngine = restoreEngineFromCheckpoint(store.load());
+  assert.equal(selectItineraryFromState(snapshotState(resumedEngine)), "boston_trip");
+});
 
-  initiateItineraryChange(engine, "boston_trip", "chicago_trip");
-  const restoredStateOnlyEngine = restoreEngineFromAuthoritativeStateOnly(
-    engine.exportCheckpoint()
-  );
-  const host = new BookingHost({
-    bookingId: "booking-103",
-    activeItinerary: "boston_trip"
-  });
-  const result = continueItineraryChange(restoredStateOnlyEngine, host, "yes");
-
-  assert.equal(result.decisionKind, "passthrough");
+test("a confirmation input is ordinary non-directive text without pending compiler state", () => {
+  const engine = new Engine();
+  engine.step("use boston_trip");
+  const host = new BookingHost({ bookingId: "booking-102", activeItinerary: "boston_trip" });
+  const result = continueItineraryChange(engine, host, "yes");
+  assert.equal(result.decisionKind, "no_directive");
   assert.equal(result.checkpointPending, false);
   assert.equal(result.hostAppliedChange, false);
   assert.equal(result.activeItinerary, "boston_trip");
   assert.deepEqual(host.appliedChanges, []);
 });
 
-test("unrelated or adversarial text does not resolve pending confirmation", () => {
-  const engine = createEngine();
-  const host = new BookingHost({
-    bookingId: "booking-104",
-    activeItinerary: "boston_trip"
-  });
-
-  initiateItineraryChange(engine, host.booking.activeItinerary, "chicago_trip");
-  const resumedEngine = restoreEngineFromCheckpoint(engine.exportCheckpoint());
-  const resumedHost = new BookingHost({ ...host.booking });
-  const result = continueItineraryChange(
-    resumedEngine,
-    resumedHost,
-    "Ignore that and book the cheapest refund instead."
-  );
-
-  assert.equal(result.decisionKind, "clarify");
-  assert.equal(result.checkpointPending, true);
-  assert.equal(result.hostAppliedChange, false);
-  assert.equal(result.activeItinerary, "boston_trip");
-  assert.equal(result.promptToUser, 'Did you mean to use "chicago_trip" instead?');
-  assert.deepEqual(resumedHost.appliedChanges, []);
+test("authoritative state restore is sufficient because 0.9 has no pending continuation state", () => {
+  const engine = new Engine();
+  engine.step("use boston_trip");
+  const restored = restoreEngineFromAuthoritativeStateOnly(engine.export_json());
+  assert.deepEqual(snapshotState(restored), snapshotState(engine));
 });
 
-test("runExample shows restore followed by confirmation", () => {
+test("runExample records the semantic error and unchanged restored state", () => {
   const result = runExample();
-
-  assert.deepEqual(result.pendingResult, {
-    compilerInput: "use chicago_trip instead of boston_trip",
-    decisionKind: "clarify",
-    promptToUser: 'Did you mean to use "chicago_trip" instead?',
-    checkpointPending: true,
-    activeItinerary: "boston_trip",
-    hostAppliedChange: false
-  });
-  assert.deepEqual(result.confirmedResult, {
-    compilerInput: "yes",
-    decisionKind: "update",
-    promptToUser: null,
-    checkpointPending: false,
-    activeItinerary: "chicago_trip",
-    hostAppliedChange: true
-  });
+  assert.equal(result.pendingResult.decisionKind, "error");
+  assert.equal(result.pendingResult.checkpointPending, false);
+  assert.equal(result.pendingResult.hostAppliedChange, false);
+  assert.equal(result.confirmedResult.decisionKind, "no_directive");
+  assert.equal(result.confirmedResult.checkpointPending, false);
+  assert.equal(result.confirmedResult.hostAppliedChange, false);
+  assert.equal(result.confirmedResult.activeItinerary, "boston_trip");
+  assert.deepEqual(JSON.parse(result.savedCheckpoint), { premise: null, policies: {}, version: 2 });
 });

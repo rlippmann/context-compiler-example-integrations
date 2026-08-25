@@ -3,7 +3,8 @@ import test from "node:test";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createEngine } from "@rlippmann/context-compiler";
+import { Engine } from "@rlippmann/context-compiler";
+import { engineFromState, snapshotState } from "../src/compiler-state.js";
 
 import {
   runLiveModelTurn,
@@ -48,12 +49,12 @@ test("absent state keeps protected tool hidden from model-visible surface", asyn
 
 test("authorized state exposes protected tool and records side effect", async () => {
   const artifactPath = tempArtifactPath();
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step("use calendar_admin");
 
   const result = await runLiveModelTurn({
     userIntent: USER_INTENT,
-    authoritativeState: engine.state,
+    authoritativeState: snapshotState(engine),
     artifactPath,
     modelToolSelector: async (): Promise<SelectedToolCall> => ({
       name: "calendar_admin_create_event",
@@ -77,13 +78,13 @@ test("authorized state exposes protected tool and records side effect", async ()
 
 test("contradiction blocks before model tool selection", async () => {
   const artifactPath = tempArtifactPath();
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step("use calendar_admin");
   let modelCalled = false;
 
   const result = await runLiveModelTurn({
     userIntent: USER_INTENT,
-    authoritativeState: engine.state,
+    authoritativeState: snapshotState(engine),
     compilerInput: "prohibit calendar_admin",
     artifactPath,
     modelToolSelector: async (): Promise<SelectedToolCall> => {
@@ -98,7 +99,7 @@ test("contradiction blocks before model tool selection", async () => {
     }
   });
 
-  assert.equal(result.decisionKind, "clarify");
+  assert.equal(result.decisionKind, "error");
   assert.equal(result.executed, false);
   assert.equal(modelCalled, false);
   assert.deepEqual(readJsonl(artifactPath), []);
