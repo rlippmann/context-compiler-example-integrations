@@ -9,34 +9,53 @@ import {
 
 declare const process: { argv: string[]; exitCode?: number };
 
-export type Checkpoint = string;
+export type PersistedState = string;
 
 export type BookingRecord = {
   bookingId: string;
   activeItinerary: string;
 };
 
-export type BookingChangeResult = {
+export type BookingChangeRuntimeResult = {
   compilerInput: string;
   decisionKind: "error" | "update" | "no_directive";
-  promptToUser: string | null;
+  messageToUser: string | null;
+  persistedStateJson: PersistedState;
+  selectedItinerary: string | null;
+  hostAppliedChange: boolean;
   activeItinerary: string;
-  hostAppliedChange: false;
 };
 
-export class CheckpointStore {
-  private savedCheckpoint: Checkpoint | null = null;
+export class EnginePersistenceStore {
+  private savedStateJson: PersistedState | null = null;
 
-  public save(checkpoint: Checkpoint): void {
-    this.savedCheckpoint = checkpoint;
+  public save(stateJson: PersistedState): void {
+    this.savedStateJson = stateJson;
   }
 
-  public load(): Checkpoint {
-    if (this.savedCheckpoint === null) {
-      throw new Error("no checkpoint saved");
+  public load(): PersistedState {
+    if (this.savedStateJson === null) {
+      throw new Error("no saved state");
     }
 
-    return this.savedCheckpoint;
+    return this.savedStateJson;
+  }
+}
+
+export class BookingHost {
+  public readonly appliedChanges: string[] = [];
+
+  public constructor(public readonly booking: BookingRecord) {}
+
+  public applySelectedItinerary(state: CompilerState): boolean {
+    const selectedItinerary = selectItineraryFromState(state);
+    if (selectedItinerary === null) {
+      return false;
+    }
+
+    this.booking.activeItinerary = selectedItinerary;
+    this.appliedChanges.push(selectedItinerary);
+    return true;
   }
 }
 
@@ -58,58 +77,75 @@ function decisionKindName(
   return decision.kind;
 }
 
-export function initiateItineraryChange(
+export function persistItinerarySelection(
   engine: Engine,
-  currentItinerary: string,
   requestedItinerary: string
-): BookingChangeResult {
-  const compilerInput = `use ${requestedItinerary} instead of ${currentItinerary}`;
+): BookingChangeRuntimeResult {
+  const compilerInput = `use ${requestedItinerary}`;
   const decision = engine.step(compilerInput);
+  const persistedStateJson = engine.export_json();
+  const state = snapshotState(engine);
+  const selectedItinerary = selectItineraryFromState(state);
 
   return {
     compilerInput,
     decisionKind: decisionKindName(decision),
-    promptToUser: decisionMessage(decision),
-    activeItinerary: selectItineraryFromState(snapshotState(engine)) ?? currentItinerary,
-    hostAppliedChange: false
+    messageToUser: decisionMessage(decision),
+    persistedStateJson,
+    selectedItinerary,
+    hostAppliedChange: false,
+    activeItinerary: selectedItinerary ?? "boston_trip"
   };
 }
 
-export function restoreEngineFromCheckpoint(checkpoint: Checkpoint): Engine {
+export function restoreEngineFromPersistedState(stateJson: PersistedState): Engine {
   const engine = new Engine();
-  engine.import_json(checkpoint);
+  engine.import_json(stateJson);
   return engine;
 }
 
-export function restoreEngineFromAuthoritativeStateOnly(checkpoint: Checkpoint): Engine {
-  return restoreEngineFromCheckpoint(checkpoint);
+export function applyRestoredItinerary(
+  engine: Engine,
+  host: BookingHost
+): BookingChangeRuntimeResult {
+  const state = snapshotState(engine);
+  const hostAppliedChange = host.applySelectedItinerary(state);
+  const selectedItinerary = selectItineraryFromState(state);
+
+  return {
+    compilerInput: "",
+    decisionKind: hostAppliedChange ? "update" : "no_directive",
+    messageToUser: null,
+    persistedStateJson: engine.export_json(),
+    selectedItinerary,
+    hostAppliedChange,
+    activeItinerary: host.booking.activeItinerary
+  };
 }
 
 export function runExample(): {
-  initialResult: BookingChangeResult;
-  restoredState: CompilerState;
-  savedCheckpoint: Checkpoint;
+  persistedResult: BookingChangeRuntimeResult;
+  appliedResult: BookingChangeRuntimeResult;
+  savedStateJson: PersistedState;
 } {
   const initialBooking: BookingRecord = {
     bookingId: "booking-100",
     activeItinerary: "boston_trip"
   };
   const firstEngine = new Engine();
-  const checkpointStore = new CheckpointStore();
+  const persistenceStore = new EnginePersistenceStore();
 
-  const initialResult = initiateItineraryChange(
-    firstEngine,
-    initialBooking.activeItinerary,
-    "chicago_trip"
-  );
-  checkpointStore.save(firstEngine.export_json());
+  const persistedResult = persistItinerarySelection(firstEngine, "chicago_trip");
+  persistenceStore.save(persistedResult.persistedStateJson);
 
-  const restoredEngine = restoreEngineFromCheckpoint(checkpointStore.load());
+  const restoredEngine = restoreEngineFromPersistedState(persistenceStore.load());
+  const restoredHost = new BookingHost({ ...initialBooking });
+  const appliedResult = applyRestoredItinerary(restoredEngine, restoredHost);
 
   return {
-    initialResult,
-    restoredState: snapshotState(restoredEngine),
-    savedCheckpoint: checkpointStore.load()
+    persistedResult,
+    appliedResult,
+    savedStateJson: persistenceStore.load()
   };
 }
 

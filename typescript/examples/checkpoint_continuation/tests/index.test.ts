@@ -3,56 +3,100 @@ import test from "node:test";
 import { Engine } from "@rlippmann/context-compiler";
 
 import {
-  CheckpointStore,
-  initiateItineraryChange,
-  restoreEngineFromAuthoritativeStateOnly,
-  restoreEngineFromCheckpoint,
+  BookingHost,
+  EnginePersistenceStore,
+  applyRestoredItinerary,
+  persistItinerarySelection,
+  restoreEngineFromPersistedState,
   runExample,
   selectItineraryFromState
 } from "../src/index.js";
 import { snapshotState } from "../src/compiler-state.js";
 
-test("a conflicting replacement returns a semantic error and exports unchanged state", () => {
+test("use chicago_trip produces authoritative use state", () => {
   const engine = new Engine();
-  const result = initiateItineraryChange(engine, "boston_trip", "chicago_trip");
-  const checkpoint = engine.export_json();
 
-  assert.equal(result.decisionKind, "error");
+  const result = persistItinerarySelection(engine, "chicago_trip");
+
+  assert.equal(result.decisionKind, "update");
+  assert.equal(result.messageToUser, null);
+  assert.equal(result.selectedItinerary, "chicago_trip");
   assert.equal(result.hostAppliedChange, false);
-  assert.equal(result.activeItinerary, "boston_trip");
-  assert.equal(
-    result.promptToUser,
-    '"boston_trip" is not currently in use.\nReplacement requires an active \'use\' policy.'
-  );
-  assert.deepEqual(JSON.parse(checkpoint), { premise: null, policies: {}, version: 2 });
+  assert.deepEqual(snapshotState(engine), {
+    premise: null,
+    policies: { chicago_trip: "use" },
+    version: 2
+  });
 });
 
-test("restore into a fresh engine preserves authoritative policy state", () => {
-  const store = new CheckpointStore();
+test("exported JSON contains the authoritative itinerary state", () => {
+  const engine = new Engine();
+
+  const result = persistItinerarySelection(engine, "chicago_trip");
+
+  assert.deepEqual(JSON.parse(result.persistedStateJson), {
+    premise: null,
+    policies: { chicago_trip: "use" },
+    version: 2
+  });
+});
+
+test("a fresh engine restores chicago_trip from persisted state", () => {
   const firstEngine = new Engine();
-  firstEngine.step("use boston_trip");
-  store.save(firstEngine.export_json());
+  const persisted = persistItinerarySelection(firstEngine, "chicago_trip");
 
-  const restoredEngine = restoreEngineFromCheckpoint(store.load());
+  const restoredEngine = restoreEngineFromPersistedState(persisted.persistedStateJson);
 
-  assert.equal(selectItineraryFromState(snapshotState(restoredEngine)), "boston_trip");
+  assert.equal(selectItineraryFromState(snapshotState(restoredEngine)), "chicago_trip");
   assert.deepEqual(snapshotState(restoredEngine), snapshotState(firstEngine));
 });
 
-test("authoritative state restore does not create continuation state", () => {
-  const engine = new Engine();
-  engine.step("use boston_trip");
+test("the host applies the booking change from restored authoritative state", () => {
+  const firstEngine = new Engine();
+  const persisted = persistItinerarySelection(firstEngine, "chicago_trip");
+  const restoredEngine = restoreEngineFromPersistedState(persisted.persistedStateJson);
+  const host = new BookingHost({
+    bookingId: "booking-100",
+    activeItinerary: "boston_trip"
+  });
 
-  const restoredEngine = restoreEngineFromAuthoritativeStateOnly(engine.export_json());
+  const result = applyRestoredItinerary(restoredEngine, host);
 
-  assert.deepEqual(snapshotState(restoredEngine), snapshotState(engine));
+  assert.equal(result.decisionKind, "update");
+  assert.equal(result.selectedItinerary, "chicago_trip");
+  assert.equal(result.hostAppliedChange, true);
+  assert.equal(result.activeItinerary, "chicago_trip");
+  assert.equal(host.booking.activeItinerary, "chicago_trip");
+  assert.deepEqual(host.appliedChanges, ["chicago_trip"]);
 });
 
-test("runExample records the semantic error and restored state", () => {
+test("persistence storage is host-owned and no continuation state is required", () => {
+  const firstEngine = new Engine();
+  const persisted = persistItinerarySelection(firstEngine, "chicago_trip");
+  const store = new EnginePersistenceStore();
+  store.save(persisted.persistedStateJson);
+
+  const restoredEngine = restoreEngineFromPersistedState(store.load());
+
+  assert.equal(restoredEngine.step("yes").kind, "no_directive");
+  assert.equal(selectItineraryFromState(snapshotState(restoredEngine)), "chicago_trip");
+});
+
+test("runExample demonstrates persistence followed by an observable host update", () => {
   const result = runExample();
 
-  assert.equal(result.initialResult.decisionKind, "error");
-  assert.equal(result.initialResult.hostAppliedChange, false);
-  assert.deepEqual(result.restoredState, { premise: null, policies: {}, version: 2 });
-  assert.deepEqual(JSON.parse(result.savedCheckpoint), { premise: null, policies: {}, version: 2 });
+  assert.equal(result.persistedResult.compilerInput, "use chicago_trip");
+  assert.equal(result.persistedResult.decisionKind, "update");
+  assert.equal(result.persistedResult.selectedItinerary, "chicago_trip");
+  assert.equal(result.persistedResult.hostAppliedChange, false);
+  assert.equal(result.appliedResult.compilerInput, "");
+  assert.equal(result.appliedResult.decisionKind, "update");
+  assert.equal(result.appliedResult.selectedItinerary, "chicago_trip");
+  assert.equal(result.appliedResult.hostAppliedChange, true);
+  assert.equal(result.appliedResult.activeItinerary, "chicago_trip");
+  assert.deepEqual(JSON.parse(result.savedStateJson), {
+    premise: null,
+    policies: { chicago_trip: "use" },
+    version: 2
+  });
 });
