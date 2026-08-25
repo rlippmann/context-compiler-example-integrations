@@ -1,11 +1,14 @@
 import {
+  Engine,
   POLICY_PROHIBIT,
   POLICY_USE,
-  createEngine,
-  getPolicyItems,
-  getPremiseValue,
-  type EngineState
 } from "@rlippmann/context-compiler";
+import {
+  policyItems,
+  premiseValue,
+  snapshotState,
+  type CompilerState
+} from "./compiler-state.js";
 import { z, type ZodTypeAny } from "zod";
 
 declare const process: { argv: string[]; exitCode?: number };
@@ -110,13 +113,13 @@ export function selectSchemaFromOrderIntakeContext(
 }
 
 export function selectStructuredSchemasFromState(
-  state: EngineState
+  state: CompilerState
 ): StructuredSchema[] {
-  const useItems = getPolicyItems(state, POLICY_USE).filter(
+  const useItems = policyItems(state, POLICY_USE).filter(
     (item): item is StructuredSchemaName =>
       KNOWN_SCHEMAS.includes(item as StructuredSchemaName)
   );
-  const prohibitItems = new Set(getPolicyItems(state, POLICY_PROHIBIT));
+  const prohibitItems = new Set(policyItems(state, POLICY_PROHIBIT));
 
   if (useItems.length > 0) {
     return useItems
@@ -124,7 +127,7 @@ export function selectStructuredSchemasFromState(
       .map((item) => SCHEMA_REGISTRY[item]);
   }
 
-  const intakeContext = classifyPremiseAsOrderIntakeContext(getPremiseValue(state));
+  const intakeContext = classifyPremiseAsOrderIntakeContext(premiseValue(state));
   const fallbackSchema = selectSchemaFromOrderIntakeContext(intakeContext);
   if (fallbackSchema !== null) {
     return [SCHEMA_REGISTRY[fallbackSchema]];
@@ -134,7 +137,7 @@ export function selectStructuredSchemasFromState(
 }
 
 export function buildGenerateObjectRequest(
-  state: EngineState,
+  state: CompilerState,
   prompt: string
 ): GenerateObjectRequest | null {
   const availableSchemas = selectStructuredSchemasFromState(state);
@@ -152,7 +155,7 @@ export function buildGenerateObjectRequest(
 }
 
 export async function generateStructuredObject<TObject>(
-  state: EngineState,
+  state: CompilerState,
   prompt: string,
   generateObject: GenerateObjectLike<TObject>
 ): Promise<{ request: GenerateObjectRequest; object: TObject } | null> {
@@ -178,18 +181,18 @@ export async function runExample(): Promise<{
     reason: string;
   } | null;
 }> {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step("use refund_intake");
   engine.step("prohibit technical_support");
 
-  const availableSchemas = selectStructuredSchemasFromState(engine.state);
+  const availableSchemas = selectStructuredSchemasFromState(snapshotState(engine));
   const generated = await generateStructuredObject<{
     kind: "refund";
     customerId: string;
     orderId: string;
     reason: string;
   }>(
-    engine.state,
+    snapshotState(engine),
     "Customer customer-123 says: I need a refund for order A-100.",
     async (request) => ({
       object: {

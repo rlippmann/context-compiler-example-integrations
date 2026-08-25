@@ -8,8 +8,8 @@ request flow as source material while keeping this repo's current stand-in
 response style.
 
 `@rlippmann/context-compiler` is enough here. Raw user input goes straight to
-`engine.step(...)`, the compiler decides whether to update state or return
-`clarify`, and the host continues normally.
+`engine.step(...)`, which returns an update, a semantic `error`, or
+`no_directive`, and the host continues normally when no error occurs.
 
 No directive-drafter dependency is used in this variant.
 
@@ -51,5 +51,6 @@ Expected response shape:
 }
 ```
 
-Checkpoints use `exportCheckpointJson()` and `importCheckpointJson()`. That
-preserves saved state and pending `clarify` or `confirm` state across requests.
+Saved state uses `export_json()` and `import_json()`. Context Compiler 0.9
+persists premise and policy state across requests; it does not persist pending
+clarification or confirmation state.

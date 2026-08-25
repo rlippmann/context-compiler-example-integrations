@@ -1,15 +1,15 @@
+import { Engine } from "@rlippmann/context-compiler";
+
 import {
-  POLICY_USE,
-  createEngine,
-  getPolicyItems,
-  type Engine,
-  type EngineCheckpoint,
-  type EngineState
-} from "@rlippmann/context-compiler";
+  decisionMessage,
+  policyItems,
+  snapshotState,
+  type CompilerState
+} from "./compiler-state.js";
 
 declare const process: { argv: string[]; exitCode?: number };
 
-export type Checkpoint = EngineCheckpoint;
+export type Checkpoint = string;
 
 export type BookingRecord = {
   bookingId: string;
@@ -18,7 +18,7 @@ export type BookingRecord = {
 
 export type BookingChangeRuntimeResult = {
   compilerInput: string;
-  decisionKind: "clarify" | "update" | "passthrough";
+  decisionKind: "error" | "update" | "no_directive";
   promptToUser: string | null;
   checkpointPending: boolean;
   activeItinerary: string;
@@ -46,7 +46,7 @@ export class BookingHost {
 
   public constructor(public readonly booking: BookingRecord) {}
 
-  public applySelectedItinerary(state: EngineState): boolean {
+  public applySelectedItinerary(state: CompilerState): boolean {
     const selectedItinerary = selectItineraryFromState(state);
     if (selectedItinerary === null) {
       return false;
@@ -58,20 +58,17 @@ export class BookingHost {
   }
 }
 
-export function selectItineraryFromState(state: EngineState): string | null {
-  const useItems = getPolicyItems(state, POLICY_USE);
-  if (useItems.length === 0) {
-    return null;
-  }
-
-  return useItems[0] ?? null;
+export function selectItineraryFromState(state: CompilerState): string | null {
+  return policyItems(state, "use")[0] ?? null;
 }
 
-function decisionKindName(decision: { kind: string }): "clarify" | "update" | "passthrough" {
+function decisionKindName(
+  decision: { kind: string }
+): "error" | "update" | "no_directive" {
   if (
-    decision.kind !== "clarify" &&
+    decision.kind !== "error" &&
     decision.kind !== "update" &&
-    decision.kind !== "passthrough"
+    decision.kind !== "no_directive"
   ) {
     throw new Error(`unexpected decision kind: ${decision.kind}`);
   }
@@ -90,21 +87,21 @@ export function initiateItineraryChange(
   return {
     compilerInput,
     decisionKind: decisionKindName(decision),
-    promptToUser: decision.prompt_to_user,
-    checkpointPending: engine.hasPendingClarification(),
-    activeItinerary: selectItineraryFromState(engine.state) ?? currentItinerary,
+    promptToUser: decisionMessage(decision),
+    checkpointPending: false,
+    activeItinerary: selectItineraryFromState(snapshotState(engine)) ?? currentItinerary,
     hostAppliedChange: false
   };
 }
 
 export function restoreEngineFromCheckpoint(checkpoint: Checkpoint): Engine {
-  const engine = createEngine();
-  engine.importCheckpoint(checkpoint);
+  const engine = new Engine();
+  engine.import_json(checkpoint);
   return engine;
 }
 
 export function restoreEngineFromAuthoritativeStateOnly(checkpoint: Checkpoint): Engine {
-  return createEngine({ state: checkpoint.authoritative_state });
+  return restoreEngineFromCheckpoint(checkpoint);
 }
 
 export function continueItineraryChange(
@@ -113,17 +110,16 @@ export function continueItineraryChange(
   userInput: string
 ): BookingChangeRuntimeResult {
   const decision = engine.step(userInput);
-  let hostAppliedChange = false;
-
-  if (decisionKindName(decision) === "update") {
-    hostAppliedChange = host.applySelectedItinerary(engine.state);
-  }
+  const hostAppliedChange =
+    decisionKindName(decision) === "update"
+      ? host.applySelectedItinerary(snapshotState(engine))
+      : false;
 
   return {
     compilerInput: userInput,
     decisionKind: decisionKindName(decision),
-    promptToUser: decision.prompt_to_user,
-    checkpointPending: engine.hasPendingClarification(),
+    promptToUser: decisionMessage(decision),
+    checkpointPending: false,
     activeItinerary: host.booking.activeItinerary,
     hostAppliedChange
   };
@@ -139,7 +135,7 @@ export function runExample(): {
     activeItinerary: "boston_trip"
   };
   const firstHost = new BookingHost({ ...initialBooking });
-  const firstEngine = createEngine();
+  const firstEngine = new Engine();
   const checkpointStore = new CheckpointStore();
 
   const pendingResult = initiateItineraryChange(
@@ -147,7 +143,7 @@ export function runExample(): {
     firstHost.booking.activeItinerary,
     "chicago_trip"
   );
-  checkpointStore.save(firstEngine.exportCheckpoint());
+  checkpointStore.save(firstEngine.export_json());
 
   const resumedEngine = restoreEngineFromCheckpoint(checkpointStore.load());
   const resumedHost = new BookingHost({ ...firstHost.booking });

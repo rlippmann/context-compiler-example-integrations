@@ -1,14 +1,11 @@
 import http from "node:http";
-import {
-  DECISION_CLARIFY,
-  POLICY_USE,
-  createEngine,
-  getClarifyPrompt,
-  getPolicyItems,
-  getPremiseValue,
-  isClarify,
-  type EngineState
-} from "@rlippmann/context-compiler";
+import { Engine } from "@rlippmann/context-compiler";
+
+type CompilerState = {
+  premise: string | null;
+  policies: Record<string, "use" | "prohibit">;
+  version: 2;
+};
 
 type ChatMessage = {
   role: string;
@@ -22,7 +19,7 @@ type ChatBody = {
 };
 
 type ChatResponse =
-  | { kind: typeof DECISION_CLARIFY; promptToUser: string | null }
+  | { kind: "error"; promptToUser: string }
   | { kind: "continue"; output: string; systemPrompt: string };
 
 type ChatResult = {
@@ -42,17 +39,18 @@ function saveCheckpoint(sessionId: string, checkpoint: string): void {
   checkpointBySession.set(sessionId, checkpoint);
 }
 
-function stateToSystemPrompt(state: EngineState): string {
-  const useItems = new Set(getPolicyItems(state, POLICY_USE));
-  const policies = getPolicyItems(state)
-    .map((item) => `- ${useItems.has(item) ? "USE" : "PROHIBIT"}: ${item}`)
+function stateToSystemPrompt(state: CompilerState): string {
+  const items = Object.entries(state.policies);
+  const policies = items
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([item, policy]) => `- ${policy === "use" ? "USE" : "PROHIBIT"}: ${item}`)
     .join("\n");
 
   return [
     "You are an assistant operating under compiled context.",
     "",
     "PREMISE:",
-    getPremiseValue(state) ?? "(none)",
+    state.premise ?? "(none)",
     "",
     "POLICIES:",
     policies || "(none)",
@@ -99,24 +97,24 @@ export async function handleChatBody(body: ChatBody): Promise<ChatResult> {
       return { status: 400, payload: { error: "sessionId and input are required" } };
     }
 
-    const engine = createEngine();
+    const engine = new Engine();
     const savedCheckpoint = loadCheckpoint(sessionId);
 
     if (savedCheckpoint) {
-      engine.importCheckpointJson(savedCheckpoint);
+      engine.import_json(savedCheckpoint);
     }
 
     const decision = engine.step(input);
 
-    if (isClarify(decision)) {
-      saveCheckpoint(sessionId, engine.exportCheckpointJson());
+    if (decision.kind === "error") {
+      saveCheckpoint(sessionId, engine.export_json());
       return {
         status: 200,
-        payload: { kind: DECISION_CLARIFY, promptToUser: getClarifyPrompt(decision) } satisfies ChatResponse
+        payload: { kind: "error", promptToUser: decision.message } satisfies ChatResponse
       };
     }
 
-    saveCheckpoint(sessionId, engine.exportCheckpointJson());
+    saveCheckpoint(sessionId, engine.export_json());
 
     return {
       status: 200,
@@ -127,7 +125,7 @@ export async function handleChatBody(body: ChatBody): Promise<ChatResult> {
           "This compiler-only variant returns the compiled prompt instead of calling a live model."
         ].join(" "),
         systemPrompt: [
-          stateToSystemPrompt(engine.state),
+          stateToSystemPrompt({ premise: engine.premise, policies: engine.policies, version: 2 }),
           "",
           "RECENT MESSAGES:",
           JSON.stringify(minimalRecentContext(history), null, 2),

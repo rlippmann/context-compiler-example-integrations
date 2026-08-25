@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createEngine } from "@rlippmann/context-compiler";
+import { Engine } from "@rlippmann/context-compiler";
+import { engineFromState, snapshotState } from "../src/compiler-state.js";
 
 import {
   classifyPremiseAsOrderIntakeContext,
@@ -28,7 +29,7 @@ test("refund_intake state selects the refund workflow", () => {
 });
 
 test("adversarial refund-like wording does not override authoritative state", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step("use refund_intake");
 
   const request: IntakeRequest = {
@@ -38,7 +39,7 @@ test("adversarial refund-like wording does not override authoritative state", ()
   const refundHandler = new IntakeHandler("refund_intake");
   const technicalSupportHandler = new IntakeHandler("technical_support");
 
-  const selectedSchema = selectSchemaFromState(engine.state);
+  const selectedSchema = selectSchemaFromState(snapshotState(engine));
   const result = runIntake(
     request,
     selectedSchema,
@@ -57,7 +58,7 @@ test("adversarial refund-like wording does not override authoritative state", ()
 });
 
 test("technical_support state selects the technical-support workflow", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step("use technical_support");
 
   const request: IntakeRequest = {
@@ -67,7 +68,7 @@ test("technical_support state selects the technical-support workflow", () => {
   const refundHandler = new IntakeHandler("refund_intake");
   const technicalSupportHandler = new IntakeHandler("technical_support");
 
-  const selectedSchema = selectSchemaFromState(engine.state);
+  const selectedSchema = selectSchemaFromState(snapshotState(engine));
   const result = runIntake(
     request,
     selectedSchema,
@@ -131,7 +132,7 @@ test("order-intake context maps to selected schema", () => {
 });
 
 test("damaged physical-item premise selects the refund schema", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`set premise ${DAMAGED_ORDER_PREMISE}`);
 
   const request: IntakeRequest = {
@@ -141,7 +142,7 @@ test("damaged physical-item premise selects the refund schema", () => {
   const refundHandler = new IntakeHandler("refund_intake");
   const technicalSupportHandler = new IntakeHandler("technical_support");
 
-  const selectedSchema = selectSchemaFromState(engine.state);
+  const selectedSchema = selectSchemaFromState(snapshotState(engine));
   const result = runIntake(
     request,
     selectedSchema,
@@ -160,7 +161,7 @@ test("damaged physical-item premise selects the refund schema", () => {
 });
 
 test("digital subscription login-failure premise selects technical support", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`set premise ${DIGITAL_LOGIN_FAILURE_PREMISE}`);
 
   const request: IntakeRequest = {
@@ -170,7 +171,7 @@ test("digital subscription login-failure premise selects technical support", () 
   const refundHandler = new IntakeHandler("refund_intake");
   const technicalSupportHandler = new IntakeHandler("technical_support");
 
-  const selectedSchema = selectSchemaFromState(engine.state);
+  const selectedSchema = selectSchemaFromState(snapshotState(engine));
   const result = runIntake(
     request,
     selectedSchema,
@@ -189,7 +190,7 @@ test("digital subscription login-failure premise selects technical support", () 
 });
 
 test("refund-like wording without state does not select a schema", () => {
-  const engine = createEngine();
+  const engine = new Engine();
 
   const request: IntakeRequest = {
     customerId: "customer-789",
@@ -198,7 +199,7 @@ test("refund-like wording without state does not select a schema", () => {
   const refundHandler = new IntakeHandler("refund_intake");
   const technicalSupportHandler = new IntakeHandler("technical_support");
 
-  const selectedSchema = selectSchemaFromState(engine.state);
+  const selectedSchema = selectSchemaFromState(snapshotState(engine));
   const result = runIntake(
     request,
     selectedSchema,
@@ -213,20 +214,20 @@ test("refund-like wording without state does not select a schema", () => {
 });
 
 test("no relevant state means no schema selection", () => {
-  const engine = createEngine();
+  const engine = new Engine();
 
-  assert.equal(selectSchemaFromState(engine.state), null);
+  assert.equal(selectSchemaFromState(snapshotState(engine)), null);
 });
 
 test("unrelated premise does not select a schema", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step("set premise customer asked about changing a mailing address");
 
-  assert.equal(selectSchemaFromState(engine.state), null);
+  assert.equal(selectSchemaFromState(snapshotState(engine)), null);
 });
 
 test("adversarial user text does not override saved refund premise", () => {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step(`set premise ${DAMAGED_ORDER_PREMISE}`);
 
   const request: IntakeRequest = {
@@ -236,7 +237,7 @@ test("adversarial user text does not override saved refund premise", () => {
   const refundHandler = new IntakeHandler("refund_intake");
   const technicalSupportHandler = new IntakeHandler("technical_support");
 
-  const selectedSchema = selectSchemaFromState(engine.state);
+  const selectedSchema = selectSchemaFromState(snapshotState(engine));
   const result = runIntake(
     request,
     selectedSchema,

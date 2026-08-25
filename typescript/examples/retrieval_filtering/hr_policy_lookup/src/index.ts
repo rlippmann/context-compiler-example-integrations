@@ -1,12 +1,16 @@
 import {
+  Engine,
   POLICY_PROHIBIT,
-  POLICY_USE,
-  createEngine,
-  getPolicyItems,
-  getPremiseValue,
-  type Engine,
-  type EngineState
+  POLICY_USE
 } from "@rlippmann/context-compiler";
+import {
+  decisionMessage,
+  engineFromState,
+  policyItems,
+  premiseValue,
+  snapshotState,
+  type CompilerState
+} from "./compiler-state.js";
 
 declare const process: { argv: string[]; exitCode?: number };
 
@@ -36,7 +40,7 @@ export type RetrievalResult = {
 };
 
 export type RetrievalTurnResult = {
-  decisionKind: "clarify" | "update" | "passthrough";
+  decisionKind: "error" | "update" | "no_directive";
   promptToUser: string | null;
   retrievalResult: RetrievalResult;
 };
@@ -110,9 +114,9 @@ export function exampleDocuments(): PolicyDocument[] {
   ];
 }
 
-export function allowedAudiencesFromState(state: EngineState): Set<string> {
-  const useItems = new Set(getPolicyItems(state, POLICY_USE));
-  const prohibitItems = new Set(getPolicyItems(state, POLICY_PROHIBIT));
+export function allowedAudiencesFromState(state: CompilerState): Set<string> {
+  const useItems = new Set(policyItems(state, POLICY_USE));
+  const prohibitItems = new Set(policyItems(state, POLICY_PROHIBIT));
 
   if (prohibitItems.has(MANAGER_ACCESS)) {
     return new Set();
@@ -185,13 +189,13 @@ export function filterDocumentsByCaseContext(
 
 export function retrieveHrDocuments(
   query: string,
-  state: EngineState,
+  state: CompilerState,
   retriever: HRPolicyRetriever
 ): RetrievalResult {
   return retriever.search(
     query,
     allowedAudiencesFromState(state),
-    classifyPremiseAsCaseContext(getPremiseValue(state))
+    classifyPremiseAsCaseContext(premiseValue(state))
   );
 }
 
@@ -203,10 +207,10 @@ export function handleRetrievalTurn(
 ): RetrievalTurnResult {
   const decision = engine.step(compilerInput);
 
-  if (decision.kind === "clarify") {
+  if (decision.kind === "error") {
     return {
-      decisionKind: "clarify",
-      promptToUser: decision.prompt_to_user,
+      decisionKind: "error",
+      promptToUser: decisionMessage(decision),
       retrievalResult: {
         query,
         eligibleDocumentIds: [],
@@ -216,11 +220,11 @@ export function handleRetrievalTurn(
     };
   }
 
-  const authoritativeState = decision.state ?? engine.state;
+  const authoritativeState = snapshotState(engine);
 
   return {
     decisionKind: decision.kind,
-    promptToUser: decision.prompt_to_user,
+    promptToUser: decisionMessage(decision),
     retrievalResult: retrieveHrDocuments(query, authoritativeState, retriever)
   };
 }
@@ -229,16 +233,16 @@ export function runExample(): Record<string, RetrievalResult> {
   const query = "handbook policy";
   const retriever = new HRPolicyRetriever(exampleDocuments());
 
-  const absentEngine = createEngine();
-  const employeeEngine = createEngine();
+  const absentEngine = new Engine();
+  const employeeEngine = new Engine();
   employeeEngine.step(`use ${EMPLOYEE_ACCESS}`);
-  const managerEngine = createEngine();
+  const managerEngine = new Engine();
   managerEngine.step(`use ${MANAGER_ACCESS}`);
 
   return {
-    absentState: retrieveHrDocuments(query, absentEngine.state, retriever),
-    employeeAccess: retrieveHrDocuments(query, employeeEngine.state, retriever),
-    managerAccess: retrieveHrDocuments(query, managerEngine.state, retriever)
+    absentState: retrieveHrDocuments(query, snapshotState(absentEngine), retriever),
+    employeeAccess: retrieveHrDocuments(query, snapshotState(employeeEngine), retriever),
+    managerAccess: retrieveHrDocuments(query, snapshotState(managerEngine), retriever)
   };
 }
 

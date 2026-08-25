@@ -1,10 +1,14 @@
 import {
+  Engine,
   POLICY_PROHIBIT,
-  POLICY_USE,
-  createEngine,
-  getPolicyItems,
-  type EngineState
+  POLICY_USE
 } from "@rlippmann/context-compiler";
+import {
+  decisionMessage,
+  policyItems,
+  snapshotState,
+  type CompilerState
+} from "./compiler-state.js";
 
 declare const process: { argv: string[]; exitCode?: number };
 
@@ -33,7 +37,7 @@ export type GatewayResult = {
 };
 
 export type GatewayTurnResult = {
-  decisionKind: "clarify" | "update" | "passthrough";
+  decisionKind: "error" | "update" | "no_directive";
   promptToUser: string | null;
   gatewayResult: GatewayResult;
 };
@@ -89,9 +93,9 @@ export class SupportGateway {
   }
 }
 
-export function billingSupportIsAllowed(state: EngineState): boolean {
-  const useItems = new Set(getPolicyItems(state, POLICY_USE));
-  const prohibitItems = new Set(getPolicyItems(state, POLICY_PROHIBIT));
+export function billingSupportIsAllowed(state: CompilerState): boolean {
+  const useItems = new Set(policyItems(state, POLICY_USE));
+  const prohibitItems = new Set(policyItems(state, POLICY_PROHIBIT));
 
   if (prohibitItems.has("billing_support")) {
     return false;
@@ -102,7 +106,7 @@ export function billingSupportIsAllowed(state: EngineState): boolean {
 
 export function routeSupportRequest(
   request: SupportRequest,
-  state: EngineState,
+  state: CompilerState,
   gateway: SupportGateway,
   downstream: SupportService
 ): GatewayResult {
@@ -118,7 +122,7 @@ export function routeSupportRequest(
 }
 
 export function handleGatewayTurn(
-  engine: ReturnType<typeof createEngine>,
+  engine: Engine,
   compilerInput: string,
   request: SupportRequest,
   gateway: SupportGateway,
@@ -126,10 +130,10 @@ export function handleGatewayTurn(
 ): GatewayTurnResult {
   const decision = engine.step(compilerInput);
 
-  if (decision.kind === "clarify") {
+  if (decision.kind === "error") {
     return {
-      decisionKind: "clarify",
-      promptToUser: decision.prompt_to_user,
+      decisionKind: "error",
+      promptToUser: decisionMessage(decision),
       gatewayResult: gateway.block(
         request,
         "clarification required before gateway routing"
@@ -137,11 +141,11 @@ export function handleGatewayTurn(
     };
   }
 
-  const authoritativeState = decision.state ?? engine.state;
+  const authoritativeState = snapshotState(engine);
 
   return {
     decisionKind: decision.kind,
-    promptToUser: decision.prompt_to_user,
+    promptToUser: decisionMessage(decision),
     gatewayResult: routeSupportRequest(
       request,
       authoritativeState,
@@ -152,7 +156,7 @@ export function handleGatewayTurn(
 }
 
 export function runExample(): GatewayResult {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step("use billing_support");
 
   const request: SupportRequest = {
@@ -164,7 +168,7 @@ export function runExample(): GatewayResult {
   const gateway = new SupportGateway();
   const downstream = new SupportService();
 
-  return routeSupportRequest(request, engine.state, gateway, downstream);
+  return routeSupportRequest(request, snapshotState(engine), gateway, downstream);
 }
 
 if (

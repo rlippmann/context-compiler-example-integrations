@@ -1,12 +1,18 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { createEngine, type EngineState } from "@rlippmann/context-compiler";
+import { Engine } from "@rlippmann/context-compiler";
 
 import {
   CalendarAdminMcpHost,
   type McpToolCall,
   type McpToolDefinition
 } from "./index.js";
+import {
+  decisionMessage,
+  engineFromState,
+  snapshotState,
+  type CompilerState
+} from "./compiler-state.js";
 
 export type SideEffectRecord = {
   toolName: string;
@@ -16,7 +22,7 @@ export type SideEffectRecord = {
 };
 
 export type LiveModelResult = {
-  decisionKind: "clarify" | "update" | "passthrough" | null;
+  decisionKind: "error" | "update" | "no_directive" | null;
   promptToUser: string | null;
   exposedToolNames: string[];
   hiddenToolNames: string[];
@@ -279,7 +285,7 @@ async function callLiveModel(input: {
 
 export async function runLiveModelTurn(input: {
   userIntent: string;
-  authoritativeState?: EngineState;
+  authoritativeState?: CompilerState;
   compilerInput?: string;
   artifactPath: string;
   modelToolSelector?: ModelToolSelector;
@@ -293,17 +299,18 @@ export async function runLiveModelTurn(input: {
   } = input;
 
   const host = new CalendarAdminMcpHost();
-  const engine = createEngine(authoritativeState ? { state: authoritativeState } : undefined);
+  const engine = authoritativeState ? engineFromState(authoritativeState) : new Engine();
   const decision = engine.step(compilerInput);
 
-  if (decision.kind === "clarify") {
+  if (decision.kind === "error") {
+    const state = snapshotState(engine);
     return {
-      decisionKind: "clarify",
-      promptToUser: decision.prompt_to_user,
-      exposedToolNames: host.exposedMcpTools(engine.state).tools.map((tool) => tool.name),
-      hiddenToolNames: host.exposedMcpTools(engine.state).hiddenToolNames,
+      decisionKind: "error",
+      promptToUser: decisionMessage(decision),
+      exposedToolNames: host.exposedMcpTools(state).tools.map((tool) => tool.name),
+      hiddenToolNames: host.exposedMcpTools(state).hiddenToolNames,
       protectedToolExposed: host
-        .exposedMcpTools(engine.state)
+        .exposedMcpTools(state)
         .tools.some((tool) => tool.name === "calendar_admin_create_event"),
       selectedToolName: null,
       executed: false,
@@ -315,7 +322,7 @@ export async function runLiveModelTurn(input: {
     };
   }
 
-  const resolvedState = decision.state ?? engine.state;
+  const resolvedState = snapshotState(engine);
   const exposedTools = host.exposedMcpTools(resolvedState);
   const selectedTool = await modelToolSelector({
     userIntent,
@@ -328,7 +335,7 @@ export async function runLiveModelTurn(input: {
   if (selectedTool.name !== "calendar_admin_create_event") {
     return {
       decisionKind: decision.kind,
-      promptToUser: decision.prompt_to_user,
+      promptToUser: decisionMessage(decision),
       exposedToolNames: exposedTools.tools.map((tool) => tool.name),
       hiddenToolNames: exposedTools.hiddenToolNames,
       protectedToolExposed,
@@ -353,7 +360,7 @@ export async function runLiveModelTurn(input: {
 
   return {
     decisionKind: decision.kind,
-    promptToUser: decision.prompt_to_user,
+    promptToUser: decisionMessage(decision),
     exposedToolNames: exposedTools.tools.map((tool) => tool.name),
     hiddenToolNames: exposedTools.hiddenToolNames,
     protectedToolExposed,

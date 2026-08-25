@@ -1,10 +1,14 @@
 import {
+  Engine,
   POLICY_PROHIBIT,
-  POLICY_USE,
-  createEngine,
-  getPolicyItems,
-  type EngineState
+  POLICY_USE
 } from "@rlippmann/context-compiler";
+import {
+  decisionMessage,
+  policyItems,
+  snapshotState,
+  type CompilerState
+} from "./compiler-state.js";
 
 declare const process: { argv: string[]; exitCode?: number };
 
@@ -31,7 +35,7 @@ export type ExpenseExecutionResult = {
 };
 
 export type ExpenseTurnResult = {
-  decisionKind: "clarify" | "update" | "passthrough";
+  decisionKind: "error" | "update" | "no_directive";
   promptToUser: string | null;
   executionResult: ExpenseExecutionResult;
 };
@@ -50,9 +54,9 @@ export class ExpenseHost {
   }
 }
 
-export function expenseExecutionIsAuthorized(state: EngineState): boolean {
-  const useItems = new Set(getPolicyItems(state, POLICY_USE));
-  const prohibitItems = new Set(getPolicyItems(state, POLICY_PROHIBIT));
+export function expenseExecutionIsAuthorized(state: CompilerState): boolean {
+  const useItems = new Set(policyItems(state, POLICY_USE));
+  const prohibitItems = new Set(policyItems(state, POLICY_PROHIBIT));
 
   if (prohibitItems.has("expense_approval")) {
     return false;
@@ -63,7 +67,7 @@ export function expenseExecutionIsAuthorized(state: EngineState): boolean {
 
 export function executeExpenseIfAuthorized(
   request: ExpenseRequest,
-  state: EngineState,
+  state: CompilerState,
   host: ExpenseHost
 ): ExpenseExecutionResult {
   if (!expenseExecutionIsAuthorized(state)) {
@@ -87,17 +91,17 @@ export function executeExpenseIfAuthorized(
 }
 
 export function handleExpenseTurn(
-  engine: ReturnType<typeof createEngine>,
+  engine: Engine,
   compilerInput: string,
   request: ExpenseRequest,
   host: ExpenseHost
 ): ExpenseTurnResult {
   const decision = engine.step(compilerInput);
 
-  if (decision.kind === "clarify") {
+  if (decision.kind === "error") {
     return {
-      decisionKind: "clarify",
-      promptToUser: decision.prompt_to_user,
+      decisionKind: "error",
+      promptToUser: decisionMessage(decision),
       executionResult: {
         authorizationState: "blocked",
         executed: false,
@@ -108,17 +112,17 @@ export function handleExpenseTurn(
     };
   }
 
-  const authoritativeState = decision.state ?? engine.state;
+  const authoritativeState = snapshotState(engine);
 
   return {
     decisionKind: decision.kind,
-    promptToUser: decision.prompt_to_user,
+    promptToUser: decisionMessage(decision),
     executionResult: executeExpenseIfAuthorized(request, authoritativeState, host)
   };
 }
 
 export function runExample(): ExpenseExecutionResult {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step("use expense_approval");
 
   const request: ExpenseRequest = {
@@ -129,7 +133,7 @@ export function runExample(): ExpenseExecutionResult {
   };
   const host = new ExpenseHost();
 
-  return executeExpenseIfAuthorized(request, engine.state, host);
+  return executeExpenseIfAuthorized(request, snapshotState(engine), host);
 }
 
 if (

@@ -38,9 +38,9 @@ Then open `http://localhost:3000` or POST to `http://localhost:3000/api/chat`.
 - no directive-drafter package is used in this variant
 - the route returns the request payload instead of calling a live model
 
-Checkpoints use `exportCheckpointJson()` and `importCheckpointJson()`. That
-preserves saved state and pending `clarify` or `confirm` state across stateless
-requests.
+Saved state uses `export_json()` and `import_json()`. Context Compiler 0.9
+preserves premise and policy state across stateless requests; it does not
+persist pending clarification or confirmation state.
 
 ## Request construction rule
 

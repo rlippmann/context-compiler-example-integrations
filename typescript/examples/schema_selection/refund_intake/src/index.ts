@@ -1,10 +1,13 @@
 import {
+  Engine,
   POLICY_USE,
-  createEngine,
-  getPolicyItems,
-  getPremiseValue,
-  type EngineState
 } from "@rlippmann/context-compiler";
+import {
+  policyItems,
+  premiseValue,
+  snapshotState,
+  type CompilerState
+} from "./compiler-state.js";
 
 declare const process: { argv: string[]; exitCode?: number };
 
@@ -104,9 +107,9 @@ export function selectSchemaFromOrderIntakeContext(
   return SCHEMA_BY_ORDER_INTAKE_CONTEXT[context];
 }
 
-export function selectSchemaFromState(state: EngineState): string | null {
-  const useItems = new Set(getPolicyItems(state, POLICY_USE));
-  const premise = getPremiseValue(state);
+export function selectSchemaFromState(state: CompilerState): string | null {
+  const useItems = new Set(policyItems(state, POLICY_USE));
+  const premise = premiseValue(state);
 
   if (useItems.has("refund_intake")) {
     return "refund_intake";
@@ -138,7 +141,7 @@ export function runIntake(
 }
 
 export function runExample(): IntakeRunResult {
-  const engine = createEngine();
+  const engine = new Engine();
   engine.step("use refund_intake");
 
   const request: IntakeRequest = {
@@ -149,7 +152,7 @@ export function runExample(): IntakeRunResult {
   const refundHandler = new IntakeHandler("refund_intake");
   const technicalSupportHandler = new IntakeHandler("technical_support");
 
-  const selectedSchema = selectSchemaFromState(engine.state);
+  const selectedSchema = selectSchemaFromState(snapshotState(engine));
   const result = runIntake(
     request,
     selectedSchema,
