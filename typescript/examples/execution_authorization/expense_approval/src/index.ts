@@ -105,7 +105,7 @@ export function handleExpenseTurn(
       executionResult: {
         authorizationState: "blocked",
         executed: false,
-        blockedReason: "clarification required before expense execution",
+        blockedReason: "semantic error blocks expense execution",
         submission: null,
         executionLog: [...host.executionLog]
       }

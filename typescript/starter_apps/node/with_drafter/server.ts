@@ -1,5 +1,14 @@
 import http from "node:http";
-import { Engine } from "@rlippmann/context-compiler";
+import {
+  DECISION_CLARIFY,
+  POLICY_USE,
+  createEngine,
+  getClarifyPrompt,
+  getPolicyItems,
+  getPremiseValue,
+  isClarify,
+  type EngineState
+} from "@rlippmann/context-compiler";
 import {
   PREPROCESS_OUTCOME_DIRECTIVE,
   parsePreprocessorOutput,
@@ -18,7 +27,7 @@ type ChatBody = {
 };
 
 type ChatResponse =
-  | { kind: "error"; promptToUser: string }
+  | { kind: typeof DECISION_CLARIFY; promptToUser: string | null }
   | { kind: "continue"; output: string; systemPrompt: string };
 
 type ChatResult = {
@@ -38,17 +47,17 @@ function saveCheckpoint(sessionId: string, checkpoint: string): void {
   checkpointBySession.set(sessionId, checkpoint);
 }
 
-function stateToSystemPrompt(state: { premise: string | null; policies: Record<string, "use" | "prohibit"> }): string {
-  const policies = Object.entries(state.policies)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([item, policy]) => `- ${policy === "use" ? "USE" : "PROHIBIT"}: ${item}`)
+function stateToSystemPrompt(state: EngineState): string {
+  const useItems = new Set(getPolicyItems(state, POLICY_USE));
+  const policies = getPolicyItems(state)
+    .map((item) => `- ${useItems.has(item) ? "USE" : "PROHIBIT"}: ${item}`)
     .join("\n");
 
   return [
     "You are an assistant operating under compiled context.",
     "",
     "PREMISE:",
-    state.premise ?? "(none)",
+    getPremiseValue(state) ?? "(none)",
     "",
     "POLICIES:",
     policies || "(none)",
@@ -71,7 +80,11 @@ function minimalRecentContext(history: ChatMessage[] | undefined) {
     .map((message) => ({ role: message.role, content: message.content }));
 }
 
-function resolveEngineInput(userInput: string): string {
+function resolveEngineInput(engine: ReturnType<typeof createEngine>, userInput: string): string {
+  if (engine.hasPendingClarification()) {
+    return userInput;
+  }
+
   const heuristic = preprocessHeuristic(userInput);
   if (heuristic.outcome !== PREPROCESS_OUTCOME_DIRECTIVE || heuristic.directive === null) {
     return userInput;
@@ -105,25 +118,25 @@ export async function handleChatBody(body: ChatBody): Promise<ChatResult> {
       return { status: 400, payload: { error: "sessionId and input are required" } };
     }
 
-    const engine = new Engine();
+    const engine = createEngine();
     const savedCheckpoint = loadCheckpoint(sessionId);
 
     if (savedCheckpoint) {
-      engine.import_json(savedCheckpoint);
+      engine.importCheckpointJson(savedCheckpoint);
     }
 
-    const engineInput = resolveEngineInput(input);
+    const engineInput = resolveEngineInput(engine, input);
     const decision = engine.step(engineInput);
 
-    if (decision.kind === "error") {
-      saveCheckpoint(sessionId, engine.export_json());
+    if (isClarify(decision)) {
+      saveCheckpoint(sessionId, engine.exportCheckpointJson());
       return {
         status: 200,
-        payload: { kind: "error", promptToUser: decision.message } satisfies ChatResponse
+        payload: { kind: DECISION_CLARIFY, promptToUser: getClarifyPrompt(decision) } satisfies ChatResponse
       };
     }
 
-    saveCheckpoint(sessionId, engine.export_json());
+    saveCheckpoint(sessionId, engine.exportCheckpointJson());
 
     return {
       status: 200,
@@ -134,7 +147,7 @@ export async function handleChatBody(body: ChatBody): Promise<ChatResult> {
           "This example returns the compiled prompt instead of calling a live model."
         ].join(" "),
         systemPrompt: [
-          stateToSystemPrompt({ premise: engine.premise, policies: engine.policies }),
+          stateToSystemPrompt(engine.state),
           "",
           "RECENT MESSAGES:",
           JSON.stringify(minimalRecentContext(history), null, 2),

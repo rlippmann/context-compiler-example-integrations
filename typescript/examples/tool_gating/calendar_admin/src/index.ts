@@ -127,7 +127,7 @@ export function handleCalendarAdminTurn(
         toolVisible: false,
         executed: false,
         blockedReason:
-          "clarification required before exposing calendar admin tools",
+          "semantic error blocks exposing calendar admin tools",
         toolResult: null,
         registrySnapshot: host.visibleTools(snapshotState(engine)),
         executionLog: [...host.executionLog]

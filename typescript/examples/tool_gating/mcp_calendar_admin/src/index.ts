@@ -150,7 +150,7 @@ export function handleMcpToolTurn(
         toolVisible: false,
         executed: false,
         blockedReason:
-          "clarification required before exposing calendar admin MCP tools",
+          "semantic error blocks exposing calendar admin MCP tools",
         toolResult: null,
         exposedTools: host.exposedMcpTools(snapshotState(engine)),
         executionLog: [...host.executionLog]

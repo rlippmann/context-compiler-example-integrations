@@ -27,7 +27,7 @@ prohibit calendar_admin
 ```
 
 The tests cover visible-tool changes, execution blocking, adversarial text, and
-contradiction / clarification behavior.
+contradiction / semantic-error behavior.
 
 ### `mcp_calendar_admin`
 

@@ -131,7 +131,7 @@ test("runtime behavior changes only when authoritative state allows execution", 
   assert.deepEqual(allowedResult.executionLog, ["submitted:expense-104"]);
 });
 
-test("conflicting use then prohibit requires clarification and does not execute", () => {
+test("conflicting use then prohibit returns a semantic error and does not execute", () => {
   const engine = new Engine();
   engine.step("use expense_approval");
   const host = new ExpenseHost();
@@ -158,7 +158,7 @@ test("conflicting use then prohibit requires clarification and does not execute"
   );
 });
 
-test("conflicting prohibit then use requires clarification and does not execute", () => {
+test("conflicting prohibit then use returns a semantic error and does not execute", () => {
   const engine = engineFromState(prohibitedState());
   const host = new ExpenseHost();
 

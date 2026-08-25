@@ -191,7 +191,7 @@ test("omit schema when state does not authorize one", async () => {
   assert.equal(called, false);
 });
 
-test("contradiction clarifies and preserves the previously authorized schema", () => {
+test("contradiction returns an error and preserves the previously authorized schema", () => {
   const engine = new Engine();
   engine.step("use refund_intake");
 

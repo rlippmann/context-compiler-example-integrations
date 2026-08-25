@@ -62,15 +62,15 @@ test(
     assert.equal(allowedResult.executed, true);
     assert.equal(readJsonl(artifactPath).length, 1);
 
-    const clarifyResult = await runLiveModelTurn({
+    const errorResult = await runLiveModelTurn({
       userIntent: USER_INTENT,
       authoritativeState: snapshotState(allowedEngine),
       compilerInput: "prohibit calendar_admin",
       artifactPath
     });
 
-    assert.equal(clarifyResult.decisionKind, "error");
-    assert.equal(clarifyResult.executed, false);
+    assert.equal(errorResult.decisionKind, "error");
+    assert.equal(errorResult.executed, false);
     assert.equal(readJsonl(artifactPath).length, 1);
   }
 );

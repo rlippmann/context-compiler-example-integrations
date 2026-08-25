@@ -30,4 +30,4 @@ The tests cover:
 - prohibited-state hiding and blocking
 - adversarial text that tries to self-authorize
 - runtime behavior changing only when authoritative state changes
-- contradiction and clarification behavior for conflicting `use` and `prohibit`
+- contradiction and semantic-error behavior for conflicting `use` and `prohibit`

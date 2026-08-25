@@ -28,7 +28,7 @@ Context Compiler owns:
 
 - the authoritative access state
 - the authoritative saved case premise
-- clarification behavior for contradictory directives
+- semantic-error behavior for contradictory directives
 
 This example does not call an LLM, does not use directive drafter, and does not
 derive state from model output.
@@ -96,7 +96,7 @@ authoritative state changes. Adversarial query text does not overwrite either
 saved access policy or saved case premise.
 
 If a turn introduces a contradiction such as `use employee_hr_access` followed
-by `prohibit employee_hr_access`, Context Compiler returns a clarification flow
+by `prohibit employee_hr_access`, Context Compiler returns a semantic error
 instead of silently overwriting state. The host blocks that policy-change turn
 rather than treating it as a retrieval override.
 

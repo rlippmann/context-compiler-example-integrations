@@ -132,7 +132,7 @@ test("adversarial text does not bypass gateway decision", () => {
   assert.deepEqual(result.downstreamLog, []);
 });
 
-test("conflicting use then prohibit requires clarification and blocks", () => {
+test("conflicting use then prohibit returns a semantic error and blocks", () => {
   const engine = new Engine();
   engine.step("use billing_support");
   const gateway = new SupportGateway();
@@ -162,7 +162,7 @@ test("conflicting use then prohibit requires clarification and blocks", () => {
   );
 });
 
-test("conflicting prohibit then use requires clarification and blocks", () => {
+test("conflicting prohibit then use returns a semantic error and blocks", () => {
   const engine = engineFromState(prohibitedState());
   const gateway = new SupportGateway();
   const downstream = new SupportService();

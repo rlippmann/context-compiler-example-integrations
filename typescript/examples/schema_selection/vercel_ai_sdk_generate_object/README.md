@@ -84,7 +84,7 @@ Tests assert:
 - omit schema when state does not authorize one
 - adversarial prompt wording does not override saved premise
 - policy still overrides premise when both are present
-- contradiction triggers clarification while preserving the previously
+- contradiction returns a semantic error while preserving the previously
   authorized schema in current state
 
 Primary tests are deterministic and do not call a model.
@@ -115,7 +115,7 @@ The live-model proof stays focused on absent, `refund_intake`, and
 If you probe contradiction separately, the current deterministic behavior is:
 
 - `use refund_intake` followed by `prohibit refund_intake` produces
-  clarification from the compiler
+  semantic error from the compiler
 - the previously authorized `refund_intake` schema remains selected in current
   state until that contradiction is resolved
 

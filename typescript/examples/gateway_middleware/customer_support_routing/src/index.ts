@@ -136,7 +136,7 @@ export function handleGatewayTurn(
       promptToUser: decisionMessage(decision),
       gatewayResult: gateway.block(
         request,
-        "clarification required before gateway routing"
+        "semantic error blocks gateway routing"
       )
     };
   }
