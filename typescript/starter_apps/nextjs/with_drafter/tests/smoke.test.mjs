@@ -136,7 +136,7 @@ test("saved premise appears in returned system prompt", async () => {
   );
 });
 
-test("compound directives stay local and ask for separate inputs", async () => {
+test("compound drafter output keeps the existing raw-input fallback", async () => {
   const result = await postJson({
     sessionId: "nextjs-drafter-compound",
     input: "use docker and prohibit peanuts"

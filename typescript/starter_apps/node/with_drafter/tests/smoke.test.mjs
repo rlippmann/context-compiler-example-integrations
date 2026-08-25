@@ -101,7 +101,7 @@ test("unknown or unsafe drafter output keeps the existing raw-input fallback", a
   assert.equal(result.payload.kind, "continue");
 });
 
-test("compound directives stay local and ask for separate inputs", async () => {
+test("compound drafter output keeps the existing raw-input fallback", async () => {
   const result = await handleChatBody({
     sessionId: "node-drafter-compound",
     input: "use docker and prohibit peanuts"
