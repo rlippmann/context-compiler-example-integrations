@@ -147,7 +147,7 @@ test("runtime behavior changes only when authoritative state allows tool", () =>
   ]);
 });
 
-test("conflicting use then prohibit requires clarification and keeps tool available until resolved", () => {
+test("conflicting use then prohibit returns a semantic error and keeps tool blocked", () => {
   const engine = new Engine();
   engine.step("use calendar_admin");
   const host = new CalendarAdminHost();
@@ -178,7 +178,7 @@ test("conflicting use then prohibit requires clarification and keeps tool availa
   );
 });
 
-test("conflicting prohibit then use requires clarification and keeps tool hidden", () => {
+test("conflicting prohibit then use returns a semantic error and keeps tool hidden", () => {
   const engine = engineFromState(prohibitedState());
   const host = new CalendarAdminHost();
 

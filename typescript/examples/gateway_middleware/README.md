@@ -36,4 +36,4 @@ called.
 
 The tests cover default-path behavior, authorized routing, blocked routing,
 adversarial text, downstream non-invocation when blocked, and contradiction /
-clarification behavior.
+semantic-error behavior.

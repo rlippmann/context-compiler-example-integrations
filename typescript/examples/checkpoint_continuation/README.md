@@ -1,63 +1,52 @@
-# Checkpoint continuation
+# Compiler state persistence
 
-Restoring saved compiler state lets a fresh host process continue from the same
-authoritative state. This example shows the 0.9 JSON state format in a generic
-TypeScript travel-booking flow.
+This example shows how a TypeScript host persists and restores the
+authoritative Context Compiler 0.9 state in a travel-booking flow.
 
 ## Domain
 
-The domain is a small travel-booking change flow.
+The host starts with a booking on `boston_trip`. A request to replace it with
+`chicago_trip` is submitted as a compiler directive.
 
-The user requests a change from the current itinerary to a new itinerary.
-The compiler rejects a replacement unless the old itinerary already has an
-active `use` policy.
+Because `boston_trip` is not already active under a `use` policy, Context
+Compiler returns a semantic error and leaves authoritative state unchanged.
 
 ## Runtime
 
-This is a generic TypeScript example.
+This example does not call an LLM or use directive drafter. The host exports
+the compiler JSON state, restores it into a fresh engine, and verifies that the
+same premise and policies are available after the process boundary.
 
-It does not call an LLM.
-
-It does not use directive drafter.
+Context Compiler 0.9 does not expose persisted pending clarification or
+confirmation state. This example does not implement a replacement continuation
+mechanism.
 
 ## What Context Compiler owns
 
 Context Compiler owns:
 
-- authoritative policy state
-- the JSON state snapshot that captures it
-
-Context Compiler 0.9 does not expose pending clarification or confirmation
-state. A saved state restores only premise and policy data.
+- authoritative premise and policy state;
+- semantic validation of the submitted directive;
+- the JSON state representation used for persistence.
 
 ## What the host owns
 
 The host owns:
 
-- the booking record
-- checkpoint persistence
-- request/process boundaries
-- the runtime behavior that actually applies the itinerary change
+- the booking record;
+- checkpoint storage and process boundaries;
+- any later workflow that might act on the restored state.
 
-The host reads authoritative Context Compiler state after confirmation and
-decides whether to apply the booking change.
-
-## Why this is not prompt reinjection
-
-This example does not re-send hidden instructions to a model.
-
-The observable behavior change is host-side: the booking record changes only
-after a restored engine resumes the pending confirmation and authoritative
-state changes.
+The example does not apply a booking change after the semantic error. No host
+state change is implied by restoring the compiler state.
 
 ## Example behavior
 
-1. The host starts with a booking on `boston_trip`.
-2. The user initiates a switch to `chicago_trip`.
-3. Context Compiler returns a semantic error because `boston_trip` is not active.
-4. The host exports and persists the unchanged JSON state.
-5. A fresh host process restores that state into a new engine.
-6. A later `yes` input is `no_directive`; it does not resolve a pending change.
+1. The host submits `use chicago_trip instead of boston_trip`.
+2. The compiler returns a semantic `error` because `boston_trip` is not active.
+3. The host persists the unchanged JSON state with `export_json()`.
+4. A fresh engine restores that JSON with `import_json()`.
+5. The restored premise and policies match the original authoritative state.
 
 ## Install
 
@@ -74,13 +63,3 @@ npm run build
 npm run typecheck
 npm test
 ```
-
-## Related integrations
-
-The generic example teaches checkpoint continuation without requiring a
-framework.
-
-Related runtime surfaces:
-
-- [typescript/starter_apps/node/README.md](../../starter_apps/node/README.md)
-- [typescript/starter_apps/nextjs/README.md](../../starter_apps/nextjs/README.md)

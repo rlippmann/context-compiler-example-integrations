@@ -151,7 +151,7 @@ test("adversarial user text does not override saved premise or policy", () => {
   assert.equal(result.messages[0].content.toLowerCase().includes("verbose"), false);
 });
 
-test("invalid premise lifecycle produces clarification behavior", () => {
+test("invalid premise lifecycle produces semantic-error behavior", () => {
   const engine = new Engine();
 
   const result = preparePromptTurn(
@@ -165,7 +165,7 @@ test("invalid premise lifecycle produces clarification behavior", () => {
   assert.equal(result.modelCallReady, false);
   assert.equal(
     result.blockedReason,
-    "clarification required before prompt construction"
+    "semantic error blocks prompt construction"
   );
   assert.equal(
     result.promptToUser,
@@ -173,7 +173,7 @@ test("invalid premise lifecycle produces clarification behavior", () => {
   );
 });
 
-test("contradictory policy directives produce clarification behavior", () => {
+test("contradictory policy directives produce semantic-error behavior", () => {
   const engine = new Engine();
   engine.step(`use ${CONCISE_STYLE}`);
 
@@ -188,7 +188,7 @@ test("contradictory policy directives produce clarification behavior", () => {
   assert.equal(result.modelCallReady, false);
   assert.equal(
     result.blockedReason,
-    "clarification required before prompt construction"
+    "semantic error blocks prompt construction"
   );
   assert.equal(
     result.promptToUser,

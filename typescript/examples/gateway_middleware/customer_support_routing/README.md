@@ -35,6 +35,6 @@ default path, `general_support`.
 - The host owns the gateway middleware boundary and the downstream call.
 - Adversarial request text does not bypass the gateway decision.
 - Contradictory `use billing_support` and `prohibit billing_support` inputs
-  produce clarification behavior instead of a silent overwrite.
+  produce a semantic error instead of a silent overwrite.
 - The example does not call an LLM, does not use directive drafter, and does
   not derive state from model output.

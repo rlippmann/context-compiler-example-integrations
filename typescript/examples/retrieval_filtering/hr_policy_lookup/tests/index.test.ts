@@ -175,7 +175,7 @@ test("absent or unknown premise does not invent results", () => {
   assert.deepEqual(unknownResult.returnedDocumentIds, ["employee_handbook"]);
 });
 
-test("contradictory directives clarify instead of silent overwrite", () => {
+test("contradictory directives return an error instead of silently overwriting", () => {
   const engine = new Engine();
   engine.step(`use ${EMPLOYEE_ACCESS}`);
   const retriever = new HRPolicyRetriever(exampleDocuments());
@@ -191,7 +191,7 @@ test("contradictory directives clarify instead of silent overwrite", () => {
   assert.deepEqual(result.retrievalResult.returnedDocumentIds, []);
   assert.equal(
     result.retrievalResult.blockedReason,
-    "clarification required before retrieval policy changes"
+    "semantic error blocks retrieval policy changes"
   );
   assert.equal(
     result.promptToUser,

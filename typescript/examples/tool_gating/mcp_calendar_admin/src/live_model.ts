@@ -314,7 +314,7 @@ export async function runLiveModelTurn(input: {
         .tools.some((tool) => tool.name === "calendar_admin_create_event"),
       selectedToolName: null,
       executed: false,
-      blockedReason: "clarification required before exposing calendar admin MCP tools",
+      blockedReason: "semantic error blocks exposing calendar admin MCP tools",
       toolResult: null,
       executionLog: [...host.executionLog],
       sideEffectPath: artifactPath,

@@ -148,7 +148,7 @@ test("runtime behavior changes only when authoritative state allows MCP tool", (
   assert.equal(allowedResult.executed, true);
 });
 
-test("conflicting use then prohibit requires clarification and blocks MCP tool", () => {
+test("conflicting use then prohibit returns a semantic error and blocks MCP tool", () => {
   const engine = new Engine();
   engine.step("use calendar_admin");
   const host = new CalendarAdminMcpHost();
@@ -175,7 +175,7 @@ test("conflicting use then prohibit requires clarification and blocks MCP tool",
   );
 });
 
-test("conflicting prohibit then use requires clarification and keeps MCP tool hidden", () => {
+test("conflicting prohibit then use returns a semantic error and keeps MCP tool hidden", () => {
   const engine = engineFromState(prohibitedState());
   const host = new CalendarAdminMcpHost();
 

@@ -108,7 +108,7 @@ export function preparePromptTurn(
       messages: [],
       appliedPremise: null,
       appliedStyleLabels: [],
-      blockedReason: "clarification required before prompt construction"
+      blockedReason: "semantic error blocks prompt construction"
     };
   }
 

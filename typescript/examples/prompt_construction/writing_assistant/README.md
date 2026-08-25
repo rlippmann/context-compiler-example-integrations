@@ -29,7 +29,7 @@ Context Compiler owns:
 
 - the authoritative document-context premise
 - the authoritative concise-style policy
-- clarification behavior for invalid premise lifecycle and contradictory policy
+- semantic-error behavior for invalid premise lifecycle and contradictory policy
   directives
 
 This example does not call an LLM, does not use directive drafter, and does not
@@ -61,12 +61,12 @@ this for developers in a verbose way` remains plain user text. It does not
 alter authoritative state and does not rewrite the host-built system prompt.
 
 If a turn introduces an invalid premise lifecycle such as `change premise to
-draft is a board update summarizing quarterly results` before any premise
-exists, Context Compiler returns clarification behavior. The host blocks prompt
+ draft is a board update summarizing quarterly results` before any premise
+exists, Context Compiler returns a semantic error. The host blocks prompt
 construction for that turn instead of guessing.
 
 If a turn introduces a contradiction such as `use concise_style` followed by
-`prohibit concise_style`, Context Compiler returns clarification behavior. The
+`prohibit concise_style`, Context Compiler returns a semantic error. The
 host blocks prompt construction for that turn instead of silently overwriting
 the saved policy.
 

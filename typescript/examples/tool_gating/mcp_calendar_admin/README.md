@@ -52,7 +52,7 @@ What to observe:
   effect occurs
 - `use calendar_admin`: the protected tool is exposed; the model must select it
   for protected execution to occur
-- contradiction with `prohibit calendar_admin`: clarification blocks protected
+- contradiction with `prohibit calendar_admin`: a semantic error blocks protected
   execution before tool use
 
 Run the canonical provider-free tests:

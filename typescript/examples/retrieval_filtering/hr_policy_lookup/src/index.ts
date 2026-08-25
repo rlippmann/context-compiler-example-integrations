@@ -215,7 +215,7 @@ export function handleRetrievalTurn(
         query,
         eligibleDocumentIds: [],
         returnedDocumentIds: [],
-        blockedReason: "clarification required before retrieval policy changes"
+        blockedReason: "semantic error blocks retrieval policy changes"
       }
     };
   }
