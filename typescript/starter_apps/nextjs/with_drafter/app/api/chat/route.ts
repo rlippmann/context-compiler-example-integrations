@@ -1,13 +1,4 @@
-import {
-  DECISION_CLARIFY,
-  POLICY_USE,
-  createEngine,
-  getClarifyPrompt,
-  getPolicyItems,
-  getPremiseValue,
-  isClarify,
-  type EngineState
-} from "@rlippmann/context-compiler";
+import { Engine } from "@rlippmann/context-compiler";
 import {
   PREPROCESS_OUTCOME_DIRECTIVE,
   preprocessHeuristic,
@@ -27,7 +18,7 @@ type ChatBody = {
 };
 
 type ChatResponse =
-  | { kind: typeof DECISION_CLARIFY; promptToUser: string | null }
+  | { kind: "error"; promptToUser: string }
   | {
       kind: "continue";
       requestPayload: {
@@ -37,17 +28,17 @@ type ChatResponse =
       };
     };
 
-function stateToSystemPrompt(state: EngineState): string {
-  const useItems = new Set(getPolicyItems(state, POLICY_USE));
-  const policies = getPolicyItems(state)
-    .map((item) => `- ${useItems.has(item) ? "USE" : "PROHIBIT"}: ${item}`)
+function stateToSystemPrompt(state: { premise: string | null; policies: Record<string, "use" | "prohibit"> }): string {
+  const policies = Object.entries(state.policies)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([item, policy]) => `- ${policy === "use" ? "USE" : "PROHIBIT"}: ${item}`)
     .join("\n");
 
   return [
     "You are an assistant operating under compiled context.",
     "",
     "PREMISE:",
-    getPremiseValue(state) ?? "(none)",
+    state.premise ?? "(none)",
     "",
     "POLICIES:",
     policies || "(none)",
@@ -70,11 +61,7 @@ function minimalRecentContext(history: ChatMessage[] | undefined) {
     .map((message) => ({ role: message.role, content: message.content }));
 }
 
-function resolveEngineInput(engine: ReturnType<typeof createEngine>, userInput: string): string {
-  if (engine.hasPendingClarification()) {
-    return userInput;
-  }
-
+function resolveEngineInput(userInput: string): string {
   const heuristic = preprocessHeuristic(userInput);
   if (heuristic.outcome !== PREPROCESS_OUTCOME_DIRECTIVE || heuristic.directive === null) {
     return userInput;
@@ -95,31 +82,31 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ error: "sessionId and input are required" }, { status: 400 });
   }
 
-  const engine = createEngine();
+  const engine = new Engine();
   const savedCheckpoint = loadSessionState(sessionId);
 
   if (savedCheckpoint) {
-    engine.importCheckpointJson(savedCheckpoint);
+    engine.import_json(savedCheckpoint);
   }
 
-  const engineInput = resolveEngineInput(engine, input);
+  const engineInput = resolveEngineInput(input);
   const decision = engine.step(engineInput);
 
-  if (isClarify(decision)) {
-    saveSessionState(sessionId, engine.exportCheckpointJson());
+  if (decision.kind === "error") {
+    saveSessionState(sessionId, engine.export_json());
     const payload: ChatResponse = {
-      kind: DECISION_CLARIFY,
-      promptToUser: getClarifyPrompt(decision)
+      kind: "error",
+      promptToUser: decision.message
     };
     return Response.json(payload);
   }
 
-  saveSessionState(sessionId, engine.exportCheckpointJson());
+  saveSessionState(sessionId, engine.export_json());
 
   const payload: ChatResponse = {
     kind: "continue",
     requestPayload: {
-      systemPrompt: stateToSystemPrompt(engine.state),
+      systemPrompt: stateToSystemPrompt({ premise: engine.premise, policies: engine.policies }),
       history: minimalRecentContext(history),
       userInput: input
     }

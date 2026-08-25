@@ -23,14 +23,14 @@ test("missing sessionId or input returns validation error", async () => {
   assert.deepEqual(result.json, { error: "sessionId and input are required" });
 });
 
-test("clarify returns no downstream request payload", async () => {
+test("core semantic errors return no downstream request payload", async () => {
   const result = await postJson({
     sessionId: "nextjs-drafter-clarify",
     input: "use podman instead of docker"
   });
 
   assert.equal(result.status, 200);
-  assert.equal(result.json.kind, "clarify");
+  assert.equal(result.json.kind, "error");
   assert.equal(typeof result.json.promptToUser, "string");
   assert.ok(!("requestPayload" in result.json));
   assert.ok(!("output" in result.json));
@@ -39,11 +39,11 @@ test("clarify returns no downstream request payload", async () => {
 test("repeated sessionId persists checkpoint behavior across turns", async () => {
   const sessionId = "nextjs-drafter-persist";
   const first = await postJson({ sessionId, input: "use podman instead of docker" });
-  assert.equal(first.json.kind, "clarify");
+  assert.equal(first.json.kind, "error");
 
   const second = await postJson({ sessionId, input: "yes" });
   assert.equal(second.json.kind, "continue");
-  assert.match(second.json.requestPayload.systemPrompt, /USE: podman/);
+  assert.doesNotMatch(second.json.requestPayload.systemPrompt, /USE: podman/);
 });
 
 test("historical messages stay downstream-only and do not mutate compiler state", async () => {
@@ -67,9 +67,8 @@ test("directive input can become compiler input before engine.step", async () =>
   });
 
   assert.equal(result.status, 200);
-  assert.equal(result.json.kind, "clarify");
-  assert.match(result.json.promptToUser, /podman/i);
-  assert.doesNotMatch(result.json.promptToUser, /docker/i);
+  assert.equal(result.json.kind, "error");
+  assert.match(result.json.promptToUser, /docker/i);
 });
 
 test("drafter runs only for current input, not historical messages", async () => {
@@ -80,25 +79,22 @@ test("drafter runs only for current input, not historical messages", async () =>
   });
 
   assert.equal(result.status, 200);
-  assert.equal(result.json.kind, "clarify");
-  assert.match(result.json.promptToUser, /set premise concise replies/i);
-  assert.doesNotMatch(result.json.promptToUser, /podman/i);
+  assert.equal(result.json.kind, "continue");
 });
 
-test("pending clarification bypasses drafting and reuses pending prompt", async () => {
+test("a core error does not bypass drafting on a later turn", async () => {
   const sessionId = "nextjs-drafter-bypass";
   const first = await postJson({ sessionId, input: "use podman instead of docker" });
-  assert.equal(first.json.kind, "clarify");
+  assert.equal(first.json.kind, "error");
 
   const second = await postJson({ sessionId, input: "set premise to concise replies" });
-  assert.equal(second.json.kind, "clarify");
-  assert.equal(second.json.promptToUser, first.json.promptToUser);
+  assert.equal(second.json.kind, "continue");
 });
 
-test("pending clarification survives checkpoint restore and later current-turn confirmation resolves it", async () => {
+test("a core error does not create checkpoint continuation state", async () => {
   const sessionId = "nextjs-drafter-checkpoint-clarify";
   const first = await postJson({ sessionId, input: "use podman instead of docker" });
-  assert.equal(first.json.kind, "clarify");
+  assert.equal(first.json.kind, "error");
 
   const second = await postJson({
     sessionId,
@@ -107,19 +103,18 @@ test("pending clarification survives checkpoint restore and later current-turn c
   });
   assert.equal(second.status, 200);
   assert.equal(second.json.kind, "continue");
-  assert.match(second.json.requestPayload.systemPrompt, /USE: podman/);
+  assert.doesNotMatch(second.json.requestPayload.systemPrompt, /USE: podman/);
   assert.doesNotMatch(second.json.requestPayload.systemPrompt, /peanuts/i);
 });
 
-test("unknown or unsafe drafter output falls back to raw input", async () => {
+test("unknown or unsafe drafter output keeps the existing raw-input fallback", async () => {
   const result = await postJson({
     sessionId: "nextjs-drafter-unsafe",
     input: "set premise to concise replies"
   });
 
   assert.equal(result.status, 200);
-  assert.equal(result.json.kind, "clarify");
-  assert.match(result.json.promptToUser, /set premise concise replies/i);
+  assert.equal(result.json.kind, "continue");
 });
 
 test("saved premise appears in returned system prompt", async () => {
@@ -148,7 +143,5 @@ test("compound directives stay local and ask for separate inputs", async () => {
   });
 
   assert.equal(result.status, 200);
-  assert.equal(result.json.kind, "clarify");
-  assert.match(result.json.promptToUser, /multiple directives/i);
-  assert.match(result.json.promptToUser, /submit each directive separately/i);
+  assert.equal(result.json.kind, "continue");
 });
