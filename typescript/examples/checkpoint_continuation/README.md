@@ -1,52 +1,53 @@
-# Compiler state persistence
+# State persistence
 
-This example shows how a TypeScript host persists and restores the
-authoritative Context Compiler 0.9 state in a travel-booking flow.
+Persisting authoritative compiler state lets a fresh host process recover the
+same premise and policy decisions without recreating them from model output or
+conversation history. This example shows state persistence in a deterministic
+TypeScript travel-booking flow.
 
 ## Domain
 
-The host starts with a booking on `boston_trip`. A request to replace it with
-`chicago_trip` is submitted as a compiler directive.
-
-Because `boston_trip` is not already active under a `use` policy, Context
-Compiler returns a semantic error and leaves authoritative state unchanged.
+The host starts with a booking on `boston_trip`. The user selects
+`chicago_trip`, Context Compiler records that selection in authoritative state,
+and the host later applies the booking change from a restored engine.
 
 ## Runtime
 
-This example does not call an LLM or use directive drafter. The host exports
-the compiler JSON state, restores it into a fresh engine, and verifies that the
-same premise and policies are available after the process boundary.
-
-Context Compiler 0.9 does not expose persisted pending clarification or
-confirmation state. This example does not implement a replacement continuation
-mechanism.
+This example does not call an LLM or use Directive Drafter.
 
 ## What Context Compiler owns
 
 Context Compiler owns:
 
-- authoritative premise and policy state;
-- semantic validation of the submitted directive;
-- the JSON state representation used for persistence.
+- authoritative policy state;
+- serialization through `export_json()`;
+- restoration through `import_json()`.
 
 ## What the host owns
 
 The host owns:
 
 - the booking record;
-- checkpoint storage and process boundaries;
-- any later workflow that might act on the restored state.
+- persisted state storage;
+- the process boundary;
+- runtime behavior that applies the itinerary change.
 
-The example does not apply a booking change after the semantic error. No host
-state change is implied by restoring the compiler state.
+The host reads restored authoritative policy state before applying the booking
+change. Context Compiler remains the sole authority over premise and policy
+state.
 
 ## Example behavior
 
-1. The host submits `use chicago_trip instead of boston_trip`.
-2. The compiler returns a semantic `error` because `boston_trip` is not active.
-3. The host persists the unchanged JSON state with `export_json()`.
-4. A fresh engine restores that JSON with `import_json()`.
-5. The restored premise and policies match the original authoritative state.
+1. The host submits `use chicago_trip`.
+2. Context Compiler updates authoritative state.
+3. The host persists that state JSON.
+4. A fresh engine restores the saved JSON.
+5. The host reads the restored `use` policy and applies the booking change from
+   `boston_trip` to `chicago_trip`.
+
+This example does not implement pending clarification, confirmation,
+continuation, or resume semantics. The observable effect comes directly from
+restored authoritative state.
 
 ## Install
 
