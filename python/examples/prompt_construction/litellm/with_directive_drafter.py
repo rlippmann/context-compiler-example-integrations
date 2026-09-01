@@ -34,10 +34,10 @@ from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
     DraftResult,
     DirectiveDrafter,
-    NoDirective,
+    RejectedDirective,
     UnknownDirective,
-    get_converter_prompt,
 )
+from context_compiler_directive_drafter.fallbacks import get_converter_prompt
 
 from context_compiler_example_integrations.examples._shared.provider_mode import (
     print_startup_config,
@@ -262,7 +262,7 @@ def _extract_drafted_text(drafted_result: DraftResult) -> str | None:
     result = drafted_result.result
     if isinstance(result, CanonicalDirective):
         return result.text
-    if isinstance(result, NoDirective):
+    if isinstance(result, RejectedDirective):
         return None
     if isinstance(result, UnknownDirective):
         return None

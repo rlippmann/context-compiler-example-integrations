@@ -32,8 +32,8 @@ from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
     DirectiveDrafter,
     DraftResult,
-    get_converter_prompt,
 )
+from context_compiler_directive_drafter.fallbacks import get_converter_prompt
 from context_compiler_example_integrations.reference_integrations.litellm_proxy._checkpoint_support import (
     MODE_PERSISTENT,
     CheckpointStore,
