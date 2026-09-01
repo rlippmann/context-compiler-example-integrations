@@ -10,7 +10,9 @@ import pytest
 from context_compiler.grammar import CanonicalDirective, DirectiveKind
 from context_compiler_directive_drafter import (
     DraftResult,
-    NoDirective,
+    REASON_MULTIPLE_DIRECTIVES,
+    REASON_NON_DIRECTIVE,
+    RejectedDirective,
     UnknownDirective,
 )
 
@@ -489,7 +491,7 @@ def test_rejected_confirmation_does_not_apply_follow_up(monkeypatch) -> None:
     async def no_draft(*args, **kwargs):
         return DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=RejectedDirective(reason=REASON_NON_DIRECTIVE),
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
@@ -575,7 +577,7 @@ def test_rejected_confirmation_does_not_leave_state(
     async def no_draft(*args, **kwargs):
         return DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=RejectedDirective(reason=REASON_NON_DIRECTIVE),
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", update_draft)
@@ -651,7 +653,7 @@ def test_fallback_to_raw_input_path_preserves_host_behavior(monkeypatch) -> None
     async def no_draft(*args, **kwargs):
         return DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=RejectedDirective(reason=REASON_NON_DIRECTIVE),
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
@@ -662,7 +664,10 @@ def test_fallback_to_raw_input_path_preserves_host_behavior(monkeypatch) -> None
 
     result = asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "hello"}]},
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "hello"}],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-raw",
@@ -708,7 +713,7 @@ def test_local_update_and_no_directive_passthrough_preserve_host_behavior(
         pipe.pipe(
             {
                 "model": "pipe-model",
-                "messages": [{"role": "user", "content": "please use docker"}],
+                "messages": [{"role": "user", "content": "maybe use docker"}],
             },
             __user__={"id": "u1"},
             __request__=object(),
@@ -720,7 +725,7 @@ def test_local_update_and_no_directive_passthrough_preserve_host_behavior(
     async def no_draft(*args, **kwargs):
         return DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=RejectedDirective(reason=REASON_NON_DIRECTIVE),
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
@@ -763,7 +768,7 @@ def test_no_directive_passthrough_does_not_change_existing_engine_state(
     async def no_draft(*args, **kwargs):
         return DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=RejectedDirective(reason=REASON_NON_DIRECTIVE),
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
@@ -826,7 +831,7 @@ def test_compound_directives_fall_through_to_normal_forwarding(monkeypatch) -> N
     async def compound_draft(*args, **kwargs):
         return DraftResult(
             source="test",
-            result=UnknownDirective(reason="reject.multi_candidate_directive"),
+            result=RejectedDirective(reason=REASON_MULTIPLE_DIRECTIVES),
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", compound_draft)
@@ -900,7 +905,7 @@ def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exis
     async def no_draft(*args, **kwargs):
         return DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=RejectedDirective(reason=REASON_NON_DIRECTIVE),
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
@@ -1005,14 +1010,17 @@ def test_debug_mode_missing_base_model_returns_deterministic_message(
     async def no_draft(*args, **kwargs):
         return DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=RejectedDirective(reason=REASON_NON_DIRECTIVE),
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", no_draft)
 
     result = asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "hello"}]},
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "maybe use docker"}],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-debug-missing-base",
@@ -1041,7 +1049,10 @@ def test_preprocessor_model_not_found_is_normalized(monkeypatch) -> None:
     module.generate_chat_completion = generate
     result = asyncio.run(
         pipe.pipe(
-            {"model": "pipe-model", "messages": [{"role": "user", "content": "hello"}]},
+            {
+                "model": "pipe-model",
+                "messages": [{"role": "user", "content": "maybe use docker"}],
+            },
             __user__={"id": "u1"},
             __request__=object(),
             __chat_id__="chat-preprocessor-not-found",
@@ -1069,7 +1080,7 @@ def test_fallback_uses_preprocessor_model_then_forward_uses_base_model(
     ) -> dict[str, object]:
         calls.append(str(payload.get("model", "")))
         if len(calls) == 1:
-            return {"choices": [{"message": {"content": "no_directive"}}]}
+            return {"choices": [{"message": {"content": "<NO_DIRECTIVE>"}}]}
         return {"choices": [{"message": {"content": "downstream"}}]}
 
     module.generate_chat_completion = generate
@@ -1077,7 +1088,7 @@ def test_fallback_uses_preprocessor_model_then_forward_uses_base_model(
         pipe.pipe(
             {
                 "model": "pipe-model",
-                "messages": [{"role": "user", "content": "please use docker"}],
+                "messages": [{"role": "user", "content": "maybe use docker"}],
             },
             __user__={"id": "u1"},
             __request__=object(),
@@ -1102,11 +1113,11 @@ def test_extract_drafted_text_only_applies_canonical_directive(monkeypatch) -> N
     )
     no_directive = DraftResult(
         source="test",
-        result=NoDirective(reason="reject.confident_non_directive"),
+        result=RejectedDirective(reason=REASON_NON_DIRECTIVE),
     )
     unknown = DraftResult(
         source="test",
-        result=UnknownDirective(reason="reject.multi_candidate_directive"),
+        result=UnknownDirective(reason="semantic_uncertainty"),
     )
 
     assert pipe._extract_drafted_text(canonical) == "use docker"
@@ -1132,7 +1143,7 @@ def test_unknown_directive_falls_back_to_normal_user_input_flow(monkeypatch) -> 
     async def unknown_draft(*args, **kwargs):
         return DraftResult(
             source="test",
-            result=UnknownDirective(reason="reject.multi_candidate_directive"),
+            result=UnknownDirective(reason="semantic_uncertainty"),
         )
 
     monkeypatch.setattr(module.Pipe, "_draft_user_input", unknown_draft)

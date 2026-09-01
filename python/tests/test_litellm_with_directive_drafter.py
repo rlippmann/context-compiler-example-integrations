@@ -7,7 +7,9 @@ from context_compiler.grammar import CanonicalDirective, DirectiveKind
 from context_compiler_directive_drafter import (
     DirectiveDrafter,
     DraftResult,
-    NoDirective,
+    REASON_INCOMPLETE,
+    REASON_NON_DIRECTIVE,
+    RejectedDirective,
     UnknownDirective,
 )
 
@@ -136,7 +138,7 @@ def test_unknown_directive_keeps_normal_flow(monkeypatch) -> None:
 
     monkeypatch.setattr(module, "_call_litellm", downstream)
 
-    result = module.handle_turn("please use docker", engine)
+    result = module.handle_turn("maybe use docker", engine)
 
     assert compile_inputs == []
     assert result == "stubbed reply"
@@ -150,7 +152,7 @@ def test_extract_drafted_text_observes_draft_result_behavior() -> None:
     assert module._extract_drafted_text(drafted_result) == "use docker"
 
     no_directive_result = DraftResult(
-        source="test", result=NoDirective("not a directive")
+        source="test", result=RejectedDirective(reason=REASON_NON_DIRECTIVE)
     )
 
     assert module._extract_drafted_text(no_directive_result) is None
@@ -222,7 +224,7 @@ def test_malformed_directive_like_input_falls_through_to_downstream_litellm(
     )
 
     clarify_engine = Engine()
-    clarify = module.handle_turn("set premise to concise replies", clarify_engine)
+    clarify = module.handle_turn("set premise to", clarify_engine)
 
     assert clarify == "downstream reply"
     assert llm_calls
@@ -393,7 +395,10 @@ def test_directive_shaped_malformed_inputs_can_fall_through_to_normal_turn_flow(
     monkeypatch.setattr(module, "_call_litellm", lambda _messages: "downstream reply")
 
     assert module.handle_turn("use docker instead of", Engine()) == "downstream reply"
-    assert fallback_calls == 1
+    drafted_result = module._DIRECTIVE_DRAFTER.draft_directive("use docker instead of")
+    assert isinstance(drafted_result.result, RejectedDirective)
+    assert drafted_result.result.reason == REASON_INCOMPLETE
+    assert fallback_calls == 0
 
 
 def test_compound_directives_fall_through_when_not_applied(monkeypatch) -> None:

@@ -8,7 +8,11 @@ from typing import Any
 
 import pytest
 from context_compiler.grammar import decompose_directive
-from context_compiler_directive_drafter import NoDirective, UnknownDirective
+from context_compiler_directive_drafter import (
+    REASON_MULTIPLE_DIRECTIVES,
+    REASON_NON_DIRECTIVE,
+    RejectedDirective,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE_PATH = (
@@ -51,7 +55,7 @@ def test_drafter_runs_only_for_current_turn(monkeypatch) -> None:
         drafted_calls.append((message, {}))
         return module.DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=RejectedDirective(reason=REASON_NON_DIRECTIVE),
         )
 
     monkeypatch.setattr(module, "_draft_last_user_message", fake_draft)
@@ -156,7 +160,7 @@ def test_default_mode_is_stateless_and_requires_no_session_key(monkeypatch) -> N
         "_draft_last_user_message",
         lambda message: module.DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=RejectedDirective(reason=REASON_NON_DIRECTIVE),
         ),
     )
     data = {
@@ -177,7 +181,7 @@ def test_stateless_mode_has_no_cross_call_continuity(monkeypatch) -> None:
         "_draft_last_user_message",
         lambda message: module.DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=RejectedDirective(reason=REASON_NON_DIRECTIVE),
         ),
     )
     first = {
@@ -307,7 +311,7 @@ def test_restore_happens_before_drafting(monkeypatch) -> None:
         seen_messages.append(message)
         return module.DraftResult(
             source="test",
-            result=NoDirective(reason="reject.confident_non_directive"),
+            result=RejectedDirective(reason=REASON_NON_DIRECTIVE),
         )
 
     monkeypatch.setattr(module, "_draft_last_user_message", fake_draft)
@@ -381,7 +385,7 @@ def test_compound_directives_fall_through_to_normal_forwarding_when_not_applied(
         "_draft_last_user_message",
         lambda _message: module.DraftResult(
             source="test",
-            result=UnknownDirective(reason="reject.multi_candidate_directive"),
+            result=RejectedDirective(reason=REASON_MULTIPLE_DIRECTIVES),
         ),
     )
     data = {
