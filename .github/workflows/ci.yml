@@ -9,7 +9,73 @@ on:
       - main
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.classify.outputs.python }}
+      typescript: ${{ steps.classify.outputs.typescript }}
+      markdown: ${{ steps.classify.outputs.markdown }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed files
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${BASE_SHA:-}" =~ ^0+$ ]]; then
+            changed_files="$(git show --format= --name-only "${HEAD_SHA}")"
+          else
+            changed_files="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")"
+          fi
+
+          run_python=false
+          run_typescript=false
+          run_markdown=false
+          run_all=false
+
+          while IFS= read -r path; do
+            [[ -z "${path}" ]] && continue
+            case "${path}" in
+              .github/workflows/*|.github/actions/*|.pre-commit-config.yaml)
+                run_all=true
+                ;;
+              .markdownlint-cli2.jsonc|*.md)
+                run_markdown=true
+                ;;
+              python/*|context_compiler_example_integrations/*|pyproject.toml|uv.lock|scripts/validate_python.sh)
+                run_python=true
+                ;;
+              typescript/*|scripts/validate_typescript.sh|scripts/validate_typescript_fast.sh)
+                run_typescript=true
+                ;;
+              *)
+                run_all=true
+                ;;
+            esac
+          done <<< "${changed_files}"
+
+          if [[ "${run_all}" == true ]]; then
+            run_python=true
+            run_typescript=true
+            run_markdown=true
+          fi
+
+          {
+            echo "python=${run_python}"
+            echo "typescript=${run_typescript}"
+            echo "markdown=${run_markdown}"
+          } >> "${GITHUB_OUTPUT}"
+
   markdownlint:
+    needs: changes
+    if: needs.changes.outputs.markdown == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -24,6 +90,8 @@ jobs:
         run: npx --yes markdownlint-cli2
 
   python-validation:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -47,6 +115,8 @@ jobs:
         run: ./scripts/validate_python.sh
 
   typescript-validation:
+    needs: changes
+    if: needs.changes.outputs.typescript == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
