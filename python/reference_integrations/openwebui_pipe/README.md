@@ -68,7 +68,7 @@ These examples require `context-compiler>=0.9.0dev13`.
 If using `open_webui_pipe_with_directive_drafter.py`:
 
 - Install directive-drafter support if needed:
-  `pip install "context-compiler>=0.9.0dev13" "context-compiler-directive-drafter>=0.2.0dev2"`
+  `pip install "context-compiler>=0.9.0dev13" "context-compiler-directive-drafter>=0.2.0dev4"`
 - Set `PREPROCESSOR_PROMPT_PROFILE=default` for heuristic-first behavior
 - Optionally set `PREPROCESSOR_MODEL_ID` to use a separate fallback drafting model
 - If `PREPROCESSOR_MODEL_ID` is unset, fallback uses `BASE_MODEL_ID`
@@ -86,7 +86,7 @@ If frontmatter dependency installs are disabled, offline, or unavailable:
 1. Install the package manually:
 
 - Minimal pipe: `pip install "context-compiler>=0.9.0dev13"`
-- Directive Drafter pipe: `pip install "context-compiler>=0.9.0dev13" "context-compiler-directive-drafter>=0.2.0dev2"`
+- Directive Drafter pipe: `pip install "context-compiler>=0.9.0dev13" "context-compiler-directive-drafter>=0.2.0dev4"`
 
 1. Import and enable the function in Open WebUI, then configure valves.
 
@@ -246,7 +246,7 @@ rejection flows.
 - `PREPROCESSOR_MODEL_ID must not match the selected pipe model id`: choose a real backend model id, not the pipe model id itself.
 - `PREPROCESSOR_MODEL_ID is invalid or not configured in Open WebUI`: the fallback route hit a missing model; fix the configured fallback model or unset it to reuse `BASE_MODEL_ID`.
 - `ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true`: directive-only updates still run locally, but passthrough returns a deterministic debug message instead of calling a downstream model.
-- imports fail after function upload: install `context-compiler>=0.9.0dev13` in the Open WebUI runtime, and add `context-compiler-directive-drafter>=0.2.0dev2` only for the Directive Drafter pipe, because the copied function runs from a temp/cached location.
+- imports fail after function upload: install `context-compiler>=0.9.0dev13` in the Open WebUI runtime, and add `context-compiler-directive-drafter>=0.2.0dev4` only for the Directive Drafter pipe, because the copied function runs from a temp/cached location.
 
 ## Fallback notes
 
