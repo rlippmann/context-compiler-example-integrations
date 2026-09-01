@@ -59,10 +59,10 @@ from context_compiler.grammar import CanonicalDirective
 from context_compiler_directive_drafter import (
     DirectiveDrafter,
     DraftResult,
-    NoDirective,
+    RejectedDirective,
     UnknownDirective,
-    get_converter_prompt,
 )
+from context_compiler_directive_drafter.fallbacks import get_converter_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -683,7 +683,7 @@ class Pipe:
     def _extract_drafted_text(self, drafted_result: DraftResult) -> str | None:
         if isinstance(drafted_result.result, CanonicalDirective):
             return drafted_result.result.text
-        if isinstance(drafted_result.result, NoDirective):
+        if isinstance(drafted_result.result, RejectedDirective):
             return None
         if isinstance(drafted_result.result, UnknownDirective):
             return None
