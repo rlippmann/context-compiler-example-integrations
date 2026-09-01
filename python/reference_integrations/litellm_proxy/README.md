@@ -108,7 +108,7 @@ For `context_compiler_precall_hook_with_directive_drafter.py`:
 pip install "context-compiler-example-integrations[all]"
 ```
 
-That variant requires `context-compiler-directive-drafter>=0.2.0dev2`.
+That variant requires `context-compiler-directive-drafter>=0.2.0dev4`.
 
 For the opt-in runtime smoke test, install the proxy runtime extras:
 
