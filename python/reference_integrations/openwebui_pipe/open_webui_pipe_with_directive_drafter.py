@@ -62,9 +62,11 @@ from context_compiler_directive_drafter import (
     RejectedDirective,
     UnknownDirective,
 )
-from context_compiler_directive_drafter.fallbacks import get_converter_prompt
+from context_compiler_directive_drafter.fallbacks import get_fallback_profile
 
 logger = logging.getLogger(__name__)
+
+_FALLBACK_PROFILE = get_fallback_profile()
 
 _CC_MARKER = "[[cc_state]]"
 _ENGINES_BY_CHAT_KEY: dict[str, Engine] = {}
@@ -634,7 +636,7 @@ class Pipe:
             "model": model_id,
             "stream": False,
             "messages": [
-                {"role": "system", "content": get_converter_prompt()},
+                {"role": "system", "content": _FALLBACK_PROFILE.system_prompt},
                 {"role": "user", "content": message},
             ],
         }
