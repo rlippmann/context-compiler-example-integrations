@@ -13,9 +13,8 @@ Architecture:
 
 import logging
 import os
-from collections.abc import Callable, Mapping, Sequence
-from importlib import import_module
-from typing import Any, cast
+from functools import lru_cache
+from typing import Any
 
 try:
     from litellm.integrations.custom_logger import CustomLogger
@@ -33,7 +32,9 @@ from context_compiler_directive_drafter import (
     DirectiveDrafter,
     DraftResult,
 )
-from context_compiler_directive_drafter.fallbacks import get_converter_prompt
+from context_compiler_directive_drafter.fallbacks.litellm import (
+    create_litellm_fallback,
+)
 from context_compiler_example_integrations.reference_integrations.litellm_proxy._checkpoint_support import (
     MODE_PERSISTENT,
     CheckpointStore,
@@ -60,75 +61,41 @@ _SUPPORTED_CALL_TYPES = {
 CHECKPOINT_STORE: CheckpointStore = InMemoryCheckpointStore()
 
 
-def _extract_response_content(response: object) -> str | None:
-    if isinstance(response, Mapping):
-        choices = response.get("choices")
-        if isinstance(choices, Sequence) and choices:
-            first = choices[0]
-            if isinstance(first, Mapping):
-                message = first.get("message")
-                if isinstance(message, Mapping):
-                    content = message.get("content")
-                    if isinstance(content, str):
-                        return content
-
-    choices_attr = getattr(response, "choices", None)
-    if isinstance(choices_attr, Sequence) and choices_attr:
-        first = choices_attr[0]
-        message_attr = getattr(first, "message", None)
-        content_attr = getattr(message_attr, "content", None)
-        if isinstance(content_attr, str):
-            return content_attr
-
-    return None
+@lru_cache(maxsize=8)
+def _create_directive_drafter(
+    model: str, api_key: str, api_base: str | None
+) -> DirectiveDrafter:
+    return DirectiveDrafter(
+        fallback=create_litellm_fallback(
+            model=model,
+            api_key=api_key,
+            api_base=api_base,
+        ),
+        fallback_source="litellm_fallback",
+    )
 
 
-def _get_litellm_completion() -> Callable[..., object]:
-    litellm_module = import_module("litellm")
-    return cast(Callable[..., object], litellm_module.completion)
-
-
-def _llm_fallback_candidate(message: str) -> str | None:
+def _get_directive_drafter() -> DirectiveDrafter:
     preprocessor_model = os.getenv("PREPROCESSOR_MODEL", "").strip()
     if not preprocessor_model:
         preprocessor_model = os.getenv("MODEL", "").strip()
     if not preprocessor_model:
-        return None
+        return DirectiveDrafter()
 
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        return None
-
-    try:
-        completion = _get_litellm_completion()
-    except ModuleNotFoundError:
-        return None
-
-    kwargs: dict[str, object] = {
-        "model": preprocessor_model,
-        "messages": [
-            {"role": "system", "content": get_converter_prompt()},
-            {"role": "user", "content": message},
-        ],
-        "api_key": api_key,
-        "temperature": 0,
-    }
-    api_base = os.getenv("OPENAI_BASE_URL")
-    if api_base:
-        kwargs["api_base"] = api_base
-
-    try:
-        response = completion(**kwargs)
-        return _extract_response_content(response)
-    except Exception:
-        return None
+        return DirectiveDrafter()
+    return _create_directive_drafter(
+        preprocessor_model, api_key, os.getenv("OPENAI_BASE_URL") or None
+    )
 
 
 def _draft_last_user_message(message: str) -> DraftResult:
-    drafter = DirectiveDrafter(
-        fallback=_llm_fallback_candidate, fallback_source="litellm_fallback"
-    )
-    return drafter.draft_directive(message)
+    try:
+        return _get_directive_drafter().draft_directive(message)
+    except Exception:
+        logger.debug("litellm_proxy: drafter_exception", exc_info=True)
+        return DirectiveDrafter().draft_directive(message)
 
 
 class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):

@@ -18,6 +18,7 @@ Intended host usage:
 import logging
 import os
 from collections.abc import Callable, Mapping, Sequence
+from functools import lru_cache
 from importlib import import_module
 from typing import TypedDict, cast
 
@@ -37,7 +38,9 @@ from context_compiler_directive_drafter import (
     RejectedDirective,
     UnknownDirective,
 )
-from context_compiler_directive_drafter.fallbacks import get_converter_prompt
+from context_compiler_directive_drafter.fallbacks.litellm import (
+    create_litellm_fallback,
+)
 
 from context_compiler_example_integrations.examples._shared.provider_mode import (
     print_startup_config,
@@ -80,12 +83,6 @@ def _extract_response_content(response: object) -> str | None:
             return content_attr
 
     return None
-
-
-_DIRECTIVE_DRAFTER = DirectiveDrafter(
-    fallback=lambda message: _llm_fallback_candidate(message),
-    fallback_source="litellm_fallback",
-)
 
 
 def _render_state_lines(
@@ -211,44 +208,31 @@ def _call_litellm(messages: list[dict[str, str]]) -> str:
     return content
 
 
-def _llm_fallback_candidate(message: str) -> str | None:
-    try:
-        completion = _get_litellm_completion()
-    except ModuleNotFoundError:
-        return None
+@lru_cache(maxsize=8)
+def _create_directive_drafter(
+    model: str, api_key: str | None, api_base: str
+) -> DirectiveDrafter:
+    return DirectiveDrafter(
+        fallback=create_litellm_fallback(
+            model=model,
+            api_key=api_key,
+            api_base=api_base,
+        ),
+        fallback_source="litellm_fallback",
+    )
 
-    try:
-        config = resolve_provider_config(default_model="openai/gpt-4o-mini")
-    except RuntimeError:
-        return None
-    if config.mode == "openai" and not config.api_key:
-        return None
-    preprocessor_model = os.getenv("PREPROCESSOR_MODEL", "").strip()
-    if not preprocessor_model:
-        preprocessor_model = os.getenv("MODEL", "openai/gpt-4o-mini")
 
-    kwargs: _LiteLLMCallKwargs = {
-        "model": preprocessor_model,
-        "messages": [
-            {"role": "system", "content": get_converter_prompt()},
-            {"role": "user", "content": message},
-        ],
-        "temperature": 0,
-        "api_base": config.base_url,
-    }
-    if config.api_key:
-        kwargs["api_key"] = config.api_key
-
-    try:
-        response = completion(**kwargs)
-        return _extract_response_content(response)
-    except Exception:
-        return None
+def _get_directive_drafter() -> DirectiveDrafter:
+    config = resolve_provider_config(default_model="openai/gpt-4o-mini")
+    preprocessor_model = os.getenv("PREPROCESSOR_MODEL", "").strip() or config.model
+    return _create_directive_drafter(
+        preprocessor_model, config.api_key, config.base_url
+    )
 
 
 def _preprocess_user_input(message: str) -> str | None:
     try:
-        drafted_result = _DIRECTIVE_DRAFTER.draft_directive(message)
+        drafted_result = _get_directive_drafter().draft_directive(message)
         logger.debug("preprocessor: drafted_result=%r", drafted_result)
         return _extract_drafted_text(drafted_result)
     except Exception:
