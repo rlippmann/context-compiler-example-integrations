@@ -49,9 +49,7 @@ Startup emits one concise config line showing resolved `mode`, `base_url`,
 `OPENAI_BASE_URL override`).
 
 `MODEL` and `DRAFTER_MODEL` use LiteLLM format: `<provider>/<model>`.
-`DRAFTER_MODEL` is optional and defaults to `MODEL`. `PREPROCESSOR_MODEL` is
-deprecated but remains supported as a compatibility alias; `DRAFTER_MODEL`
-wins when both are set.
+`DRAFTER_MODEL` is optional and defaults to `MODEL`.
 
 The directive-drafter integration always uses heuristic-first processing with
 the configured fallback model when needed.

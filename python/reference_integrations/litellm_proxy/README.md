@@ -204,9 +204,7 @@ Optional env vars for directive-drafter fallback:
 export DRAFTER_MODEL=openai/gpt-4o-mini
 ```
 
-`DRAFTER_MODEL` is optional and defaults to `MODEL`. `PREPROCESSOR_MODEL` is
-deprecated but remains supported as a compatibility alias; `DRAFTER_MODEL`
-wins when both are set.
+`DRAFTER_MODEL` is optional and defaults to `MODEL`.
 
 The directive-drafter integration always uses heuristic-first processing with
 the configured fallback model when needed.
@@ -232,8 +230,7 @@ the configured fallback model when needed.
   explicit `stateless` mode
 - proxy starts but upstream calls fail: check `OPENAI_API_KEY` and upstream
   model/provider config in `config.example.yaml`
-- directive-drafter fallback issues: `DRAFTER_MODEL` defaults to `MODEL`;
-  `PREPROCESSOR_MODEL` remains available as a deprecated compatibility alias
+- directive-drafter fallback issues: `DRAFTER_MODEL` defaults to `MODEL`
 
 ## Opt-in Runtime Smoke Test
 

@@ -327,7 +327,6 @@ def test_drafter_model_defaults_to_model(monkeypatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "dummy")
     monkeypatch.setenv("MODEL", "openai/main-model")
     monkeypatch.delenv("DRAFTER_MODEL", raising=False)
-    monkeypatch.delenv("PREPROCESSOR_MODEL", raising=False)
     monkeypatch.setattr(module, "create_litellm_fallback", fallback_factory)
     module._create_directive_drafter.cache_clear()
 
@@ -335,26 +334,7 @@ def test_drafter_model_defaults_to_model(monkeypatch) -> None:
     assert seen["model"] == "openai/main-model"
 
 
-def test_drafter_model_legacy_alias_is_supported(monkeypatch, caplog) -> None:
-    seen: dict[str, object] = {}
-
-    def fallback_factory(**kwargs: Any):
-        seen.update(kwargs)
-        return lambda _message: "use docker"
-
-    monkeypatch.setenv("OPENAI_API_KEY", "dummy")
-    monkeypatch.setenv("MODEL", "openai/main-model")
-    monkeypatch.delenv("DRAFTER_MODEL", raising=False)
-    monkeypatch.setenv("PREPROCESSOR_MODEL", "openai/preprocessor-model")
-    monkeypatch.setattr(module, "create_litellm_fallback", fallback_factory)
-    module._create_directive_drafter.cache_clear()
-
-    module._get_directive_drafter()
-    assert seen["model"] == "openai/preprocessor-model"
-    assert "PREPROCESSOR_MODEL is deprecated" in caplog.text
-
-
-def test_drafter_model_wins_over_legacy_alias(monkeypatch) -> None:
+def test_drafter_model_override_wins(monkeypatch) -> None:
     seen: dict[str, object] = {}
 
     def fallback_factory(**kwargs: Any):
@@ -364,7 +344,6 @@ def test_drafter_model_wins_over_legacy_alias(monkeypatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "dummy")
     monkeypatch.setenv("MODEL", "openai/main-model")
     monkeypatch.setenv("DRAFTER_MODEL", "openai/drafter-model")
-    monkeypatch.setenv("PREPROCESSOR_MODEL", "openai/preprocessor-model")
     monkeypatch.setattr(module, "create_litellm_fallback", fallback_factory)
     module._create_directive_drafter.cache_clear()
 

@@ -225,12 +225,6 @@ def _create_directive_drafter(
 def _get_directive_drafter() -> DirectiveDrafter:
     config = resolve_provider_config(default_model="openai/gpt-4o-mini")
     drafter_model = os.getenv("DRAFTER_MODEL", "").strip()
-    if not drafter_model:
-        drafter_model = os.getenv("PREPROCESSOR_MODEL", "").strip()
-        if drafter_model:
-            logger.warning(
-                "PREPROCESSOR_MODEL is deprecated; use DRAFTER_MODEL instead"
-            )
     drafter_model = drafter_model or config.model
     return _create_directive_drafter(drafter_model, config.api_key, config.base_url)
 

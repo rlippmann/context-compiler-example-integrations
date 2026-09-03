@@ -423,35 +423,8 @@ def test_fallback_adapter_receives_drafter_model(monkeypatch) -> None:
     assert seen["model"] == "openai/demo-model"
 
 
-def test_drafter_model_legacy_alias_and_precedence(monkeypatch, caplog) -> None:
-    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_model_alias")
-    monkeypatch.setenv("OPENAI_API_KEY", "dummy")
-    monkeypatch.setenv("MODEL", "openai/main-model")
-    monkeypatch.setenv("PREPROCESSOR_MODEL", "openai/legacy-model")
-    seen: dict[str, Any] = {}
-
-    def fallback_factory(**kwargs):
-        seen.update(kwargs)
-        return lambda _message: "use docker"
-
-    monkeypatch.setattr(module, "create_litellm_fallback", fallback_factory)
-    module._create_directive_drafter.cache_clear()
-    module._get_directive_drafter()
-    assert seen["model"] == "openai/legacy-model"
-    assert "PREPROCESSOR_MODEL is deprecated" in caplog.text
-
-    monkeypatch.setenv("DRAFTER_MODEL", "openai/drafter-model")
-    module._create_directive_drafter.cache_clear()
-    module._get_directive_drafter()
-    assert seen["model"] == "openai/drafter-model"
-
-
 def test_no_removed_replay_api_remains(monkeypatch) -> None:
     module = _load_module(monkeypatch, "litellm_proxy_with_drafter_no_replay")
 
-    assert (
-        module.ContextCompilerPreCallHookWithPreprocessor
-        is module.ContextCompilerPreCallHookWithDrafter
-    )
     assert not hasattr(module, "compile_transcript")
     assert "_state_before_last_message" not in MODULE_PATH.read_text(encoding="utf-8")

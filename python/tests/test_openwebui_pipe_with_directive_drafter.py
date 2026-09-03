@@ -953,28 +953,6 @@ def test_drafter_model_override_wins(monkeypatch) -> None:
     assert pipe._resolve_drafter_model_id("base-model") == "prep-model"
 
 
-def test_drafter_model_legacy_alias_is_supported_and_warns(monkeypatch, caplog) -> None:
-    module = _load_module("owui_with_drafter_legacy_model_alias", monkeypatch)
-    pipe = module.Pipe()
-    pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.DRAFTER_MODEL_ID = None
-    pipe.valves.PREPROCESSOR_MODEL_ID = "legacy-model"
-
-    assert pipe._resolve_drafter_model_id("base-model") == "legacy-model"
-    assert "PREPROCESSOR_MODEL_ID is deprecated" in caplog.text
-
-
-def test_drafter_model_wins_over_legacy_alias(monkeypatch, caplog) -> None:
-    module = _load_module("owui_with_drafter_model_precedence", monkeypatch)
-    pipe = module.Pipe()
-    pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.DRAFTER_MODEL_ID = "drafter-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "legacy-model"
-
-    assert pipe._resolve_drafter_model_id("base-model") == "drafter-model"
-    assert "PREPROCESSOR_MODEL_ID is deprecated" not in caplog.text
-
-
 def test_invalid_drafter_model_id_from_model_list(monkeypatch) -> None:
     module = _load_module("owui_with_drafter_invalid_drafter_model", monkeypatch)
     pipe = module.Pipe()
@@ -1077,7 +1055,7 @@ def test_drafter_model_not_found_is_normalized(monkeypatch) -> None:
             },
             __user__={"id": "u1"},
             __request__=object(),
-            __chat_id__="chat-preprocessor-not-found",
+            __chat_id__="chat-drafter-not-found",
         )
     )
 

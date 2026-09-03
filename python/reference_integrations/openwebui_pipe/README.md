@@ -70,8 +70,6 @@ If using `open_webui_pipe_with_directive_drafter.py`:
 - Install directive-drafter support if needed:
   `pip install "context-compiler>=0.9.0dev13" "context-compiler-directive-drafter>=0.2.0dev5"`
 - Optionally set `DRAFTER_MODEL_ID` to use a separate fallback drafting model
-- `PREPROCESSOR_MODEL_ID` remains supported as a deprecated compatibility alias;
-  `DRAFTER_MODEL_ID` wins when both are set
 - If neither model id is set, fallback uses `BASE_MODEL_ID`
 
 Model fallback output is structurally validated before handoff. This does not prove that the model interpreted the user correctly. The automated fallback path is experimental pending a separate source-aware acceptance policy and reviewed drafting workflow.
@@ -250,5 +248,5 @@ rejection flows.
 
 ## Fallback notes
 
-- Fallback drafting uses `DRAFTER_MODEL_ID` first, then the deprecated `PREPROCESSOR_MODEL_ID` alias, while the main passthrough path still forwards with `BASE_MODEL_ID`.
+- Fallback drafting uses `DRAFTER_MODEL_ID`, while the main passthrough path still forwards with `BASE_MODEL_ID`.
 - If the fallback model returns `model not found`, the pipe normalizes that into the deterministic `DRAFTER_MODEL_ID` misconfiguration message above.
