@@ -377,11 +377,15 @@ class Pipe:
                 "llama3.1:8b."
             ),
         )
-        PREPROCESSOR_MODEL_ID: str | None = Field(
+        DRAFTER_MODEL_ID: str | None = Field(
             default=None,
             description=(
                 "Optional model id for fallback drafting (defaults to BASE_MODEL_ID)."
             ),
+        )
+        PREPROCESSOR_MODEL_ID: str | None = Field(
+            default=None,
+            description=("Deprecated compatibility alias for DRAFTER_MODEL_ID."),
         )
         ALLOW_MISSING_BASE_MODEL_FOR_DEBUG: bool = Field(
             default=False,
@@ -394,7 +398,7 @@ class Pipe:
 
     def __init__(self) -> None:
         self.valves = self.Valves()
-        self._last_preprocessor_error: str | None = None
+        self._last_drafter_error: str | None = None
 
     def _allow_missing_base_model_for_debug(self) -> bool:
         return _is_truthy_bool(
@@ -498,12 +502,12 @@ class Pipe:
         state_before: object,
         state_after: object,
         llm_called: bool,
-        preprocessor_output: str | None = None,
+        drafter_output: str | None = None,
         state_injected: str = "no",
     ) -> Any:
         if not self._trace_enabled():
             return response
-        del original_input, compiler_input, preprocessor_output
+        del original_input, compiler_input, drafter_output
         trace_text = _build_compact_trace_text(
             decision=decision,
             state_before=state_before,
@@ -548,30 +552,42 @@ class Pipe:
             )
         return None
 
-    def _normalize_preprocessor_error(self, response: Any) -> str | None:
+    def _normalize_drafter_error(self, response: Any) -> str | None:
         if self._contains_model_not_found(response):
             return (
-                "Context Compiler pipe misconfigured: PREPROCESSOR_MODEL_ID is invalid or "
+                "Context Compiler pipe misconfigured: DRAFTER_MODEL_ID is invalid or "
                 "not configured in Open WebUI. Configure a valid model id in "
                 "Admin Panel → Settings → Models."
             )
         return None
 
-    def _normalize_preprocessor_exception(self, exc: Exception) -> str | None:
+    def _normalize_drafter_exception(self, exc: Exception) -> str | None:
         detail = getattr(exc, "detail", None)
         if self._contains_model_not_found(detail) or self._contains_model_not_found(
             str(exc)
         ):
             return (
-                "Context Compiler pipe misconfigured: PREPROCESSOR_MODEL_ID is invalid or "
+                "Context Compiler pipe misconfigured: DRAFTER_MODEL_ID is invalid or "
                 "not configured in Open WebUI. Configure a valid model id in "
                 "Admin Panel → Settings → Models."
             )
         return None
 
-    def _resolve_preprocessor_model_id(self, base_model_id: str | None) -> str | None:
-        preprocessor_model_id = _normalize_model_id(self.valves.PREPROCESSOR_MODEL_ID)
-        return preprocessor_model_id or base_model_id
+    def _resolve_drafter_model_id(self, base_model_id: str | None) -> str | None:
+        drafter_model_id = _normalize_model_id(
+            getattr(self.valves, "DRAFTER_MODEL_ID", None)
+        )
+        if drafter_model_id:
+            return drafter_model_id
+        legacy_model_id = _normalize_model_id(
+            getattr(self.valves, "PREPROCESSOR_MODEL_ID", None)
+        )
+        if legacy_model_id:
+            logger.warning(
+                "PREPROCESSOR_MODEL_ID is deprecated; use DRAFTER_MODEL_ID instead"
+            )
+            return legacy_model_id
+        return base_model_id
 
     async def _validate_configured_model_ids(
         self,
@@ -579,10 +595,10 @@ class Pipe:
         user_payload: dict[str, Any],
         *,
         base_model_id: str | None,
-        preprocessor_model_id: str | None,
+        drafter_model_id: str | None,
     ) -> str | None:
         base_model_id = _normalize_model_id(base_model_id)
-        preprocessor_model_id = _normalize_model_id(preprocessor_model_id)
+        drafter_model_id = _normalize_model_id(drafter_model_id)
         # Best-effort preflight: fail closed only for clear missing-model mismatches.
         # If model discovery fails, preserve runtime behavior and rely on call-path
         # normalization below.
@@ -608,9 +624,9 @@ class Pipe:
                 "Context Compiler pipe misconfigured: BASE_MODEL_ID was not found "
                 "in Open WebUI models."
             )
-        if preprocessor_model_id and preprocessor_model_id not in known_model_ids:
+        if drafter_model_id and drafter_model_id not in known_model_ids:
             return (
-                "Context Compiler pipe misconfigured: PREPROCESSOR_MODEL_ID was not found "
+                "Context Compiler pipe misconfigured: DRAFTER_MODEL_ID was not found "
                 "in Open WebUI models."
             )
         return None
@@ -623,7 +639,7 @@ class Pipe:
         user_payload: dict[str, Any],
         model_id: str | None,
     ) -> str | None:
-        self._last_preprocessor_error = None
+        self._last_drafter_error = None
         model_id = _normalize_model_id(model_id)
         if model_id is None:
             return None
@@ -642,16 +658,16 @@ class Pipe:
         try:
             response = await generate_chat_completion(request, payload, user)
         except Exception as exc:
-            normalized_exception = self._normalize_preprocessor_exception(exc)
+            normalized_exception = self._normalize_drafter_exception(exc)
             if normalized_exception is not None:
-                self._last_preprocessor_error = normalized_exception
-                logger.warning("preprocessor: %s", normalized_exception)
+                self._last_drafter_error = normalized_exception
+                logger.warning("drafter: %s", normalized_exception)
             return None
 
-        normalized_error = self._normalize_preprocessor_error(response)
+        normalized_error = self._normalize_drafter_error(response)
         if normalized_error is not None:
-            self._last_preprocessor_error = normalized_error
-            logger.warning("preprocessor: %s", normalized_error)
+            self._last_drafter_error = normalized_error
+            logger.warning("drafter: %s", normalized_error)
             return None
 
         return _extract_completion_content(response)
@@ -687,7 +703,7 @@ class Pipe:
             return None
         return None
 
-    async def _preprocess_user_input(
+    async def _run_drafter(
         self,
         message: str,
         *,
@@ -695,14 +711,14 @@ class Pipe:
         user_payload: dict[str, Any],
         model_id: str | None,
     ) -> tuple[DraftResult, str | None]:
-        self._last_preprocessor_error = None
+        self._last_drafter_error = None
         drafted_result = await self._draft_user_input(
             message,
             request=request,
             user_payload=user_payload,
             model_id=model_id,
         )
-        return drafted_result, self._last_preprocessor_error
+        return drafted_result, self._last_drafter_error
 
     async def _forward_passthrough(
         self,
@@ -758,7 +774,7 @@ class Pipe:
         state_before = _snapshot_engine_state(engine)
         engine_snapshot_json = engine.export_json()
         compile_input = directive.text
-        logger.debug("preprocessor: approved_input=%r", compile_input)
+        logger.debug("drafter: approved_input=%r", compile_input)
         decision = engine.apply_directive(directive)
         state_after = _snapshot_engine_state(engine)
 
@@ -773,7 +789,7 @@ class Pipe:
                 decision=decision,
                 state_before=state_before,
                 state_after=state_after,
-                preprocessor_output=compile_input,
+                drafter_output=compile_input,
                 llm_called=False,
             )
         if decision.kind == DecisionKind.UPDATE:
@@ -784,7 +800,7 @@ class Pipe:
                 decision=decision,
                 state_before=state_before,
                 state_after=state_after,
-                preprocessor_output=compile_input,
+                drafter_output=compile_input,
                 llm_called=False,
             )
 
@@ -803,7 +819,7 @@ class Pipe:
             decision=decision,
             state_before=state_before,
             state_after=state_after,
-            preprocessor_output=compile_input,
+            drafter_output=compile_input,
             llm_called=base_model_id is not None,
             state_injected=state_injected,
         )
@@ -819,7 +835,7 @@ class Pipe:
     ) -> Any:
         # Open WebUI integration entrypoint:
         # 1) extract latest user input
-        # 2) run preprocess (heuristic -> LLM fallback)
+        # 2) run drafter (heuristic -> LLM fallback)
         # 3) pass directive or original input to engine.step(...)
         # 4) map decision back to Open WebUI response behavior
         raw_messages = body.get("messages")
@@ -829,8 +845,7 @@ class Pipe:
             else []
         )
         base_model_id = _normalize_model_id(self.valves.BASE_MODEL_ID)
-        preprocessor_model_id = _normalize_model_id(self.valves.PREPROCESSOR_MODEL_ID)
-        effective_preprocessor_model = preprocessor_model_id or base_model_id
+        effective_drafter_model = self._resolve_drafter_model_id(base_model_id)
         current_model_id = str(body.get("model", "")).strip()
 
         if not base_model_id and not self._allow_missing_base_model_for_debug():
@@ -844,12 +859,12 @@ class Pipe:
                 "the selected pipe model id to avoid recursive routing."
             )
         if (
-            effective_preprocessor_model
+            effective_drafter_model
             and current_model_id
-            and effective_preprocessor_model == current_model_id
+            and effective_drafter_model == current_model_id
         ):
             return (
-                "Context Compiler pipe misconfigured: PREPROCESSOR_MODEL_ID must not "
+                "Context Compiler pipe misconfigured: DRAFTER_MODEL_ID must not "
                 "match the selected pipe model id to avoid recursive routing."
             )
 
@@ -857,13 +872,13 @@ class Pipe:
             __request__,
             __user__,
             base_model_id=base_model_id,
-            preprocessor_model_id=effective_preprocessor_model,
+            drafter_model_id=effective_drafter_model,
         )
         if preflight_error is not None:
             return preflight_error
 
         latest_user_text = _extract_latest_user_text(messages)
-        logger.debug("preprocessor: user_input_found=%s", latest_user_text is not None)
+        logger.debug("drafter: user_input_found=%s", latest_user_text is not None)
 
         if latest_user_text is None:
             return await self._forward_passthrough(
@@ -883,17 +898,17 @@ class Pipe:
             return _render_show_state_summary(engine)
 
         state_before = _snapshot_engine_state(engine)
-        preprocess_error: str | None = None
-        drafted_result, preprocess_error = await self._preprocess_user_input(
+        drafter_error: str | None = None
+        drafted_result, drafter_error = await self._run_drafter(
             latest_user_text,
             request=__request__,
             user_payload=__user__,
-            model_id=effective_preprocessor_model,
+            model_id=effective_drafter_model,
         )
-        if preprocess_error is not None:
-            return preprocess_error
+        if drafter_error is not None:
+            return drafter_error
 
-        logger.debug("preprocessor: drafted_result=%r", drafted_result)
+        logger.debug("drafter: drafted_result=%r", drafted_result)
         if not isinstance(drafted_result.result, CanonicalDirective):
             state_injected = (
                 "yes" if _has_non_empty_authoritative_state(engine) else "no"
@@ -912,7 +927,7 @@ class Pipe:
                 decision=DecisionKind.NO_DIRECTIVE,
                 state_before=state_before,
                 state_after=state_before,
-                preprocessor_output=None,
+                drafter_output=None,
                 llm_called=base_model_id is not None,
                 state_injected=state_injected,
             )

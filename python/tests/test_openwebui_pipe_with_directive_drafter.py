@@ -115,7 +115,7 @@ def test_native_confirmation_applies_canonical_draft(monkeypatch) -> None:
     monkeypatch.setattr(module.Pipe, "_draft_user_input", fake_draft)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
     chat_id = "chat-native-confirmation"
 
     result = asyncio.run(
@@ -169,7 +169,7 @@ def test_confirmation_dialog_does_not_write_marker_to_output(
 
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
     chat_id = "chat-before-step"
 
     async def confirm(event: dict[str, object]) -> bool:
@@ -223,7 +223,7 @@ def test_approval_applies_directive_through_engine_path(monkeypatch) -> None:
     monkeypatch.setattr(module, "Engine", Engine_with_tracking)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
 
     async def update_draft(*args, **kwargs):
         return DraftResult(
@@ -289,7 +289,7 @@ def test_confirmation_flow_does_not_depend_on_pipe_object_lifetime(monkeypatch) 
 
     first_pipe = module.Pipe()
     first_pipe.valves.BASE_MODEL_ID = "base-model"
-    first_pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    first_pipe.valves.DRAFTER_MODEL_ID = "prep-model"
     chat_id = "chat-pending-lifecycle"
     first_result = asyncio.run(
         first_pipe.pipe(
@@ -308,7 +308,7 @@ def test_confirmation_flow_does_not_depend_on_pipe_object_lifetime(monkeypatch) 
     module._ENGINES_BY_CHAT_KEY.clear()
     second_pipe = module.Pipe()
     second_pipe.valves.BASE_MODEL_ID = "base-model"
-    second_pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    second_pipe.valves.DRAFTER_MODEL_ID = "prep-model"
     second_result = asyncio.run(
         second_pipe.pipe(
             {
@@ -344,7 +344,7 @@ def test_rejection_does_not_mutate_state(monkeypatch) -> None:
     )
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
 
     async def update_draft(*args, **kwargs):
         return DraftResult(
@@ -404,7 +404,7 @@ def test_rejected_confirmation_does_not_affect_show_state(monkeypatch) -> None:
     module = _load_module("owui_with_drafter_pending_show_state", monkeypatch)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
 
     async def update_draft(*args, **kwargs):
         return DraftResult(
@@ -477,7 +477,7 @@ def test_rejected_confirmation_does_not_apply_follow_up(monkeypatch) -> None:
     module.generate_chat_completion = forward
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
 
     async def update_draft(*args, **kwargs):
         return DraftResult(
@@ -563,7 +563,7 @@ def test_rejected_confirmation_does_not_leave_state(
     module.generate_chat_completion = forward
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
 
     async def update_draft(*args, **kwargs):
         return DraftResult(
@@ -660,7 +660,7 @@ def test_fallback_to_raw_input_path_preserves_host_behavior(monkeypatch) -> None
 
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
 
     result = asyncio.run(
         pipe.pipe(
@@ -693,7 +693,7 @@ def test_local_update_and_no_directive_passthrough_preserve_host_behavior(
     module.generate_chat_completion = forward
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
 
     async def update_draft(*args, **kwargs):
         return DraftResult(
@@ -763,7 +763,7 @@ def test_no_directive_passthrough_does_not_change_existing_engine_state(
     module.generate_chat_completion = forward
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
 
     async def no_draft(*args, **kwargs):
         return DraftResult(
@@ -826,7 +826,7 @@ def test_compound_directives_fall_through_to_normal_forwarding(monkeypatch) -> N
     module.generate_chat_completion = forward
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
 
     async def compound_draft(*args, **kwargs):
         return DraftResult(
@@ -871,7 +871,7 @@ def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exis
     module.generate_chat_completion = forward
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
     chat_id = "chat-passthrough"
 
     async def update_draft(*args, **kwargs):
@@ -935,26 +935,48 @@ def test_passthrough_injects_exactly_one_cc_state_system_message_when_state_exis
     assert len(cc_messages) == 1
 
 
-def test_preprocessor_model_defaults_to_base_model(monkeypatch) -> None:
+def test_drafter_model_defaults_to_base_model(monkeypatch) -> None:
     module = _load_module("owui_with_drafter_model_default", monkeypatch)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = None
+    pipe.valves.DRAFTER_MODEL_ID = None
 
-    assert pipe._resolve_preprocessor_model_id("base-model") == "base-model"
+    assert pipe._resolve_drafter_model_id("base-model") == "base-model"
 
 
-def test_preprocessor_model_override_wins(monkeypatch) -> None:
+def test_drafter_model_override_wins(monkeypatch) -> None:
     module = _load_module("owui_with_drafter_model_override", monkeypatch)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
 
-    assert pipe._resolve_preprocessor_model_id("base-model") == "prep-model"
+    assert pipe._resolve_drafter_model_id("base-model") == "prep-model"
 
 
-def test_invalid_preprocessor_model_id_from_model_list(monkeypatch) -> None:
-    module = _load_module("owui_with_drafter_invalid_preprocessor_model", monkeypatch)
+def test_drafter_model_legacy_alias_is_supported_and_warns(monkeypatch, caplog) -> None:
+    module = _load_module("owui_with_drafter_legacy_model_alias", monkeypatch)
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    pipe.valves.DRAFTER_MODEL_ID = None
+    pipe.valves.PREPROCESSOR_MODEL_ID = "legacy-model"
+
+    assert pipe._resolve_drafter_model_id("base-model") == "legacy-model"
+    assert "PREPROCESSOR_MODEL_ID is deprecated" in caplog.text
+
+
+def test_drafter_model_wins_over_legacy_alias(monkeypatch, caplog) -> None:
+    module = _load_module("owui_with_drafter_model_precedence", monkeypatch)
+    pipe = module.Pipe()
+    pipe.valves.BASE_MODEL_ID = "base-model"
+    pipe.valves.DRAFTER_MODEL_ID = "drafter-model"
+    pipe.valves.PREPROCESSOR_MODEL_ID = "legacy-model"
+
+    assert pipe._resolve_drafter_model_id("base-model") == "drafter-model"
+    assert "PREPROCESSOR_MODEL_ID is deprecated" not in caplog.text
+
+
+def test_invalid_drafter_model_id_from_model_list(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_invalid_drafter_model", monkeypatch)
     pipe = module.Pipe()
 
     async def models(_: object, user: object = None) -> list[dict[str, str]]:
@@ -968,21 +990,21 @@ def test_invalid_preprocessor_model_id_from_model_list(monkeypatch) -> None:
             request=object(),
             user_payload={"id": "u1"},
             base_model_id="base-model",
-            preprocessor_model_id="missing-prep-model",
+            drafter_model_id="missing-drafter-model",
         )
     )
 
     assert error == (
-        "Context Compiler pipe misconfigured: PREPROCESSOR_MODEL_ID was not found "
+        "Context Compiler pipe misconfigured: DRAFTER_MODEL_ID was not found "
         "in Open WebUI models."
     )
 
 
-def test_recursion_guard_for_preprocessor_model_id(monkeypatch) -> None:
+def test_recursion_guard_for_drafter_model_id(monkeypatch) -> None:
     module = _load_module("owui_with_drafter_recursion_guard", monkeypatch)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "pipe-model"
+    pipe.valves.DRAFTER_MODEL_ID = "pipe-model"
 
     result = asyncio.run(
         pipe.pipe(
@@ -993,7 +1015,7 @@ def test_recursion_guard_for_preprocessor_model_id(monkeypatch) -> None:
     )
 
     assert result == (
-        "Context Compiler pipe misconfigured: PREPROCESSOR_MODEL_ID must not "
+        "Context Compiler pipe misconfigured: DRAFTER_MODEL_ID must not "
         "match the selected pipe model id to avoid recursive routing."
     )
 
@@ -1004,7 +1026,7 @@ def test_debug_mode_missing_base_model_returns_deterministic_message(
     module = _load_module("owui_with_drafter_debug_missing_base", monkeypatch)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = None
-    pipe.valves.PREPROCESSOR_MODEL_ID = None
+    pipe.valves.DRAFTER_MODEL_ID = None
     pipe.valves.ALLOW_MISSING_BASE_MODEL_FOR_DEBUG = True
 
     async def no_draft(*args, **kwargs):
@@ -1033,11 +1055,11 @@ def test_debug_mode_missing_base_model_returns_deterministic_message(
     )
 
 
-def test_preprocessor_model_not_found_is_normalized(monkeypatch) -> None:
-    module = _load_module("owui_with_drafter_preprocessor_not_found", monkeypatch)
+def test_drafter_model_not_found_is_normalized(monkeypatch) -> None:
+    module = _load_module("owui_with_drafter_drafter_not_found", monkeypatch)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
 
     async def generate(
         _: object, payload: dict[str, object], __: object
@@ -1060,19 +1082,19 @@ def test_preprocessor_model_not_found_is_normalized(monkeypatch) -> None:
     )
 
     assert result == (
-        "Context Compiler pipe misconfigured: PREPROCESSOR_MODEL_ID is invalid or "
+        "Context Compiler pipe misconfigured: DRAFTER_MODEL_ID is invalid or "
         "not configured in Open WebUI. Configure a valid model id in "
         "Admin Panel → Settings → Models."
     )
 
 
-def test_fallback_uses_preprocessor_model_then_forward_uses_base_model(
+def test_fallback_uses_drafter_model_then_forward_uses_base_model(
     monkeypatch,
 ) -> None:
     module = _load_module("owui_with_drafter_fallback_routing", monkeypatch)
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
     calls: list[str] = []
 
     async def generate(
@@ -1138,7 +1160,7 @@ def test_unknown_directive_falls_back_to_normal_user_input_flow(monkeypatch) -> 
     module.generate_chat_completion = forward
     pipe = module.Pipe()
     pipe.valves.BASE_MODEL_ID = "base-model"
-    pipe.valves.PREPROCESSOR_MODEL_ID = "prep-model"
+    pipe.valves.DRAFTER_MODEL_ID = "prep-model"
 
     async def unknown_draft(*args, **kwargs):
         return DraftResult(
@@ -1175,7 +1197,7 @@ def test_validate_configured_model_ids_supports_async_user_lookup(monkeypatch) -
             request=object(),
             user_payload={"id": "u1"},
             base_model_id="base-model",
-            preprocessor_model_id="prep-model",
+            drafter_model_id="prep-model",
         )
     )
 

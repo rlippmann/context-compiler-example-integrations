@@ -2,7 +2,7 @@
 
 Saved compiler state changes which turns the pipe handles locally and what it
 forwards downstream. These examples show Open WebUI pipe behavior with and
-without Directive Drafter preprocessing.
+without Directive Drafter drafting.
 
 ## Core behavior
 
@@ -69,8 +69,10 @@ If using `open_webui_pipe_with_directive_drafter.py`:
 
 - Install directive-drafter support if needed:
   `pip install "context-compiler>=0.9.0dev13" "context-compiler-directive-drafter>=0.2.0dev5"`
-- Optionally set `PREPROCESSOR_MODEL_ID` to use a separate fallback drafting model
-- If `PREPROCESSOR_MODEL_ID` is unset, fallback uses `BASE_MODEL_ID`
+- Optionally set `DRAFTER_MODEL_ID` to use a separate fallback drafting model
+- `PREPROCESSOR_MODEL_ID` remains supported as a deprecated compatibility alias;
+  `DRAFTER_MODEL_ID` wins when both are set
+- If neither model id is set, fallback uses `BASE_MODEL_ID`
 
 Model fallback output is structurally validated before handoff. This does not prove that the model interpreted the user correctly. The automated fallback path is experimental pending a separate source-aware acceptance policy and reviewed drafting workflow.
 
@@ -91,7 +93,7 @@ If frontmatter dependency installs are disabled, offline, or unavailable:
 ### Finding valid model ids
 
 Use the Open WebUI model picker/list to copy exact model ids for `BASE_MODEL_ID`
-(and optional `PREPROCESSOR_MODEL_ID` for the directive-drafter pipe).
+(and optional `DRAFTER_MODEL_ID` for the directive-drafter pipe).
 
 ## Verify behavior
 
@@ -129,7 +131,7 @@ Advanced check:
 
 ### Directive-drafter pipe
 
-Use this pipe when you want the same runtime behavior plus Directive Drafter preprocessing.
+Use this pipe when you want the same runtime behavior plus Directive Drafter drafting.
 
 When the drafter produces a `CanonicalDirective`, the pipe uses Open WebUI's
 native `__event_call__` confirmation dialog for HITL approval. The lifecycle is:
@@ -240,13 +242,13 @@ rejection flows.
 
 - `BASE_MODEL_ID is required`: set a valid Open WebUI model id in the function valves, or enable `ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true` only for local testing.
 - `BASE_MODEL_ID was not found in Open WebUI models`: copy the exact id from `Admin Panel → Settings → Models`.
-- `PREPROCESSOR_MODEL_ID was not found in Open WebUI models`: set a valid fallback model id or leave it unset to default to `BASE_MODEL_ID`.
-- `PREPROCESSOR_MODEL_ID must not match the selected pipe model id`: choose a real backend model id, not the pipe model id itself.
-- `PREPROCESSOR_MODEL_ID is invalid or not configured in Open WebUI`: the fallback route hit a missing model; fix the configured fallback model or unset it to reuse `BASE_MODEL_ID`.
+- `DRAFTER_MODEL_ID was not found in Open WebUI models`: set a valid fallback model id or leave it unset to default to `BASE_MODEL_ID`.
+- `DRAFTER_MODEL_ID must not match the selected pipe model id`: choose a real backend model id, not the pipe model id itself.
+- `DRAFTER_MODEL_ID is invalid or not configured in Open WebUI`: the fallback route hit a missing model; fix the configured fallback model or unset it to reuse `BASE_MODEL_ID`.
 - `ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true`: directive-only updates still run locally, but passthrough returns a deterministic debug message instead of calling a downstream model.
 - imports fail after function upload: install `context-compiler>=0.9.0dev13` in the Open WebUI runtime, and add `context-compiler-directive-drafter>=0.2.0dev5` only for the Directive Drafter pipe, because the copied function runs from a temp/cached location.
 
 ## Fallback notes
 
-- Fallback drafting uses `PREPROCESSOR_MODEL_ID` first, while the main passthrough path still forwards with `BASE_MODEL_ID`.
-- If the fallback model returns `model not found`, the pipe normalizes that into the deterministic `PREPROCESSOR_MODEL_ID` misconfiguration message above.
+- Fallback drafting uses `DRAFTER_MODEL_ID` first, then the deprecated `PREPROCESSOR_MODEL_ID` alias, while the main passthrough path still forwards with `BASE_MODEL_ID`.
+- If the fallback model returns `model not found`, the pipe normalizes that into the deterministic `DRAFTER_MODEL_ID` misconfiguration message above.

@@ -111,7 +111,7 @@ def _build_trace_text(
     *,
     original_input: str,
     compiler_input: str,
-    preprocessor_output: str | None,
+    drafter_output: str | None,
     decision: Decision | DecisionKind,
     premise_before: str | None,
     policies_before: Mapping[str, PolicyValue],
@@ -124,7 +124,7 @@ def _build_trace_text(
         "Context Compiler trace",
         f"- original_input: {original_input}",
         f"- compiler_input: {compiler_input}",
-        f"- preprocessor_output: {preprocessor_output if preprocessor_output is not None else '(none)'}",
+        f"- drafter_output: {drafter_output if drafter_output is not None else '(none)'}",
         f"- decision: {kind}",
         f"- llm_called: {'yes' if llm_called else 'no'}",
     ]
@@ -224,20 +224,25 @@ def _create_directive_drafter(
 
 def _get_directive_drafter() -> DirectiveDrafter:
     config = resolve_provider_config(default_model="openai/gpt-4o-mini")
-    preprocessor_model = os.getenv("PREPROCESSOR_MODEL", "").strip() or config.model
-    return _create_directive_drafter(
-        preprocessor_model, config.api_key, config.base_url
-    )
+    drafter_model = os.getenv("DRAFTER_MODEL", "").strip()
+    if not drafter_model:
+        drafter_model = os.getenv("PREPROCESSOR_MODEL", "").strip()
+        if drafter_model:
+            logger.warning(
+                "PREPROCESSOR_MODEL is deprecated; use DRAFTER_MODEL instead"
+            )
+    drafter_model = drafter_model or config.model
+    return _create_directive_drafter(drafter_model, config.api_key, config.base_url)
 
 
-def _preprocess_user_input(message: str) -> str | None:
+def _draft_user_input(message: str) -> str | None:
     try:
         drafted_result = _get_directive_drafter().draft_directive(message)
-        logger.debug("preprocessor: drafted_result=%r", drafted_result)
+        logger.debug("drafter: drafted_result=%r", drafted_result)
         return _extract_drafted_text(drafted_result)
     except Exception:
         # Safe no-op fallback: if drafter path fails, preserve basic behavior.
-        logger.debug("preprocessor: drafter_exception", exc_info=True)
+        logger.debug("drafter: exception", exc_info=True)
         return None
     return None
 
@@ -258,7 +263,7 @@ def _append_trace(
     *,
     original_input: str,
     compiler_input: str,
-    preprocessor_output: str | None,
+    drafter_output: str | None,
     decision: Decision | DecisionKind,
     state_before: tuple[str | None, dict[str, PolicyValue]],
     state_after: tuple[str | None, dict[str, PolicyValue]],
@@ -269,7 +274,7 @@ def _append_trace(
     trace_text = _build_trace_text(
         original_input=original_input,
         compiler_input=compiler_input,
-        preprocessor_output=preprocessor_output,
+        drafter_output=drafter_output,
         decision=decision,
         premise_before=state_before[0],
         policies_before=state_before[1],
@@ -293,30 +298,30 @@ def handle_turn(
     approval_handler: ApprovalHandler = _default_approval_handler,
 ) -> str:
     state_before = (engine.premise, dict(engine.policies))
-    preprocessd = _preprocess_user_input(user_input)
-    if preprocessd is None:
+    drafted_input = _draft_user_input(user_input)
+    if drafted_input is None:
         messages = _build_messages(user_input, engine)
         response_text = _call_litellm(messages)
         return _append_trace(
             response_text,
             original_input=user_input,
             compiler_input=user_input,
-            preprocessor_output=None,
+            drafter_output=None,
             decision=DecisionKind.NO_DIRECTIVE,
             state_before=state_before,
             state_after=(engine.premise, dict(engine.policies)),
             llm_called=True,
         )
 
-    compile_input = preprocessd
-    logger.debug("preprocessor: engine_input=directive")
+    compile_input = drafted_input
+    logger.debug("drafter: engine_input=directive")
     approved = approval_handler(compile_input)
     if not approved:
         return _append_trace(
             "Directive rejected. No state change applied.",
             original_input=user_input,
             compiler_input=compile_input,
-            preprocessor_output=preprocessd,
+            drafter_output=drafted_input,
             decision=DecisionKind.NO_DIRECTIVE,
             state_before=state_before,
             state_after=(engine.premise, dict(engine.policies)),
@@ -330,7 +335,7 @@ def handle_turn(
         kind = DECISION_UPDATE
     else:
         kind = DecisionKind.NO_DIRECTIVE.value
-    logger.debug("preprocessor: decision=%s", kind)
+    logger.debug("drafter: decision=%s", kind)
 
     if decision.kind == DecisionKind.ERROR:
         response_text = (
@@ -340,7 +345,7 @@ def handle_turn(
             response_text,
             original_input=user_input,
             compiler_input=compile_input,
-            preprocessor_output=preprocessd,
+            drafter_output=drafted_input,
             decision=decision,
             state_before=state_before,
             state_after=(engine.premise, dict(engine.policies)),
@@ -352,7 +357,7 @@ def handle_turn(
             response_text,
             original_input=user_input,
             compiler_input=compile_input,
-            preprocessor_output=preprocessd,
+            drafter_output=drafted_input,
             decision=decision,
             state_before=state_before,
             state_after=(engine.premise, dict(engine.policies)),
@@ -364,7 +369,7 @@ def handle_turn(
         response_text,
         original_input=user_input,
         compiler_input=compile_input,
-        preprocessor_output=preprocessd,
+        drafter_output=drafted_input,
         decision=decision,
         state_before=state_before,
         state_after=(engine.premise, dict(engine.policies)),
