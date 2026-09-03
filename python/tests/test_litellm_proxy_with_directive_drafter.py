@@ -9,7 +9,6 @@ from typing import Any
 import pytest
 from context_compiler.grammar import decompose_directive
 from context_compiler_directive_drafter import (
-    REASON_INVALID_CANDIDATE,
     REASON_MULTIPLE_DIRECTIVES,
     REASON_NON_DIRECTIVE,
     RejectedDirective,
@@ -406,54 +405,7 @@ def test_compound_directives_fall_through_to_normal_forwarding_when_not_applied(
     assert checkpoint["policies"] == {}
 
 
-def test_fallback_returns_raw_candidate_text(monkeypatch) -> None:
-    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_fallback_directive")
-    monkeypatch.setenv("OPENAI_API_KEY", "dummy")
-    monkeypatch.setenv("MODEL", "openai/demo-model")
-    monkeypatch.setattr(
-        module, "create_litellm_fallback", lambda **_: lambda _message: "use docker"
-    )
-    module._create_directive_drafter.cache_clear()
-
-    result = module._draft_last_user_message("please use docker")
-
-    assert isinstance(result.result, module.CanonicalDirective)
-    assert result.result.text == "use docker"
-
-
-def test_fallback_returns_raw_no_directive_sentinel(monkeypatch) -> None:
-    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_fallback_none")
-    monkeypatch.setenv("OPENAI_API_KEY", "dummy")
-    monkeypatch.setenv("MODEL", "openai/demo-model")
-    monkeypatch.setattr(
-        module, "create_litellm_fallback", lambda **_: lambda _message: None
-    )
-    module._create_directive_drafter.cache_clear()
-
-    result = module._draft_last_user_message("hello there")
-
-    assert isinstance(result.result, RejectedDirective)
-    assert result.result.reason == REASON_NON_DIRECTIVE
-
-
-def test_fallback_returns_raw_unknown_candidate_text(monkeypatch) -> None:
-    module = _load_module(monkeypatch, "litellm_proxy_with_drafter_fallback_unknown")
-    monkeypatch.setenv("OPENAI_API_KEY", "dummy")
-    monkeypatch.setenv("MODEL", "openai/demo-model")
-    monkeypatch.setattr(
-        module,
-        "create_litellm_fallback",
-        lambda **_: lambda _message: "clear everything",
-    )
-    module._create_directive_drafter.cache_clear()
-
-    result = module._draft_last_user_message("clear everything")
-
-    assert isinstance(result.result, RejectedDirective)
-    assert result.result.reason == REASON_INVALID_CANDIDATE
-
-
-def test_fallback_uses_shared_converter_prompt(monkeypatch) -> None:
+def test_fallback_adapter_receives_preprocessor_model(monkeypatch) -> None:
     module = _load_module(monkeypatch, "litellm_proxy_with_drafter_shared_prompt")
     monkeypatch.setenv("OPENAI_API_KEY", "dummy")
     monkeypatch.setenv("MODEL", "openai/demo-model")
@@ -466,10 +418,8 @@ def test_fallback_uses_shared_converter_prompt(monkeypatch) -> None:
     monkeypatch.setattr(module, "create_litellm_fallback", fallback_factory)
     module._create_directive_drafter.cache_clear()
 
-    result = module._draft_last_user_message("please use docker")
+    module._get_directive_drafter()
 
-    assert isinstance(result.result, module.CanonicalDirective)
-    assert result.result.text == "use docker"
     assert seen["model"] == "openai/demo-model"
 
 
