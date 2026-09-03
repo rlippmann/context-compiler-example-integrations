@@ -76,17 +76,23 @@ def _create_directive_drafter(
 
 
 def _get_directive_drafter() -> DirectiveDrafter:
-    preprocessor_model = os.getenv("PREPROCESSOR_MODEL", "").strip()
-    if not preprocessor_model:
-        preprocessor_model = os.getenv("MODEL", "").strip()
-    if not preprocessor_model:
+    drafter_model = os.getenv("DRAFTER_MODEL", "").strip()
+    if not drafter_model:
+        drafter_model = os.getenv("PREPROCESSOR_MODEL", "").strip()
+        if drafter_model:
+            logger.warning(
+                "PREPROCESSOR_MODEL is deprecated; use DRAFTER_MODEL instead"
+            )
+    if not drafter_model:
+        drafter_model = os.getenv("MODEL", "").strip()
+    if not drafter_model:
         return DirectiveDrafter()
 
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return DirectiveDrafter()
     return _create_directive_drafter(
-        preprocessor_model, api_key, os.getenv("OPENAI_BASE_URL") or None
+        drafter_model, api_key, os.getenv("OPENAI_BASE_URL") or None
     )
 
 
@@ -98,7 +104,7 @@ def _draft_last_user_message(message: str) -> DraftResult:
         return DirectiveDrafter().draft_directive(message)
 
 
-class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
+class ContextCompilerPreCallHookWithDrafter(CustomLogger):
     async def async_pre_call_hook(
         self,
         user_api_key_dict: Any,
@@ -181,4 +187,7 @@ class ContextCompilerPreCallHookWithPreprocessor(CustomLogger):
         return data
 
 
-proxy_handler_instance = ContextCompilerPreCallHookWithPreprocessor()
+# Import-compatible alias for existing LiteLLM proxy configurations.
+ContextCompilerPreCallHookWithPreprocessor = ContextCompilerPreCallHookWithDrafter
+
+proxy_handler_instance = ContextCompilerPreCallHookWithDrafter()

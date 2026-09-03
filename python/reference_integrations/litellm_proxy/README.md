@@ -201,10 +201,12 @@ python.reference_integrations.litellm_proxy.context_compiler_precall_hook.proxy_
 Optional env vars for directive-drafter fallback:
 
 ```shell
-export PREPROCESSOR_MODEL=openai/gpt-4o-mini
+export DRAFTER_MODEL=openai/gpt-4o-mini
 ```
 
-`PREPROCESSOR_MODEL` is optional and defaults to `MODEL`.
+`DRAFTER_MODEL` is optional and defaults to `MODEL`. `PREPROCESSOR_MODEL` is
+deprecated but remains supported as a compatibility alias; `DRAFTER_MODEL`
+wins when both are set.
 
 The directive-drafter integration always uses heuristic-first processing with
 the configured fallback model when needed.
@@ -213,7 +215,7 @@ the configured fallback model when needed.
 
 - Mixed-content user messages compile only text segments from the latest user
   turn.
-- `MODEL` and `PREPROCESSOR_MODEL` use LiteLLM format: `<provider>/<model>`.
+- `MODEL` and `DRAFTER_MODEL` use LiteLLM format: `<provider>/<model>`.
 - Corrupt or incompatible checkpoints fail clearly in persistent mode and do
   not silently reset state.
 - In the directive-drafter hook, drafter state context now comes from restored
@@ -230,8 +232,8 @@ the configured fallback model when needed.
   explicit `stateless` mode
 - proxy starts but upstream calls fail: check `OPENAI_API_KEY` and upstream
   model/provider config in `config.example.yaml`
-- directive-drafter fallback issues: `PREPROCESSOR_MODEL` defaults to `MODEL`;
-  set it explicitly only when using a separate fallback model
+- directive-drafter fallback issues: `DRAFTER_MODEL` defaults to `MODEL`;
+  `PREPROCESSOR_MODEL` remains available as a deprecated compatibility alias
 
 ## Opt-in Runtime Smoke Test
 

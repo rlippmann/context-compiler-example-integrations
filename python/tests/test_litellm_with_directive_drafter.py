@@ -317,7 +317,7 @@ def test_call_litellm_logs_startup_config_once(
     assert "source=OPENAI_BASE_URL override" in message
 
 
-def test_preprocessor_model_defaults_to_model(monkeypatch) -> None:
+def test_drafter_model_defaults_to_model(monkeypatch) -> None:
     seen: dict[str, object] = {}
 
     def fallback_factory(**kwargs: Any):
@@ -326,6 +326,7 @@ def test_preprocessor_model_defaults_to_model(monkeypatch) -> None:
 
     monkeypatch.setenv("OPENAI_API_KEY", "dummy")
     monkeypatch.setenv("MODEL", "openai/main-model")
+    monkeypatch.delenv("DRAFTER_MODEL", raising=False)
     monkeypatch.delenv("PREPROCESSOR_MODEL", raising=False)
     monkeypatch.setattr(module, "create_litellm_fallback", fallback_factory)
     module._create_directive_drafter.cache_clear()
@@ -334,7 +335,7 @@ def test_preprocessor_model_defaults_to_model(monkeypatch) -> None:
     assert seen["model"] == "openai/main-model"
 
 
-def test_preprocessor_model_override_wins(monkeypatch) -> None:
+def test_drafter_model_legacy_alias_is_supported(monkeypatch, caplog) -> None:
     seen: dict[str, object] = {}
 
     def fallback_factory(**kwargs: Any):
@@ -343,12 +344,32 @@ def test_preprocessor_model_override_wins(monkeypatch) -> None:
 
     monkeypatch.setenv("OPENAI_API_KEY", "dummy")
     monkeypatch.setenv("MODEL", "openai/main-model")
+    monkeypatch.delenv("DRAFTER_MODEL", raising=False)
     monkeypatch.setenv("PREPROCESSOR_MODEL", "openai/preprocessor-model")
     monkeypatch.setattr(module, "create_litellm_fallback", fallback_factory)
     module._create_directive_drafter.cache_clear()
 
     module._get_directive_drafter()
     assert seen["model"] == "openai/preprocessor-model"
+    assert "PREPROCESSOR_MODEL is deprecated" in caplog.text
+
+
+def test_drafter_model_wins_over_legacy_alias(monkeypatch) -> None:
+    seen: dict[str, object] = {}
+
+    def fallback_factory(**kwargs: Any):
+        seen.update(kwargs)
+        return lambda _message: "use docker"
+
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy")
+    monkeypatch.setenv("MODEL", "openai/main-model")
+    monkeypatch.setenv("DRAFTER_MODEL", "openai/drafter-model")
+    monkeypatch.setenv("PREPROCESSOR_MODEL", "openai/preprocessor-model")
+    monkeypatch.setattr(module, "create_litellm_fallback", fallback_factory)
+    module._create_directive_drafter.cache_clear()
+
+    module._get_directive_drafter()
+    assert seen["model"] == "openai/drafter-model"
 
 
 def test_directive_shaped_malformed_inputs_can_fall_through_to_normal_turn_flow(
@@ -400,7 +421,7 @@ def test_compound_directives_fall_through_when_not_applied(monkeypatch) -> None:
 
 def test_handle_turn_has_no_session_or_resume_behavior(monkeypatch) -> None:
     monkeypatch.setattr(module, "_call_litellm", lambda _messages: "ok")
-    monkeypatch.setattr(module, "_preprocess_user_input", lambda _text: None)
+    monkeypatch.setattr(module, "_draft_user_input", lambda _text: None)
 
     engine = Engine()
 

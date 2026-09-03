@@ -14,7 +14,7 @@ Optional:
 ```shell
 export PROVIDER=openai
 export MODEL=openai/gpt-4o-mini
-export PREPROCESSOR_MODEL=openai/gpt-4o-mini
+export DRAFTER_MODEL=openai/gpt-4o-mini
 export OPENAI_BASE_URL=...
 ```
 
@@ -48,8 +48,10 @@ Startup emits one concise config line showing resolved `mode`, `base_url`,
 `model`, and resolution `source` (`default`, `PROVIDER`, or
 `OPENAI_BASE_URL override`).
 
-`MODEL` and `PREPROCESSOR_MODEL` use LiteLLM format: `<provider>/<model>`.
-`PREPROCESSOR_MODEL` is optional and defaults to `MODEL`.
+`MODEL` and `DRAFTER_MODEL` use LiteLLM format: `<provider>/<model>`.
+`DRAFTER_MODEL` is optional and defaults to `MODEL`. `PREPROCESSOR_MODEL` is
+deprecated but remains supported as a compatibility alias; `DRAFTER_MODEL`
+wins when both are set.
 
 The directive-drafter integration always uses heuristic-first processing with
 the configured fallback model when needed.
