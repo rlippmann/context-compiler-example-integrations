@@ -383,10 +383,6 @@ class Pipe:
                 "Optional model id for fallback drafting (defaults to BASE_MODEL_ID)."
             ),
         )
-        PREPROCESSOR_MODEL_ID: str | None = Field(
-            default=None,
-            description=("Deprecated compatibility alias for DRAFTER_MODEL_ID."),
-        )
         ALLOW_MISSING_BASE_MODEL_FOR_DEBUG: bool = Field(
             default=False,
             description="Allow missing BASE_MODEL_ID for debug/testing only.",
@@ -579,14 +575,6 @@ class Pipe:
         )
         if drafter_model_id:
             return drafter_model_id
-        legacy_model_id = _normalize_model_id(
-            getattr(self.valves, "PREPROCESSOR_MODEL_ID", None)
-        )
-        if legacy_model_id:
-            logger.warning(
-                "PREPROCESSOR_MODEL_ID is deprecated; use DRAFTER_MODEL_ID instead"
-            )
-            return legacy_model_id
         return base_model_id
 
     async def _validate_configured_model_ids(
