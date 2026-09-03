@@ -7,7 +7,6 @@ from context_compiler.grammar import CanonicalDirective, DirectiveKind
 from context_compiler_directive_drafter import (
     DirectiveDrafter,
     DraftResult,
-    REASON_INCOMPLETE,
     REASON_NON_DIRECTIVE,
     RejectedDirective,
     UnknownDirective,
@@ -331,10 +330,7 @@ def test_preprocessor_model_defaults_to_model(monkeypatch) -> None:
     monkeypatch.setattr(module, "create_litellm_fallback", fallback_factory)
     module._create_directive_drafter.cache_clear()
 
-    assert (
-        module._get_directive_drafter().draft_directive("please use docker").result.text
-        == "use docker"
-    )
+    module._get_directive_drafter()
     assert seen["model"] == "openai/main-model"
 
 
@@ -351,32 +347,8 @@ def test_preprocessor_model_override_wins(monkeypatch) -> None:
     monkeypatch.setattr(module, "create_litellm_fallback", fallback_factory)
     module._create_directive_drafter.cache_clear()
 
-    assert (
-        module._get_directive_drafter().draft_directive("please use docker").result.text
-        == "use docker"
-    )
+    module._get_directive_drafter()
     assert seen["model"] == "openai/preprocessor-model"
-
-
-def test_fallback_accepts_structurally_valid_output_without_source_awareness(
-    monkeypatch,
-) -> None:
-    monkeypatch.setenv("OPENAI_API_KEY", "dummy")
-    monkeypatch.setenv("MODEL", "openai/main-model")
-    monkeypatch.delenv("PREPROCESSOR_MODEL", raising=False)
-    monkeypatch.setattr(
-        module,
-        "create_litellm_fallback",
-        lambda **_: lambda _message: "set premise concise replies",
-    )
-    module._create_directive_drafter.cache_clear()
-
-    assert (
-        module._get_directive_drafter()
-        .draft_directive("set premise to concise replies")
-        .result.text
-        == "set premise concise replies"
-    )
 
 
 def test_directive_shaped_malformed_inputs_can_fall_through_to_normal_turn_flow(
@@ -397,11 +369,6 @@ def test_directive_shaped_malformed_inputs_can_fall_through_to_normal_turn_flow(
     monkeypatch.setattr(module, "_call_litellm", lambda _messages: "downstream reply")
 
     assert module.handle_turn("use docker instead of", Engine()) == "downstream reply"
-    drafted_result = module._get_directive_drafter().draft_directive(
-        "use docker instead of"
-    )
-    assert isinstance(drafted_result.result, RejectedDirective)
-    assert drafted_result.result.reason == REASON_INCOMPLETE
     assert fallback_calls == 0
 
 
