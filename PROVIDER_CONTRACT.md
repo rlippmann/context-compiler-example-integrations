@@ -16,7 +16,6 @@ export PROVIDER=openai
 export MODEL=openai/gpt-4o-mini
 export PREPROCESSOR_MODEL=openai/gpt-4o-mini
 export OPENAI_BASE_URL=...
-export PREPROCESSOR_PROMPT_PROFILE=default
 ```
 
 Provider mode contract (`PROVIDER`) is strict:
@@ -52,5 +51,5 @@ Startup emits one concise config line showing resolved `mode`, `base_url`,
 `MODEL` and `PREPROCESSOR_MODEL` use LiteLLM format: `<provider>/<model>`.
 `PREPROCESSOR_MODEL` is optional and defaults to `MODEL`.
 
-For heuristic-first usage, keep `PREPROCESSOR_PROMPT_PROFILE=default`.
-Use `llama` only for LLM-only preprocessing with Llama-family models.
+The directive-drafter integration always uses heuristic-first processing with
+the configured fallback model when needed.

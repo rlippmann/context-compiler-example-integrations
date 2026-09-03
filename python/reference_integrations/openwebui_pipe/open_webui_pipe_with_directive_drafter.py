@@ -24,7 +24,7 @@ import json
 import logging
 import re
 from collections.abc import AsyncIterator
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, TypedDict, cast
 
 from fastapi import Request  # type: ignore[import-not-found]
 from open_webui.models.users import Users  # type: ignore[import-not-found]
@@ -383,10 +383,6 @@ class Pipe:
                 "Optional model id for fallback drafting (defaults to BASE_MODEL_ID)."
             ),
         )
-        PREPROCESSOR_PROMPT_PROFILE: Literal["default", "llama"] = Field(
-            default="default",
-            description="Prompt profile for LLM fallback drafting.",
-        )
         ALLOW_MISSING_BASE_MODEL_FOR_DEBUG: bool = Field(
             default=False,
             description="Allow missing BASE_MODEL_ID for debug/testing only.",
@@ -697,10 +693,8 @@ class Pipe:
         *,
         request: Request,
         user_payload: dict[str, Any],
-        prompt_profile: str,
         model_id: str | None,
     ) -> tuple[DraftResult, str | None]:
-        del prompt_profile
         self._last_preprocessor_error = None
         drafted_result = await self._draft_user_input(
             message,
@@ -894,7 +888,6 @@ class Pipe:
             latest_user_text,
             request=__request__,
             user_payload=__user__,
-            prompt_profile=self.valves.PREPROCESSOR_PROMPT_PROFILE,
             model_id=effective_preprocessor_model,
         )
         if preprocess_error is not None:
