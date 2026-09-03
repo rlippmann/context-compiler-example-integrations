@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from context_compiler.grammar import decompose_directive
 from context_compiler_directive_drafter import (
+    REASON_INVALID_CANDIDATE,
     REASON_MULTIPLE_DIRECTIVES,
     REASON_NON_DIRECTIVE,
     RejectedDirective,
@@ -410,14 +411,14 @@ def test_fallback_returns_raw_candidate_text(monkeypatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "dummy")
     monkeypatch.setenv("MODEL", "openai/demo-model")
     monkeypatch.setattr(
-        module,
-        "_get_litellm_completion",
-        lambda: lambda **_: {"choices": [{"message": {"content": "use docker"}}]},
+        module, "create_litellm_fallback", lambda **_: lambda _message: "use docker"
     )
+    module._create_directive_drafter.cache_clear()
 
-    result = module._llm_fallback_candidate("please use docker")
+    result = module._draft_last_user_message("please use docker")
 
-    assert result == "use docker"
+    assert isinstance(result.result, module.CanonicalDirective)
+    assert result.result.text == "use docker"
 
 
 def test_fallback_returns_raw_no_directive_sentinel(monkeypatch) -> None:
@@ -425,14 +426,14 @@ def test_fallback_returns_raw_no_directive_sentinel(monkeypatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "dummy")
     monkeypatch.setenv("MODEL", "openai/demo-model")
     monkeypatch.setattr(
-        module,
-        "_get_litellm_completion",
-        lambda: lambda **_: {"choices": [{"message": {"content": "<NO_DIRECTIVE>"}}]},
+        module, "create_litellm_fallback", lambda **_: lambda _message: None
     )
+    module._create_directive_drafter.cache_clear()
 
-    result = module._llm_fallback_candidate("hello there")
+    result = module._draft_last_user_message("hello there")
 
-    assert result == "<NO_DIRECTIVE>"
+    assert isinstance(result.result, RejectedDirective)
+    assert result.result.reason == REASON_NON_DIRECTIVE
 
 
 def test_fallback_returns_raw_unknown_candidate_text(monkeypatch) -> None:
@@ -441,13 +442,15 @@ def test_fallback_returns_raw_unknown_candidate_text(monkeypatch) -> None:
     monkeypatch.setenv("MODEL", "openai/demo-model")
     monkeypatch.setattr(
         module,
-        "_get_litellm_completion",
-        lambda: lambda **_: {"choices": [{"message": {"content": "clear everything"}}]},
+        "create_litellm_fallback",
+        lambda **_: lambda _message: "clear everything",
     )
+    module._create_directive_drafter.cache_clear()
 
-    result = module._llm_fallback_candidate("clear everything")
+    result = module._draft_last_user_message("clear everything")
 
-    assert result == "clear everything"
+    assert isinstance(result.result, RejectedDirective)
+    assert result.result.reason == REASON_INVALID_CANDIDATE
 
 
 def test_fallback_uses_shared_converter_prompt(monkeypatch) -> None:
@@ -456,17 +459,18 @@ def test_fallback_uses_shared_converter_prompt(monkeypatch) -> None:
     monkeypatch.setenv("MODEL", "openai/demo-model")
     seen: dict[str, Any] = {}
 
-    def completion(**kwargs):
+    def fallback_factory(**kwargs):
         seen.update(kwargs)
-        return {"choices": [{"message": {"content": "use docker"}}]}
+        return lambda _message: "use docker"
 
-    monkeypatch.setattr(module, "_get_litellm_completion", lambda: completion)
-    monkeypatch.setattr(module, "get_converter_prompt", lambda: "shared prompt")
+    monkeypatch.setattr(module, "create_litellm_fallback", fallback_factory)
+    module._create_directive_drafter.cache_clear()
 
-    result = module._llm_fallback_candidate("please use docker")
+    result = module._draft_last_user_message("please use docker")
 
-    assert result == "use docker"
-    assert seen["messages"][0] == {"role": "system", "content": "shared prompt"}
+    assert isinstance(result.result, module.CanonicalDirective)
+    assert result.result.text == "use docker"
+    assert seen["model"] == "openai/demo-model"
 
 
 def test_no_removed_replay_api_remains(monkeypatch) -> None:
