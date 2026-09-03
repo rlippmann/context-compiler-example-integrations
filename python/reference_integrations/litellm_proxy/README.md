@@ -202,13 +202,12 @@ Optional env vars for directive-drafter fallback:
 
 ```shell
 export PREPROCESSOR_MODEL=openai/gpt-4o-mini
-export PREPROCESSOR_PROMPT_PROFILE=default
 ```
 
 `PREPROCESSOR_MODEL` is optional and defaults to `MODEL`.
 
-For heuristic-first usage, keep `PREPROCESSOR_PROMPT_PROFILE=default`.
-Use `llama` only for LLM-only fallback drafting with Llama-family models.
+The directive-drafter integration always uses heuristic-first processing with
+the configured fallback model when needed.
 
 ## Notes
 

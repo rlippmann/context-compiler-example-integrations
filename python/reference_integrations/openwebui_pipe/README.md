@@ -69,10 +69,8 @@ If using `open_webui_pipe_with_directive_drafter.py`:
 
 - Install directive-drafter support if needed:
   `pip install "context-compiler>=0.9.0dev13" "context-compiler-directive-drafter>=0.2.0dev5"`
-- Set `PREPROCESSOR_PROMPT_PROFILE=default` for heuristic-first behavior
 - Optionally set `PREPROCESSOR_MODEL_ID` to use a separate fallback drafting model
 - If `PREPROCESSOR_MODEL_ID` is unset, fallback uses `BASE_MODEL_ID`
-- Use `llama` only for LLM-only fallback drafting with Llama-family models
 
 Model fallback output is structurally validated before handoff. This does not prove that the model interpreted the user correctly. The automated fallback path is experimental pending a separate source-aware acceptance policy and reviewed drafting workflow.
 
