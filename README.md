@@ -23,13 +23,13 @@ Each example:
 
 ## Start here
 
-Start with [Python guide](python/README.md) or [TypeScript guide](typescript/README.md) if you want language-level orientation first.
+Start with the [Python guide](python/README.md). TypeScript examples now live in the [TypeScript repository](https://github.com/rlippmann/context-compiler-examples-integrations-ts).
 
 Use the enforcement-point catalog below when you already know which runtime
 behavior you want to inspect.
 
-Both language tracks include generic examples. TypeScript also includes starter
-apps. Python also includes reference integrations.
+Python includes generic examples and reference integrations. TypeScript examples
+and starter apps are maintained in the separate TypeScript repository.
 
 ## Ecosystem map
 
@@ -37,32 +37,32 @@ apps. Python also includes reference integrations.
 | --- | --- |
 | [context-compiler (Python)](https://github.com/rlippmann/context-compiler), [context-compiler (TypeScript)](https://github.com/rlippmann/context-compiler-ts) | What is the authority contract? |
 | [context-compiler-directive-drafter (Python)](https://github.com/rlippmann/context-compiler-directive-drafter), [context-compiler-directive-drafter (TypeScript)](https://github.com/rlippmann/context-compiler-directive-drafter-ts) | How is authority acquired? |
-| [context-compiler-example-integrations](https://github.com/rlippmann/context-compiler-example-integrations) | Where can authority be enforced? |
+| [context-compiler-example-integrations](https://github.com/rlippmann/context-compiler-example-integrations) | Where can authority be enforced in Python? |
+| [context-compiler-examples-integrations-ts](https://github.com/rlippmann/context-compiler-examples-integrations-ts) | Where can authority be enforced in TypeScript? |
 
 ## Enforcement-point catalog
 
 | Enforcement Point | Domain | Technology |
 | --- | --- | --- |
-| [Gateway middleware](python/examples/gateway_middleware/README.md) | Customer support routing | generic Python / TypeScript, LiteLLM Proxy |
-| [Schema selection](python/examples/schema_selection/README.md) | Order / incident intake | generic Python / TypeScript, Ollama, LiteLLM, Vercel AI SDK |
-| [Checkpoint continuation](python/examples/checkpoint_continuation/README.md) | Travel booking | generic Python / TypeScript, FastAPI, Node, Next.js |
-| [Execution authorization](python/examples/execution_authorization/README.md) | Expense approval | generic Python / TypeScript, Node |
-| [Retrieval filtering](python/examples/retrieval_filtering/README.md) | HR policy lookup | generic Python / TypeScript, ChromaDB |
-| [Request construction / context assembly](python/examples/prompt_construction/README.md) | Writing assistant | generic Python / TypeScript, LiteLLM, Open WebUI, Next.js |
-| [Tool gating](python/examples/tool_gating/README.md) | Calendar / email / admin | generic Python / TypeScript, MCP |
+| [Gateway middleware](python/examples/gateway_middleware/README.md) | Customer support routing | Python, LiteLLM Proxy |
+| [Schema selection](python/examples/schema_selection/README.md) | Order / incident intake | Python, Ollama, LiteLLM |
+| [Checkpoint continuation](python/examples/checkpoint_continuation/README.md) | Travel booking | Python, FastAPI |
+| [Execution authorization](python/examples/execution_authorization/README.md) | Expense approval | Python |
+| [Retrieval filtering](python/examples/retrieval_filtering/README.md) | HR policy lookup | Python, ChromaDB |
+| [Request construction / context assembly](python/examples/prompt_construction/README.md) | Writing assistant | Python, LiteLLM, Open WebUI |
+| [Tool gating](python/examples/tool_gating/README.md) | Calendar / email / admin | Python, MCP |
 
 ## Organization
 
 Examples are organized by enforcement point.
 
 - Python includes generic examples and reference integrations.
-- TypeScript includes generic examples and starter apps.
-- Available examples differ between Python and TypeScript.
+- TypeScript examples and starter apps live in the [TypeScript repository](https://github.com/rlippmann/context-compiler-examples-integrations-ts).
 
 ## Current layout
 
 - [python/README.md](python/README.md) - Python examples and reference integrations
-- [typescript/README.md](typescript/README.md) - TypeScript examples and starter apps
+- [TypeScript repository](https://github.com/rlippmann/context-compiler-examples-integrations-ts) - TypeScript examples and starter apps
 
 ## Adding examples
 
@@ -81,9 +81,8 @@ Canonical repo-level validation commands:
 
 ```bash
 uv sync --group dev --no-editable
-./scripts/validate_python.sh
-./scripts/validate_typescript_fast.sh
-./scripts/validate_typescript.sh
+uv run pre-commit run --all-files
+npx --yes markdownlint-cli2
 ```
 
 Python contributors may install and run local pre-commit hooks:
@@ -93,10 +92,7 @@ uv run pre-commit install
 uv run pre-commit run --all-files
 ```
 
-TypeScript contributors can run the validation scripts directly without
-installing Python pre-commit tooling.
-
-CI is the authoritative cross-language validation path.
+CI runs Python validation through pre-commit and Markdown lint separately.
 
 ## License
 

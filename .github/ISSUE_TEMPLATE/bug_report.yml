@@ -16,7 +16,7 @@ body:
     attributes:
       label: Language
       description: Which language track is affected?
-      placeholder: python or typescript
+      placeholder: Python
     validations:
       required: true
   - type: input

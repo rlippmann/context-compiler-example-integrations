@@ -116,5 +116,5 @@ uv run --no-sync pytest python/tests/test_chromadb_retrieval_filtering_example.p
 - Canonical Python validation:
 
 ```bash
-./scripts/validate_python.sh
+uv run pre-commit run --all-files
 ```
