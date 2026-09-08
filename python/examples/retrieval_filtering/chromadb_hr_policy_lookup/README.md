@@ -23,8 +23,7 @@ metadata filters. It does not currently demonstrate premise-driven relevance.
 
 ## Why this example is Python-only
 
-This repository does not require Python and TypeScript parity for
-technology-specific examples.
+This repository does not require parity for technology-specific examples.
 
 This example is Python-only because ChromaDB has a clean local Python client
 path for a small runnable example.

@@ -6,8 +6,8 @@ These examples show how authoritative state changes application behavior at runt
 
 Each example demonstrates a single enforcement point where premise and policy influence what a host allows, routes, retrieves, builds, or executes.
 
-- The core authority contract is provided by [`context-compiler`](https://github.com/rlippmann/context-compiler) and [`context-compiler`](https://github.com/rlippmann/context-compiler-ts).
-- Directive recognition can optionally be added with [`context-compiler-directive-drafter`](https://github.com/rlippmann/context-compiler-directive-drafter) and [`context-compiler-directive-drafter`](https://github.com/rlippmann/context-compiler-directive-drafter-ts).
+- The core authority contract is provided by [`context-compiler`](https://github.com/rlippmann/context-compiler).
+- Directive recognition can optionally be added with [`context-compiler-directive-drafter`](https://github.com/rlippmann/context-compiler-directive-drafter).
 - This repository focuses on where authoritative state changes runtime behavior.
 
 *Prompt reinjection* influences ***model behavior***.
@@ -23,22 +23,20 @@ Each example:
 
 ## Start here
 
-Start with the [Python guide](python/README.md). TypeScript examples now live in the [TypeScript repository](https://github.com/rlippmann/context-compiler-examples-integrations-ts).
+Start with the [Python guide](python/README.md).
 
 Use the enforcement-point catalog below when you already know which runtime
 behavior you want to inspect.
 
-Python includes generic examples and reference integrations. TypeScript examples
-and starter apps are maintained in the separate TypeScript repository.
+Python includes generic examples and reference integrations.
 
 ## Ecosystem map
 
 | Project | Question |
 | --- | --- |
-| [context-compiler (Python)](https://github.com/rlippmann/context-compiler), [context-compiler (TypeScript)](https://github.com/rlippmann/context-compiler-ts) | What is the authority contract? |
-| [context-compiler-directive-drafter (Python)](https://github.com/rlippmann/context-compiler-directive-drafter), [context-compiler-directive-drafter (TypeScript)](https://github.com/rlippmann/context-compiler-directive-drafter-ts) | How is authority acquired? |
-| [context-compiler-example-integrations](https://github.com/rlippmann/context-compiler-example-integrations) | Where can authority be enforced in Python? |
-| [context-compiler-examples-integrations-ts](https://github.com/rlippmann/context-compiler-examples-integrations-ts) | Where can authority be enforced in TypeScript? |
+| [context-compiler](https://github.com/rlippmann/context-compiler) | What is the authority contract? |
+| [context-compiler-directive-drafter](https://github.com/rlippmann/context-compiler-directive-drafter) | How is authority acquired? |
+| [context-compiler-example-integrations](https://github.com/rlippmann/context-compiler-example-integrations) | Where can authority be enforced? |
 
 ## Enforcement-point catalog
 
@@ -57,12 +55,10 @@ and starter apps are maintained in the separate TypeScript repository.
 Examples are organized by enforcement point.
 
 - Python includes generic examples and reference integrations.
-- TypeScript examples and starter apps live in the [TypeScript repository](https://github.com/rlippmann/context-compiler-examples-integrations-ts).
 
 ## Current layout
 
 - [python/README.md](python/README.md) - Python examples and reference integrations
-- [TypeScript repository](https://github.com/rlippmann/context-compiler-examples-integrations-ts) - TypeScript examples and starter apps
 
 ## Adding examples
 
