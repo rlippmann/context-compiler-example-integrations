@@ -88,5 +88,5 @@ uv run --no-sync pytest python/tests/test_prompt_construction_writing_assistant.
 - Repo Python validation:
 
 ```bash
-./scripts/validate_python.sh
+uv run pre-commit run --all-files
 ```

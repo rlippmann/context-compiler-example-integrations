@@ -31,7 +31,7 @@ jobs:
         run: uv sync --group dev --no-editable
 
       - name: Run Python validation
-        run: ./scripts/validate_python.sh
+        run: uv run --no-sync pre-commit run --all-files
 
       - name: Build Python distributions
         run: uv build

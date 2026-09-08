@@ -16,29 +16,15 @@ Contributions are typically submitted via fork and pull request:
 
 Before opening a pull request, run the validation relevant to the files you changed.
 
-- If Python files changed, run `./scripts/validate_python.sh`.
-- If TypeScript files changed, run at least `./scripts/validate_typescript_fast.sh`.
-- Use `./scripts/validate_typescript.sh` for canonical or full TypeScript validation when appropriate.
+- Run `uv run pre-commit run --all-files` for Python validation.
 - If Markdown files changed, run `npx --yes markdownlint-cli2`.
 - If multiple areas changed, run all relevant checks.
 - Report the exact validation commands and results in your PR or handoff notes.
 - If a required or relevant validation command cannot be run, report why instead of saying the work is complete.
 
-For a full local setup, you may use:
-
-```bash
-uv sync --group dev
-```
-
-Python contributors may use `uv run pre-commit run --all-files` for the
-lightweight local hook set.
-
-TypeScript contributors can run `./scripts/validate_typescript_fast.sh` or
-`./scripts/validate_typescript.sh` directly.
-
 For a local Markdown-only check, run `npx --yes markdownlint-cli2`.
 
-CI is the authoritative cross-language validation path.
+CI is the authoritative validation path.
 
 ## What belongs here
 

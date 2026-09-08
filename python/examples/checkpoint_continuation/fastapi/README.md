@@ -61,5 +61,5 @@ From the repository root:
 
 ```bash
 uv run pytest python/tests/test_fastapi_checkpoint_continuation_example.py
-./scripts/validate_python.sh
+uv run pre-commit run --all-files
 ```

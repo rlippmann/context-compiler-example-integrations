@@ -73,5 +73,5 @@ uv run --no-sync pytest python/tests/test_expense_approval_example.py
 - Canonical Python validation:
 
 ```bash
-./scripts/validate_python.sh
+uv run pre-commit run --all-files
 ```

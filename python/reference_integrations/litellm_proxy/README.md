@@ -243,7 +243,7 @@ upstream with the injected compiler contract, verifies the directive-drafter
 path preserves the original forwarded user prompt text, and shuts each proxy
 down cleanly.
 
-It is intentionally not part of `./scripts/validate_python.sh`.
+It is intentionally not part of the default pre-commit suite.
 
 Run it from the repo root:
 
