@@ -56,7 +56,7 @@ Open WebUI is a separate runtime and must already be installed/configured separa
 Open WebUI also needs at least one real backend model/provider configured (for example Ollama or OpenAI) so `BASE_MODEL_ID` resolves to an actual model.
 Note: The `PROVIDER` environment contract used in LiteLLM examples/demos does not apply to OpenWebUI. OpenWebUI manages providers via its own connection settings and model IDs.
 
-These examples require `context-compiler>=0.9.0dev13`.
+These examples require `context-compiler>=0.9.1,<0.10`.
 
 ### Configuration
 
@@ -68,7 +68,7 @@ These examples require `context-compiler>=0.9.0dev13`.
 If using `open_webui_pipe_with_directive_drafter.py`:
 
 - Install directive-drafter support if needed:
-  `pip install "context-compiler>=0.9.0dev13" "context-compiler-directive-drafter>=0.2.0dev5"`
+  `pip install "context-compiler>=0.9.1,<0.10" "context-compiler-directive-drafter>=0.2.0,<0.3"`
 - Optionally set `DRAFTER_MODEL_ID` to use a separate fallback drafting model
 - If neither model id is set, fallback uses `BASE_MODEL_ID`
 
@@ -83,8 +83,8 @@ If frontmatter dependency installs are disabled, offline, or unavailable:
 
 1. Install the package manually:
 
-- Minimal pipe: `pip install "context-compiler>=0.9.0dev13"`
-- Directive Drafter pipe: `pip install "context-compiler>=0.9.0dev13" "context-compiler-directive-drafter>=0.2.0dev5"`
+- Minimal pipe: `pip install "context-compiler>=0.9.1,<0.10"`
+- Directive Drafter pipe: `pip install "context-compiler>=0.9.1,<0.10" "context-compiler-directive-drafter>=0.2.0,<0.3"`
 
 1. Import and enable the function in Open WebUI, then configure valves.
 
@@ -244,7 +244,7 @@ rejection flows.
 - `DRAFTER_MODEL_ID must not match the selected pipe model id`: choose a real backend model id, not the pipe model id itself.
 - `DRAFTER_MODEL_ID is invalid or not configured in Open WebUI`: the fallback route hit a missing model; fix the configured fallback model or unset it to reuse `BASE_MODEL_ID`.
 - `ALLOW_MISSING_BASE_MODEL_FOR_DEBUG=true`: directive-only updates still run locally, but passthrough returns a deterministic debug message instead of calling a downstream model.
-- imports fail after function upload: install `context-compiler>=0.9.0dev13` in the Open WebUI runtime, and add `context-compiler-directive-drafter>=0.2.0dev5` only for the Directive Drafter pipe, because the copied function runs from a temp/cached location.
+- imports fail after function upload: install `context-compiler>=0.9.1,<0.10` in the Open WebUI runtime, and add `context-compiler-directive-drafter>=0.2.0,<0.3` only for the Directive Drafter pipe, because the copied function runs from a temp/cached location.
 
 ## Fallback notes
 

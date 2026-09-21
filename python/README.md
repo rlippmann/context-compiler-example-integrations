@@ -22,7 +22,7 @@ pip install "context-compiler-example-integrations"
 
 That installs the shared core dependency only:
 
-- `context-compiler>=0.9.0dev13`
+- `context-compiler>=0.9.1,<0.10`
 
 Add extras only for the examples you want to inspect locally:
 

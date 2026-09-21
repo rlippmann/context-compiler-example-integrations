@@ -246,16 +246,16 @@ def test_current_turn_is_processed_exactly_once(monkeypatch) -> None:
     seen_inputs: list[str] = []
     original_Engine = module.Engine
 
+    original_step = original_Engine.step
+
+    def tracked_step(self, user_input: str):
+        seen_inputs.append(user_input)
+        return original_step(self, user_input)
+
+    monkeypatch.setattr(original_Engine, "step", tracked_step)
+
     def Engine_with_tracking():
-        engine = original_Engine()
-        original_step = engine.step
-
-        def tracked_step(user_input: str):
-            seen_inputs.append(user_input)
-            return original_step(user_input)
-
-        engine.step = tracked_step
-        return engine
+        return original_Engine()
 
     monkeypatch.setattr(module, "Engine", Engine_with_tracking)
     data = {
