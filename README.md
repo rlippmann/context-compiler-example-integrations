@@ -1,4 +1,4 @@
-# Context Compiler Example Integrations
+# Context Compiler Python Example Integrations
 
 What runtime behavior changes when authoritative state exists?
 
@@ -21,14 +21,9 @@ Each example:
 - remains meaningful with an adversarial model stub
 - focuses on the enforcement point rather than the framework
 
-## Start here
-
-Start with the [Python guide](python/README.md).
-
-Use the enforcement-point catalog below when you already know which runtime
-behavior you want to inspect.
-
-Python includes generic examples and reference integrations.
+This repository contains the Python examples and reference integrations. Use
+the enforcement-point catalog below to find the runtime behavior you want to
+inspect.
 
 ## Ecosystem map
 
@@ -50,15 +45,39 @@ Python includes generic examples and reference integrations.
 | [Request construction / context assembly](python/examples/prompt_construction/README.md) | Writing assistant | Python, LiteLLM, Open WebUI |
 | [Tool gating](python/examples/tool_gating/README.md) | Calendar / email / admin | Python, MCP |
 
-## Organization
+## Install
 
-Examples are organized by enforcement point.
+Install the package from PyPI for the shared examples and core dependency:
 
-- Python includes generic examples and reference integrations.
+```shell
+pip install "context-compiler-example-integrations"
+```
 
-## Current layout
+Add an extra for the examples you want to run locally:
 
-- [python/README.md](python/README.md) - Python examples and reference integrations
+- `pip install "context-compiler-example-integrations[drafter]"` for Directive Drafter examples
+- `pip install "context-compiler-example-integrations[retrieval]"` for ChromaDB retrieval examples
+- `pip install "context-compiler-example-integrations[fastapi]"` for FastAPI variants
+- `pip install "context-compiler-example-integrations[litellm]"` for LiteLLM examples and reference integrations
+- `pip install "context-compiler-example-integrations[all]"` for all package-managed optional dependencies
+
+Open WebUI is not installed by this package. Its reference integration assumes
+that Open WebUI is already installed and configured as the host runtime.
+
+## Reference integrations
+
+The repository also includes runtime-specific integrations for:
+
+- [LiteLLM Proxy](python/reference_integrations/litellm_proxy/README.md)
+- [Open WebUI](python/reference_integrations/openwebui_pipe/README.md)
+
+## Run an example
+
+Use a repository checkout to explore an example:
+
+1. Choose an enforcement point from the catalog above.
+2. Open its README for setup, runtime, and validation instructions.
+3. Run the example from the repository root as documented.
 
 ## Adding examples
 
@@ -81,14 +100,14 @@ uv run pre-commit run --all-files
 npx --yes markdownlint-cli2
 ```
 
-Python contributors may install and run local pre-commit hooks:
+Contributors may install and run local pre-commit hooks:
 
 ```bash
 uv run pre-commit install
 uv run pre-commit run --all-files
 ```
 
-CI runs Python validation through pre-commit and Markdown lint separately.
+CI runs pre-commit and Markdown lint separately.
 
 ## License
 

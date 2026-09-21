@@ -56,15 +56,15 @@ Domains are teaching aids. Enforcement points are primary.
 
 ## Validation
 
-- Canonical Python validation: `uv run pre-commit run --all-files`
+- Canonical validation: `uv run pre-commit run --all-files`
 - Markdown validation: `npx --yes markdownlint-cli2`
 - Before reporting a task complete or opening a PR, run validation relevant to the changed files.
-- If Python files changed, run `uv run pre-commit run --all-files`.
+- If code files changed, run `uv run pre-commit run --all-files`.
 - If Markdown files changed, run `npx --yes markdownlint-cli2`.
 - If multiple areas changed, run all relevant checks.
 - Report the exact validation commands and results.
 - If a required or relevant validation command cannot be run, report why instead of saying the task is complete.
-- Python contributors may use local hooks: `uv run pre-commit run --all-files`
+- Contributors may use local hooks: `uv run pre-commit run --all-files`
 - CI is the authoritative validation path.
 
 ## Example design requirements
@@ -141,10 +141,7 @@ changes are acceptance criteria.
 Documentation examples explicitly referenced by a task are part of the
 expected deliverable.
 
-Root README owns cross-language discovery.
-
-Language-specific and example README files should avoid cross-language links or
-navigation mentions unless there is a deliberate exception.
+The root README owns repository-level discovery.
 
 Do not treat documentation as merely illustrative unless explicitly stated.
 
