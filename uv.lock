@@ -679,7 +679,7 @@ wheels = [
 
 [[package]]
 name = "context-compiler-example-integrations"
-version = "0.1.2"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "context-compiler" },
