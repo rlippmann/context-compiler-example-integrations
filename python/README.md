@@ -1,4 +1,4 @@
-# Context Compiler Python Package
+# Context Compiler Example Integrations for Python
 
 These examples show how authoritative state changes application behavior at runtime.
 
@@ -42,5 +42,6 @@ The installed package exposes the Python examples and reference-integration
 modules under `context_compiler_example_integrations`.
 
 For the enforcement-point catalog and repository navigation, see the [root
-README](../README.md). Each example and reference integration has its own
-setup, runtime, and validation instructions.
+README](https://github.com/rlippmann/context-compiler-example-integrations/blob/main/README.md).
+Each example and reference integration has its own setup, runtime, and
+validation instructions.
