@@ -25,15 +25,15 @@ def test_directive_shaped_or_natural_language_input_is_drafted_before_engine_ste
     monkeypatch,
 ) -> None:
     compile_inputs: list[str] = []
-    real_step = Engine().step
-
     engine = Engine()
 
-    def step_with_capture(user_input: str):
-        compile_inputs.append(user_input)
-        return real_step(user_input)
+    real_step = Engine.step
 
-    monkeypatch.setattr(engine, "step", step_with_capture)
+    def step_with_capture(self: Engine, user_input: str):
+        compile_inputs.append(user_input)
+        return real_step(self, user_input)
+
+    monkeypatch.setattr(Engine, "step", step_with_capture)
     monkeypatch.setattr(
         module,
         "_get_directive_drafter",
@@ -53,13 +53,13 @@ def test_rejected_canonical_directive_does_not_call_engine_step_or_mutate_state(
 ) -> None:
     engine = Engine()
     compile_inputs: list[str] = []
-    real_step = engine.step
+    real_step = Engine.step
 
-    def step_with_capture(user_input: str):
+    def step_with_capture(self: Engine, user_input: str):
         compile_inputs.append(user_input)
-        return real_step(user_input)
+        return real_step(self, user_input)
 
-    monkeypatch.setattr(engine, "step", step_with_capture)
+    monkeypatch.setattr(Engine, "step", step_with_capture)
     monkeypatch.setattr(
         module,
         "_get_directive_drafter",
@@ -88,13 +88,13 @@ def test_no_directive_keeps_normal_flow(monkeypatch) -> None:
     engine = Engine()
     compile_inputs: list[str] = []
     llm_calls: list[list[dict[str, str]]] = []
-    real_step = engine.step
+    real_step = Engine.step
 
-    def step_with_capture(user_input: str):
+    def step_with_capture(self: Engine, user_input: str):
         compile_inputs.append(user_input)
-        return real_step(user_input)
+        return real_step(self, user_input)
 
-    monkeypatch.setattr(engine, "step", step_with_capture)
+    monkeypatch.setattr(Engine, "step", step_with_capture)
     monkeypatch.setattr(
         module,
         "_get_directive_drafter",
@@ -118,13 +118,13 @@ def test_unknown_directive_keeps_normal_flow(monkeypatch) -> None:
     engine = Engine()
     compile_inputs: list[str] = []
     llm_calls: list[list[dict[str, str]]] = []
-    real_step = engine.step
+    real_step = Engine.step
 
-    def step_with_capture(user_input: str):
+    def step_with_capture(self: Engine, user_input: str):
         compile_inputs.append(user_input)
-        return real_step(user_input)
+        return real_step(self, user_input)
 
-    monkeypatch.setattr(engine, "step", step_with_capture)
+    monkeypatch.setattr(Engine, "step", step_with_capture)
     monkeypatch.setattr(
         module,
         "_get_directive_drafter",

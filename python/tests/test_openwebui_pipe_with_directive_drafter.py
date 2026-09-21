@@ -209,16 +209,16 @@ def test_approval_applies_directive_through_engine_path(monkeypatch) -> None:
     compile_inputs: list[str] = []
     real_Engine = module.Engine
 
+    original_apply_directive = real_Engine.apply_directive
+
+    def tracked_apply_directive(self, directive):
+        compile_inputs.append(directive.text)
+        return original_apply_directive(self, directive)
+
+    monkeypatch.setattr(real_Engine, "apply_directive", tracked_apply_directive)
+
     def Engine_with_tracking():
-        engine = real_Engine()
-        original_apply_directive = engine.apply_directive
-
-        def tracked_apply_directive(directive):
-            compile_inputs.append(directive.text)
-            return original_apply_directive(directive)
-
-        engine.apply_directive = tracked_apply_directive
-        return engine
+        return real_Engine()
 
     monkeypatch.setattr(module, "Engine", Engine_with_tracking)
     pipe = module.Pipe()
@@ -456,16 +456,16 @@ def test_rejected_confirmation_does_not_apply_follow_up(monkeypatch) -> None:
     forwarded: list[dict[str, object]] = []
     real_Engine = module.Engine
 
+    original_step = real_Engine.step
+
+    def tracked_step(self, user_input: str):
+        compile_inputs.append(user_input)
+        return original_step(self, user_input)
+
+    monkeypatch.setattr(real_Engine, "step", tracked_step)
+
     def Engine_with_tracking():
-        engine = real_Engine()
-        original_step = engine.step
-
-        def tracked_step(user_input: str):
-            compile_inputs.append(user_input)
-            return original_step(user_input)
-
-        engine.step = tracked_step
-        return engine
+        return real_Engine()
 
     async def forward(
         _: object, payload: dict[str, object], __: object
@@ -542,16 +542,16 @@ def test_rejected_confirmation_does_not_leave_state(
     forwarded: list[dict[str, object]] = []
     real_Engine = module.Engine
 
+    original_step = real_Engine.step
+
+    def tracked_step(self, user_input: str):
+        compile_inputs.append(user_input)
+        return original_step(self, user_input)
+
+    monkeypatch.setattr(real_Engine, "step", tracked_step)
+
     def Engine_with_tracking():
-        engine = real_Engine()
-        original_step = engine.step
-
-        def tracked_step(user_input: str):
-            compile_inputs.append(user_input)
-            return original_step(user_input)
-
-        engine.step = tracked_step
-        return engine
+        return real_Engine()
 
     async def forward(
         _: object, payload: dict[str, object], __: object

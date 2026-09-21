@@ -60,7 +60,7 @@ pip install "context-compiler-example-integrations[litellm]"
 export OPENAI_API_KEY=...
 ```
 
-These examples require `context-compiler>=0.9.0dev13`.
+These examples require `context-compiler>=0.9.1,<0.10`.
 
 For `with_directive_drafter.py`:
 
@@ -68,7 +68,7 @@ For `with_directive_drafter.py`:
 pip install "context-compiler-example-integrations[all]"
 ```
 
-That variant requires `context-compiler-directive-drafter>=0.2.0dev5`.
+That variant requires `context-compiler-directive-drafter>=0.2.0,<0.3`.
 
 ## Quickstart (copy/paste)
 
